@@ -30,7 +30,7 @@ const Teleprompter: React.FC<TeleprompterProps> = ({
 
   if (words.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-white/50 italic pointer-events-none">
+      <div className="flex items-center justify-center h-full text-white/30 italic pointer-events-none text-xl font-light tracking-wide">
         Paste your script to begin...
       </div>
     );
@@ -39,31 +39,32 @@ const Teleprompter: React.FC<TeleprompterProps> = ({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 overflow-y-auto no-scrollbar px-8 py-32 pointer-events-none z-20 text-center transition-opacity duration-300"
+      className="absolute inset-0 overflow-y-auto no-scrollbar px-8 py-32 pointer-events-none z-20 text-center"
       style={{
-        backgroundColor: `rgba(0,0,0, ${opacity * 0.4})`, // Adds a slight dim based on opacity pref
+        // Subtle gradient to ensure text legibility against video
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 20%, rgba(0,0,0,0) 80%, rgba(0,0,0,0.1) 100%)'
       }}
     >
       <div 
-        className="max-w-3xl mx-auto leading-relaxed transition-all duration-300 ease-in-out"
+        className="max-w-5xl mx-auto leading-tight transition-all duration-300 ease-in-out font-bold tracking-wide"
         style={{ fontSize: `${fontSize}px` }}
       >
         {words.map((wordObj, index) => {
-          const isActive = index === activeWordIndex;
+          // Words before the active index are "spoken" (Green)
           const isSpoken = index < activeWordIndex;
+          const isActive = index === activeWordIndex;
           
           return (
             <span
               key={wordObj.id}
               ref={isActive ? activeWordRef : null}
               className={`
-                inline-block mx-1.5 transition-colors duration-200 rounded px-1
-                ${isActive ? 'text-yellow-400 scale-105 font-bold' : ''}
-                ${isSpoken ? 'text-white/40' : 'text-white'}
-                ${!isSpoken && !isActive ? 'opacity-' + (Math.floor(opacity * 100)) : ''}
+                inline-block mx-1.5 my-1 transition-colors duration-200 rounded px-1
+                ${isSpoken ? 'text-green-400' : 'text-white'}
               `}
               style={{
-                textShadow: '0 2px 4px rgba(0,0,0,0.8)'
+                textShadow: '0 4px 8px rgba(0,0,0,0.9)', // Strong shadow for contrast
+                opacity: isSpoken ? 1 : opacity // Apply user-defined opacity to future text
               }}
             >
               {wordObj.word}

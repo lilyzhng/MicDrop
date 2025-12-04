@@ -13,3 +13,9 @@ export interface TeleprompterConfig {
   opacity: number;
   scrollSpeed: number; // Manual offset if needed, though we use auto
 }
+
+export interface PerformanceReport {
+  rating: number;
+  summary: string;
+  suggestions: string[];
+}

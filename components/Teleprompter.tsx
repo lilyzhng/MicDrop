@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { ScriptWord } from '../types';
 
 interface TeleprompterProps {
@@ -28,6 +28,26 @@ const Teleprompter: React.FC<TeleprompterProps> = ({
     }
   }, [activeWordIndex]);
 
+  // Group words into paragraphs based on isParagraphStart flag
+  const paragraphs = useMemo(() => {
+    const groups: ScriptWord[][] = [];
+    let current: ScriptWord[] = [];
+    
+    words.forEach((w) => {
+      if (w.isParagraphStart && current.length > 0) {
+        groups.push(current);
+        current = [];
+      }
+      current.push(w);
+    });
+    
+    if (current.length > 0) {
+      groups.push(current);
+    }
+    
+    return groups;
+  }, [words]);
+
   if (words.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-white/50 italic pointer-events-none text-2xl font-serif tracking-wide">
@@ -46,36 +66,38 @@ const Teleprompter: React.FC<TeleprompterProps> = ({
       }}
     >
       <div 
-        className="max-w-4xl mx-auto leading-normal transition-all duration-300 ease-in-out font-serif"
+        className="max-w-3xl mx-auto transition-all duration-300 ease-in-out font-serif"
         style={{ fontSize: `${fontSize}px` }}
       >
-        {words.map((wordObj, index) => {
-          // Words before the active index are "spoken" (Green)
-          const isSpoken = index < activeWordIndex;
-          const isActive = index === activeWordIndex;
-          
-          return (
-            <React.Fragment key={wordObj.id}>
-              {wordObj.isParagraphStart && (
-                  // Spacer div to force a new line/paragraph visual break
-                  <div className="w-full" style={{ height: '0.8em' }} aria-hidden="true" />
-              )}
-              <span
-                ref={isActive ? activeWordRef : null}
-                className={`
-                  inline-block mx-1.5 my-1 transition-colors duration-200 rounded px-1
-                  ${isSpoken ? 'text-green-400' : 'text-white'}
-                `}
-                style={{
-                  textShadow: '0 2px 8px rgba(0,0,0,0.8)', // Strong shadow for contrast on video
-                  opacity: isSpoken ? 1 : opacity // Apply user-defined opacity to future text
-                }}
-              >
-                {wordObj.word}
-              </span>
-            </React.Fragment>
-          );
-        })}
+        {paragraphs.map((paragraph, pIndex) => (
+          <p 
+            key={pIndex} 
+            className="mb-12 leading-normal" 
+            style={{ textWrap: 'balance' } as React.CSSProperties}
+          >
+            {paragraph.map((wordObj) => {
+              // Determine if this is the active word
+              const isActive = words[activeWordIndex]?.id === wordObj.id;
+              
+              return (
+                <span
+                  key={wordObj.id}
+                  ref={isActive ? activeWordRef : null}
+                  className={`
+                    inline-block mx-1.5 my-1 transition-colors duration-200 rounded px-1
+                    ${wordObj.isSpoken ? 'text-green-400' : 'text-white'}
+                  `}
+                  style={{
+                    textShadow: '0 2px 8px rgba(0,0,0,0.8)', // Strong shadow for contrast on video
+                    opacity: wordObj.isSpoken ? 1 : opacity // Apply user-defined opacity to future text
+                  }}
+                >
+                  {wordObj.word}
+                </span>
+              );
+            })}
+          </p>
+        ))}
       </div>
     </div>
   );

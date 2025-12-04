@@ -1,6 +1,6 @@
 {
   "name": "Adaptive Teleprompter",
-  "description": "A video recording tool with an intelligent teleprompter that scrolls automatically as you speak using Gemini Live API.",
+  "description": "An intelligent teleprompter that listens and judges.",
   "requestFramePermissions": [
     "camera",
     "microphone"

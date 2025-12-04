@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X } from 'lucide-react';
-import { ScriptWord, ConnectionState } from './types';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb } from 'lucide-react';
+import { GoogleGenAI, Type as GeminiType } from '@google/genai';
+import { ScriptWord, ConnectionState, PerformanceReport } from './types';
 import { GeminiLiveService } from './services/geminiLiveService';
 import Teleprompter from './components/Teleprompter';
 
@@ -9,6 +10,95 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Utility to clean text for comparison
 const cleanText = (text: string) => text.toLowerCase().replace(/[^\w\s]|_/g, "").trim();
+
+// Utility to convert blob to base64
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = (reader.result as string).split(',')[1];
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+// Utility to convert AudioBuffer to WAV Blob
+const audioBufferToWav = (buffer: AudioBuffer): Blob => {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  
+  const bufferLength = buffer.length;
+  const byteRate = sampleRate * blockAlign;
+  const dataByteCount = bufferLength * blockAlign;
+  
+  const bufferArr = new ArrayBuffer(44 + dataByteCount);
+  const view = new DataView(bufferArr);
+  
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  /* RIFF identifier */
+  writeString(view, 0, 'RIFF');
+  /* RIFF chunk length */
+  view.setUint32(4, 36 + dataByteCount, true);
+  /* RIFF type */
+  writeString(view, 8, 'WAVE');
+  /* format chunk identifier */
+  writeString(view, 12, 'fmt ');
+  /* format chunk length */
+  view.setUint32(16, 16, true);
+  /* sample format (raw) */
+  view.setUint16(20, format, true);
+  /* channel count */
+  view.setUint16(22, numChannels, true);
+  /* sample rate */
+  view.setUint32(24, sampleRate, true);
+  /* byte rate (sample rate * block align) */
+  view.setUint32(28, byteRate, true);
+  /* block align (channel count * bytes per sample) */
+  view.setUint16(32, blockAlign, true);
+  /* bits per sample */
+  view.setUint16(34, bitDepth, true);
+  /* data chunk identifier */
+  writeString(view, 36, 'data');
+  /* data chunk length */
+  view.setUint32(40, dataByteCount, true);
+  
+  // Write interleaved PCM data
+  let offset = 44;
+  for (let i = 0; i < bufferLength; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      const sample = buffer.getChannelData(channel)[i];
+      // Clip sample
+      const s = Math.max(-1, Math.min(1, sample));
+      // Scale to 16-bit integer
+      const int16 = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      view.setInt16(offset, int16, true);
+      offset += 2;
+    }
+  }
+  
+  return new Blob([bufferArr], { type: 'audio/wav' });
+};
+
+// Utility to extract audio from video blob
+const extractAudioFromVideo = async (videoBlob: Blob): Promise<string> => {
+    const arrayBuffer = await videoBlob.arrayBuffer();
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const wavBlob = audioBufferToWav(audioBuffer);
+    return blobToBase64(wavBlob);
+};
 
 // Levenshtein distance for fuzzy matching
 const getLevenshteinDistance = (a: string, b: string) => {
@@ -69,9 +159,14 @@ const App: React.FC = () => {
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [recordingDuration, setRecordingDuration] = useState(0);
   
-  // AI State
+  // AI State (Live)
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [liveService, setLiveService] = useState<GeminiLiveService | null>(null);
+
+  // AI State (Analysis)
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   // Settings
   const [fontSize, setFontSize] = useState(40);
@@ -244,6 +339,8 @@ const App: React.FC = () => {
     
     setRecordedChunks([]);
     setRecordingDuration(0);
+    setPerformanceReport(null);
+    setShowReport(false);
 
     const service = new GeminiLiveService({
       onConnect: () => setConnectionState('connected'),
@@ -298,6 +395,68 @@ const App: React.FC = () => {
     }
 
     setRecordingState('idle');
+  };
+
+  const analyzePerformance = async () => {
+      if (recordedChunks.length === 0) return;
+      setIsAnalyzing(true);
+
+      try {
+          const videoBlob = new Blob(recordedChunks, { type: recordedChunks[0].type });
+          
+          // Extract Audio from the video blob to make the payload lighter
+          const base64Audio = await extractAudioFromVideo(videoBlob);
+          
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          
+          const response = await ai.models.generateContent({
+              model: 'gemini-2.5-flash',
+              contents: {
+                  parts: [
+                      {
+                          inlineData: {
+                              mimeType: 'audio/wav',
+                              data: base64Audio
+                          }
+                      },
+                      {
+                          text: `You are an expert public speaking coach. Analyze this audio recording of a speech. 
+                          Provide a JSON report with:
+                          - rating: an integer score out of 100 based on delivery, clarity, pace and tone.
+                          - summary: a 1-2 sentence summary of how the speaker performed.
+                          - suggestions: exactly 3 actionable, constructive tips to improve.
+                          
+                          Focus on the audio delivery. Be encouraging but honest.`
+                      }
+                  ]
+              },
+              config: {
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                      type: GeminiType.OBJECT,
+                      properties: {
+                          rating: { type: GeminiType.INTEGER },
+                          summary: { type: GeminiType.STRING },
+                          suggestions: { 
+                              type: GeminiType.ARRAY, 
+                              items: { type: GeminiType.STRING } 
+                          }
+                      },
+                      required: ["rating", "summary", "suggestions"]
+                  }
+              }
+          });
+
+          const report = JSON.parse(response.text);
+          setPerformanceReport(report);
+          setShowReport(true);
+
+      } catch (error) {
+          console.error("Analysis failed:", error);
+          alert("Could not analyze performance. Please try a shorter recording.");
+      } finally {
+          setIsAnalyzing(false);
+      }
   };
 
   const downloadVideo = () => {
@@ -470,7 +629,7 @@ const App: React.FC = () => {
             />
             
             {/* Teleprompter Overlay */}
-            {!isEditMode && (
+            {!isEditMode && !showReport && (
               <Teleprompter 
                 words={scriptWords} 
                 activeWordIndex={activeWordIndex}
@@ -518,6 +677,71 @@ const App: React.FC = () => {
                     </div>
                   </div>
                </div>
+            )}
+
+            {/* Performance Report Modal */}
+            {showReport && performanceReport && (
+                <div className="absolute inset-0 z-40 bg-cream/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
+                     <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#EBE8E0] overflow-hidden flex flex-col max-h-[90vh]">
+                         <div className="p-8 border-b border-[#F0F0F0] flex justify-between items-start bg-gradient-to-br from-white to-[#FAF9F6]">
+                             <div>
+                                 <div className="flex items-center gap-2 mb-2">
+                                     <Sparkles size={16} className="text-gold" />
+                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">AI Analysis</span>
+                                 </div>
+                                 <h2 className="text-3xl font-serif text-charcoal">Performance Report</h2>
+                             </div>
+                             <button onClick={() => setShowReport(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-charcoal transition-colors">
+                                 <X size={24} />
+                             </button>
+                         </div>
+                         
+                         <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
+                             {/* Score */}
+                             <div className="flex items-center gap-6">
+                                 <div className="relative w-24 h-24 flex items-center justify-center">
+                                     <div className="absolute inset-0 rounded-full border-4 border-[#F0F0F0]"></div>
+                                     <div 
+                                        className="absolute inset-0 rounded-full border-4 border-gold border-t-transparent transform -rotate-45"
+                                        style={{ clipPath: `polygon(0 0, 100% 0, 100% ${performanceReport.rating}%, 0 ${performanceReport.rating}%)`}} // Simple visual approximation
+                                     ></div>
+                                     <span className="text-3xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
+                                 </div>
+                                 <div>
+                                     <div className="text-sm text-gray-500 font-medium mb-1">Overall Score</div>
+                                     <div className="text-lg text-charcoal leading-snug">{performanceReport.summary}</div>
+                                 </div>
+                             </div>
+
+                             {/* Suggestions */}
+                             <div>
+                                 <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4">
+                                     <Lightbulb size={16} className="text-gold" />
+                                     Key Suggestions
+                                 </h3>
+                                 <div className="space-y-3">
+                                     {performanceReport.suggestions.map((tip, i) => (
+                                         <div key={i} className="flex gap-4 p-4 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
+                                             <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs font-serif font-bold text-gold shrink-0">
+                                                 {i + 1}
+                                             </div>
+                                             <p className="text-gray-600 text-sm leading-relaxed">{tip}</p>
+                                         </div>
+                                     ))}
+                                 </div>
+                             </div>
+                         </div>
+
+                         <div className="p-6 border-t border-[#F0F0F0] bg-[#FAF9F6] flex justify-end">
+                             <button 
+                                onClick={() => setShowReport(false)}
+                                className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black transition-colors"
+                             >
+                                 Close Report
+                             </button>
+                         </div>
+                     </div>
+                </div>
             )}
           </>
         )}
@@ -604,7 +828,7 @@ const App: React.FC = () => {
          </div>
 
          {/* Right: Actions & Info */}
-         <div className="flex items-center justify-end gap-4 w-1/3 text-sm">
+         <div className="flex items-center justify-end gap-3 w-1/3 text-sm">
              {recordingState !== 'idle' && (
                 <div className="font-mono text-charcoal font-medium text-lg tracking-widest">
                     {formatTime(recordingDuration)}
@@ -612,13 +836,40 @@ const App: React.FC = () => {
              )}
              
              {recordingState === 'idle' && recordedChunks.length > 0 && (
-                <button 
-                    onClick={downloadVideo}
-                    className="flex items-center gap-2 px-6 py-3 bg-charcoal text-white rounded-full text-xs font-bold tracking-wider uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                >
-                    <Download size={16} />
-                    <span>Download</span>
-                </button>
+                <>
+                    {/* Feedback Button */}
+                    <button 
+                        onClick={performanceReport ? () => setShowReport(true) : analyzePerformance}
+                        disabled={isAnalyzing}
+                        className={`
+                            flex items-center gap-2 px-5 py-3 rounded-full text-xs font-bold tracking-wider uppercase transition-all shadow-md
+                            ${isAnalyzing 
+                                ? 'bg-gray-100 text-gray-400 cursor-wait' 
+                                : 'bg-white text-gold border border-gold/30 hover:bg-gold hover:text-white'}
+                        `}
+                    >
+                        {isAnalyzing ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>Analyzing...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles size={16} />
+                                <span>{performanceReport ? 'View Report' : 'Analyze'}</span>
+                            </>
+                        )}
+                    </button>
+
+                    {/* Download Button */}
+                    <button 
+                        onClick={downloadVideo}
+                        className="flex items-center gap-2 px-5 py-3 bg-charcoal text-white rounded-full text-xs font-bold tracking-wider uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                    >
+                        <Download size={16} />
+                        <span>Save Video</span>
+                    </button>
+                </>
              )}
          </div>
 

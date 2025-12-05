@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { ScriptWord, PerformanceReport, DetailedFeedback } from './types';
 import Teleprompter from './components/Teleprompter';
@@ -205,6 +205,7 @@ const App: React.FC = () => {
   // External Upload State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadContext, setUploadContext] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // TTS State
@@ -603,9 +604,15 @@ Provide a JSON report with:
 
   // -- External Audio Analysis --
   
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (!file) return;
+      if (file) {
+          setSelectedFile(file);
+      }
+  };
+
+  const startExternalAnalysis = async () => {
+      if (!selectedFile) return;
 
       setIsAnalyzing(true);
       setShowUploadModal(false); // Close modal
@@ -618,20 +625,21 @@ Provide a JSON report with:
                   resolve(result.split(',')[1]);
               };
               reader.onerror = reject;
-              reader.readAsDataURL(file);
+              reader.readAsDataURL(selectedFile);
           });
 
           // Call analysis with user provided context
-          await analyzeUploadedAudio(base64Audio, file.type, uploadContext);
+          await analyzeUploadedAudio(base64Audio, selectedFile.type, uploadContext);
       } catch (error) {
           console.error("Upload analysis failed:", error);
           alert("Failed to analyze uploaded audio. Please try a valid audio file (mp3, wav, m4a).");
           setIsAnalyzing(false);
       }
       
-      // Reset input
+      // Cleanup
+      setSelectedFile(null);
+      setUploadContext("");
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setUploadContext(""); 
   };
 
   const analyzeUploadedAudio = async (base64Audio: string, mimeType: string, context: string) => {
@@ -810,7 +818,7 @@ Provide a JSON report with:
                             accept="audio/*" 
                             className="hidden" 
                             ref={fileInputRef} 
-                            onChange={handleFileUpload} 
+                            onChange={handleFileSelect} 
                         />
                         <button 
                             onClick={() => setShowUploadModal(true)}
@@ -863,13 +871,38 @@ Provide a JSON report with:
                                 <p className="text-[10px] text-gray-400 mt-2">Providing context helps the AI identify who to analyze.</p>
                             </div>
 
-                            <button 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="w-full py-4 bg-charcoal text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-colors"
-                            >
-                                <Upload size={18} />
-                                <span>Select Audio File</span>
-                            </button>
+                            <div className="space-y-4">
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${selectedFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:bg-gray-50'}`}
+                                >
+                                    {selectedFile ? (
+                                        <>
+                                            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-1">
+                                                <Check size={20} />
+                                            </div>
+                                            <span className="text-sm font-bold text-green-800 text-center px-4 break-all">{selectedFile.name}</span>
+                                            <span className="text-xs text-green-600">Click to change</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-1">
+                                                <Upload size={20} />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-500">Click to select audio file</span>
+                                        </>
+                                    )}
+                                </div>
+
+                                <button 
+                                    onClick={startExternalAnalysis}
+                                    disabled={!selectedFile}
+                                    className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${!selectedFile ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-charcoal text-white hover:bg-black shadow-lg hover:shadow-xl hover:-translate-y-0.5'}`}
+                                >
+                                    {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                                    <span>Start Analysis</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

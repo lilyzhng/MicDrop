@@ -864,7 +864,9 @@ Provide a JSON report with:
                       Based on the Audio (for tone) and the Text (for content), analyze my performance as a Technical Team Lead.
                       1. Did I demonstrate technical depth AND leadership vision/empathy?
                       2. Was my communication clear and concise?
-                      3. Identify any "anxiety" markers (rushing, fillers) and how to fix them.` }
+                      3. Identify any "anxiety" markers (rushing, fillers) and how to fix them.
+                      
+                      Note: Ignore the first few seconds of setup/silence in your audio evaluation.` }
                   ]
               }
           });
@@ -945,12 +947,12 @@ Provide a JSON report with:
   // -- Render Components --
 
   const renderHome = () => (
-      <div className="min-h-screen bg-cream text-charcoal flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
-          <div className="absolute top-0 left-0 w-full h-full opacity-40 pointer-events-none" 
+      <div className="h-full bg-cream text-charcoal flex flex-col items-center md:justify-center p-6 relative overflow-y-auto font-sans">
+          <div className="fixed top-0 left-0 w-full h-full opacity-40 pointer-events-none" 
                style={{ backgroundImage: 'radial-gradient(circle at 15% 15%, #F0EBE0 0%, transparent 20%), radial-gradient(circle at 85% 85%, #E8E0D0 0%, transparent 20%)' }}>
           </div>
 
-          <div className="text-center mb-16 z-10 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="text-center mb-16 z-10 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700 shrink-0 mt-10 md:mt-0">
               <div className="mb-4 inline-block px-4 py-1.5 rounded-full border border-gold/40 text-gold text-[10px] font-bold tracking-[0.2em] uppercase bg-white/50 backdrop-blur-sm">
                   Executive Performance Suite
               </div>
@@ -962,7 +964,7 @@ Provide a JSON report with:
               </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4">
+          <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4 pb-10 shrink-0">
               {/* Card 1: Sound Check */}
               <button onClick={() => navigateToAnalysis('sound_check')} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">

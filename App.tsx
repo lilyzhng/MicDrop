@@ -177,10 +177,12 @@ const isMatch = (scriptWord: string, spokenWord: string): boolean => {
 
 // Application Views
 type AppView = 'home' | 'teleprompter' | 'analysis';
+type AnalysisMode = 'sound_check' | 'roast';
 
 const App: React.FC = () => {
   // Navigation State
   const [currentView, setCurrentView] = useState<AppView>('home');
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('sound_check');
   
   // App State (Teleprompter)
   const [hasStarted, setHasStarted] = useState<boolean>(false);
@@ -211,6 +213,7 @@ const App: React.FC = () => {
   
   // External Upload State
   const [uploadContext, setUploadContext] = useState("");
+  const [manualTranscript, setManualTranscript] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedAudioBase64, setUploadedAudioBase64] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -303,8 +306,22 @@ const App: React.FC = () => {
           setUploadedAudioBase64(null);
           setScriptText("");
           setScriptWords([]);
+          setManualTranscript("");
+          setSelectedFile(null);
           stopTTS();
       }
+  };
+
+  const navigateToAnalysis = (mode: AnalysisMode) => {
+      setAnalysisMode(mode);
+      setCurrentView('analysis');
+      // Reset view specific states
+      setPerformanceReport(null);
+      setTranscriptionResult(null);
+      setUploadedAudioBase64(null);
+      setManualTranscript("");
+      setSelectedFile(null);
+      setUploadContext("");
   };
 
   // -- Script Processing --
@@ -626,7 +643,8 @@ Provide a JSON report with:
       }
   };
 
-  const startExternalAnalysis = async () => {
+  // Stage 1 Analysis (Sound Check)
+  const startSoundCheckAnalysis = async () => {
       if (!selectedFile) return;
 
       setIsAnalyzing(true);
@@ -652,7 +670,43 @@ Provide a JSON report with:
       }
   };
 
-  const analyzeStage1_Transcribe = async (base64Audio: string, mimeType: string, context: string) => {
+  // Stage 2 Start Trigger (Roast)
+  const startRoastAnalysis = async () => {
+      if (!selectedFile) return;
+
+      setIsAnalyzing(true);
+      try {
+          // Convert file to base64
+          const base64Audio = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                  const result = reader.result as string;
+                  resolve(result.split(',')[1]);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(selectedFile);
+          });
+          
+          setUploadedAudioBase64(base64Audio);
+
+          if (manualTranscript.trim()) {
+              // User provided transcript, skip stage 1
+              await analyzeStage2_Coach(base64Audio, manualTranscript);
+          } else {
+              // No transcript, run stage 1 internally then stage 2
+              await analyzeStage1_Transcribe(base64Audio, selectedFile.type, uploadContext, true);
+          }
+
+      } catch (error) {
+          console.error("Roast analysis failed:", error);
+          alert("Failed to analyze uploaded audio.");
+          setIsAnalyzing(false);
+          setAnalysisStep('idle');
+      }
+  };
+
+
+  const analyzeStage1_Transcribe = async (base64Audio: string, mimeType: string, context: string, autoChainToStage2: boolean = false) => {
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const audioMime = mimeType.includes('m4a') ? 'audio/mp4' : mimeType;
@@ -682,12 +736,19 @@ Provide a JSON report with:
           
           const transcript = transcriptResponse.text;
           setTranscriptionResult(transcript);
+
+          if (autoChainToStage2) {
+              await analyzeStage2_Coach(base64Audio, transcript);
+          }
+
       } catch (error) {
           console.error("Transcription stage failed:", error);
           throw error;
       } finally {
-          setIsAnalyzing(false);
-          setAnalysisStep('idle');
+          if (!autoChainToStage2) {
+            setIsAnalyzing(false);
+            setAnalysisStep('idle');
+          }
       }
   };
 
@@ -704,22 +765,30 @@ Provide a JSON report with:
           const response = await ai.models.generateContent({
               model: 'gemini-3-pro-preview', // Using Pro/3.0 for high-level reasoning
               config: {
-                  systemInstruction: `Role: You are an Elite Executive Communication Coach and Technical Recruiter.
-                  Objective: Provide "brutally honest" constructive feedback to the Candidate based on their Audio (tone/delivery) and Transcript (content/strategy).
+                  systemInstruction: `Role: You are a Senior Technical Leadership Coach. 
+                  Target Audience: Aspiring Technical Team Leads (Tech Lead, Staff Engineer, or Engineering Manager).
+                  
+                  Objective: Provide constructive, objective feedback on the Candidate based on their Audio (tone/delivery) and Transcript (content/strategy).
+                  
+                  Persona for Evaluation:
+                  - You value technical depth AND high-level architectural vision.
+                  - You look for empathy, clear communication, and team empowerment.
+                  - You do NOT require C-level executive polish, but you do require "Senior Engineering" confidence.
+                  - Be honest about clarity and impact, but do not penalize for not sounding like a CEO. Focus on "Technical Leadership".
 
                   Analysis Framework:
                   1. Delivery (Audio Focus):
-                     - The "Nervous Spike": Correlate Audio to Transcript. Point out where pitch rises or pace rushes.
-                     - Silence & Pauses: Did the candidate pause before answering?
-                     - Tone Mapping: Does tone match content? (e.g. apologetic when discussing achievements).
+                     - Confidence Check: Do they sound sure of their technical decisions?
+                     - Pace & Clarity: Is the explanation easy to follow for both technical and non-technical stakeholders?
+                     - Tone: Is it collaborative yet authoritative?
                   2. Strategy (Text Focus):
-                     - The "Punchline" Rule: Did answer start with result/impact?
-                     - Relevance: Did they answer the specific question?
-                     - Leadership Signals: "I led" vs "We did".
+                     - Problem Solving: Did they clearly define the problem before the solution?
+                     - "We" vs "I": Did they balance team credit with personal ownership?
+                     - Depth: Did they show understanding of trade-offs?
 
                   Output Style:
-                  - Diagnosis: Identify top issues.
-                  - Evidence: Quote transcript AND describe audio (e.g. "At 02:14 you said 'I think so...' but voice trailed off").
+                  - Diagnosis: Identify top communication/behavioral issues.
+                  - Evidence: Quote transcript AND describe audio.
                   - Drill: One specific exercise to fix it.`,
                   responseMimeType: "application/json",
                   responseSchema: {
@@ -757,10 +826,10 @@ Provide a JSON report with:
                       ${transcript}
 
                       Task:
-                      Based on the Audio (for tone) and the Text (for content), analyze my performance.
-                      1. Did I sound like a Leader or a Contributor?
-                      2. Critique my "Check-in" questions—were they effective?
-                      3. Find the exact moment my "English anxiety" kicked in (rushing/monotone) and tell me how to fix it.` }
+                      Based on the Audio (for tone) and the Text (for content), analyze my performance as a Technical Lead.
+                      1. Did I demonstrate technical depth and leadership vision?
+                      2. Was my communication clear and concise?
+                      3. Identify any "anxiety" markers (rushing, fillers) and how to fix them.` }
                   ]
               }
           });
@@ -859,8 +928,8 @@ Provide a JSON report with:
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4">
-              {/* Card 1: The Sound Check */}
-              <button onClick={() => { setCurrentView('analysis'); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+              {/* Card 1: Sound Check */}
+              <button onClick={() => navigateToAnalysis('sound_check')} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                        <AudioLines size={80} className="text-charcoal" />
                    </div>
@@ -868,7 +937,7 @@ Provide a JSON report with:
                        <AudioLines size={24} />
                    </div>
                    <div className="flex-1">
-                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Sound Check</h3>
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Sound Check</h3>
                        <p className="text-gray-500 text-sm leading-relaxed mb-6">Upload your raw audio. Get a forensic, timestamped transcript that captures every hesitation.</p>
                    </div>
                    <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
@@ -876,8 +945,8 @@ Provide a JSON report with:
                    </div>
               </button>
 
-              {/* Card 2: The Roast */}
-              <button onClick={() => { setCurrentView('analysis'); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+              {/* Card 2: Roast */}
+              <button onClick={() => navigateToAnalysis('roast')} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                        <Flame size={80} className="text-gold" />
                    </div>
@@ -885,7 +954,7 @@ Provide a JSON report with:
                        <Flame size={24} />
                    </div>
                    <div className="flex-1">
-                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Roast</h3>
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Roast</h3>
                        <p className="text-gray-500 text-sm leading-relaxed mb-6">Brutally honest feedback on your delivery, pitch, and strategy. Find out if you sound like a leader.</p>
                    </div>
                    <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
@@ -893,7 +962,7 @@ Provide a JSON report with:
                    </div>
               </button>
 
-              {/* Card 3: The Rehearsal */}
+              {/* Card 3: Rehearsal */}
               <button onClick={() => { setCurrentView('teleprompter'); setHasStarted(false); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                        <ScrollText size={80} className="text-charcoal" />
@@ -902,7 +971,7 @@ Provide a JSON report with:
                        <ScrollText size={24} />
                    </div>
                    <div className="flex-1">
-                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Rehearsal</h3>
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Rehearsal</h3>
                        <p className="text-gray-500 text-sm leading-relaxed mb-6">Practice your pitch with an adaptive teleprompter that listens to your pace in real-time.</p>
                    </div>
                    <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
@@ -914,7 +983,7 @@ Provide a JSON report with:
   );
 
   const renderAnalysisView = () => (
-      <div className="min-h-screen bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
+      <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
            {/* Header */}
            <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
                 <div className="flex items-center gap-4">
@@ -923,7 +992,9 @@ Provide a JSON report with:
                     </button>
                     <div>
                         <div className="text-[10px] font-bold text-gold uppercase tracking-widest">MicDrop</div>
-                        <h2 className="text-xl font-serif font-bold text-charcoal">Forensic Analysis</h2>
+                        <h2 className="text-xl font-serif font-bold text-charcoal">
+                            {analysisMode === 'sound_check' ? 'Sound Check' : 'The Roast'}
+                        </h2>
                     </div>
                 </div>
            </div>
@@ -943,7 +1014,7 @@ Provide a JSON report with:
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Context & Roles</label>
                                 <textarea 
                                     className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50"
-                                    placeholder="e.g., 'This is an interview between recruiter (Joe) and me (Lily). Ignore Joe's speech and focus on my answers.'"
+                                    placeholder="e.g., 'This is an interview between recruiter (Joe) and me (Lily).'"
                                     value={uploadContext}
                                     onChange={(e) => setUploadContext(e.target.value)}
                                 />
@@ -977,18 +1048,36 @@ Provide a JSON report with:
                                 )}
                             </div>
 
+                            {/* Additional Input for Roast Mode */}
+                            {analysisMode === 'roast' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Existing Transcript (Optional)</label>
+                                    <textarea 
+                                        className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder-gray-300"
+                                        placeholder="Paste transcription here to skip Stage 1..."
+                                        value={manualTranscript}
+                                        onChange={(e) => setManualTranscript(e.target.value)}
+                                    />
+                                    <p className="text-xs text-gray-400 mt-2">If left blank, we will generate a forensic transcript automatically.</p>
+                                </div>
+                            )}
+
                             <button 
-                                onClick={startExternalAnalysis}
+                                onClick={analysisMode === 'roast' ? startRoastAnalysis : startSoundCheckAnalysis}
                                 disabled={!selectedFile || isAnalyzing}
                                 className={`w-full py-5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all text-lg shadow-lg ${!selectedFile || isAnalyzing ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-charcoal text-white hover:bg-black hover:shadow-xl hover:-translate-y-0.5'}`}
                             >
-                                {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-                                <span>{isAnalyzing ? 'Analyzing Audio...' : 'Start Forensic Transcription'}</span>
+                                {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : analysisMode === 'roast' ? <Flame size={20} /> : <Sparkles size={20} />}
+                                <span>
+                                    {isAnalyzing 
+                                        ? (analysisStep === 'transcribing' ? 'Transcribing (Stage 1)...' : 'Analyzing (Stage 2)...') 
+                                        : (analysisMode === 'roast' ? 'Roast Me' : 'Start Forensic Transcription')}
+                                </span>
                             </button>
                         </div>
                     </div>
                 ) : transcriptionResult && !performanceReport ? (
-                    // Transcription View (Stage 1)
+                    // Transcription View (Stage 1) - Only for Sound Check or if Roast stopped early
                      <div className="max-w-4xl mx-auto h-full flex flex-col">
                         <div className="bg-white rounded-t-3xl border border-[#EBE8E0] border-b-0 p-8 flex justify-between items-center shadow-sm z-10">
                              <div>
@@ -1024,7 +1113,7 @@ Provide a JSON report with:
   );
 
   const renderPerformanceReportContent = () => (
-     <div className="flex flex-col h-full">
+     <div className="flex flex-col">
          <div className="p-10 border-b border-[#F0F0F0] flex justify-between items-start bg-gradient-to-br from-white to-[#FAF9F6]">
              <div>
                  <div className="flex items-center gap-2 mb-2">

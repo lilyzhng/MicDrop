@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { ScriptWord, PerformanceReport, DetailedFeedback } from './types';
 import Teleprompter from './components/Teleprompter';
@@ -661,12 +661,13 @@ Provide a JSON report with:
                       Evaluate their performance and provide VERY CONSTRUCTIVE, DETAILED feedback in the following structure:
                       
                       For each point (Pace, Voice Placement, Clarity, Pitch/Tone, Content/Impact):
-                      1. Identify the Category.
-                      2. State "The Issue" clearly.
-                      3. Cite a "Specific Instance" from the audio (quote what was said or describe the moment).
-                      4. Provide a concrete "Improvement" strategy (e.g., "Use the comma pause", "Stop, don't bridge").
+                      1. Identify the Category (MUST NOT BE EMPTY).
+                      2. State "The Issue" clearly (MUST NOT BE EMPTY).
+                      3. Cite a "Specific Instance" from the audio (quote what was said or describe the moment). If no specific quote is available, describe a general pattern observed. (MUST NOT BE EMPTY).
+                      4. Provide a concrete "Improvement" strategy (e.g., "Use the comma pause", "Stop, don't bridge"). (MUST NOT BE EMPTY).
 
                       Also provide an overall rating and summary.
+                      Ensure ALL fields in the detailedFeedback objects are filled with meaningful text. Do not return empty strings.
 
                       Provide a JSON report.` }
                   ]
@@ -687,7 +688,8 @@ Provide a JSON report with:
                                       issue: { type: GeminiType.STRING, description: "Description of the problem" },
                                       instance: { type: GeminiType.STRING, description: "Specific quote or example from the audio" },
                                       improvement: { type: GeminiType.STRING, description: "Actionable advice" }
-                                  }
+                                  },
+                                  required: ["category", "issue", "instance", "improvement"]
                               }
                           },
                           suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }, // Fallback/General
@@ -727,7 +729,8 @@ Provide a JSON report with:
         const canvas = await html2canvas(reportRef.current, {
             scale: 2,
             backgroundColor: null,
-            useCORS: true
+            useCORS: true,
+            windowWidth: 1920
         });
         const url = canvas.toDataURL("image/png");
         const a = document.createElement('a');
@@ -908,97 +911,118 @@ Provide a JSON report with:
                 </div>
             )}
 
+            {/* Performance Report - Full Screen Overlay */}
             {showReport && performanceReport && (
-                <div className="absolute inset-0 z-50 bg-cream/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
-                     <div ref={reportRef} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#EBE8E0] overflow-hidden flex flex-col max-h-[90vh]">
-                         <div className="p-8 border-b border-[#F0F0F0] flex justify-between items-start bg-gradient-to-br from-white to-[#FAF9F6]">
+                <div className="fixed inset-0 z-[100] bg-cream flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+                     <div className="px-8 py-6 border-b border-[#E6E6E6] bg-white flex justify-between items-center shrink-0 shadow-sm z-10">
+                         <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-full bg-cream border border-[#EBE8E0] flex items-center justify-center">
+                                 <Award size={20} className="text-gold" />
+                             </div>
                              <div>
-                                 <div className="flex items-center gap-2 mb-2">
-                                     <Sparkles size={16} className="text-gold" />
-                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">AI Analysis</span>
-                                 </div>
-                                 <h2 className="text-3xl font-serif text-charcoal">Performance Report</h2>
+                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">AI Analysis</div>
+                                 <h2 className="text-xl font-serif font-bold text-charcoal">Performance Report</h2>
                              </div>
-                             <button onClick={() => setShowReport(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-charcoal transition-colors"><X size={24} /></button>
                          </div>
-                         <div className="p-8 overflow-y-auto custom-scrollbar space-y-8">
-                             <div className="flex items-center gap-6">
-                                 <div className="relative w-24 h-24 flex items-center justify-center">
-                                     <div className="absolute inset-0 rounded-full border-4 border-[#F0F0F0]"></div>
-                                     <div className="absolute inset-0 rounded-full border-4 border-gold border-t-transparent transform -rotate-45" style={{ clipPath: `polygon(0 0, 100% 0, 100% ${performanceReport.rating}%, 0 ${performanceReport.rating}%)`}}></div>
-                                     <span className="text-3xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
+                         <div className="flex items-center gap-3">
+                             <button onClick={downloadReportAsImage} className="px-6 py-2.5 bg-white text-charcoal border border-gray-200 rounded-full text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
+                                <Download size={16} />
+                                Export as Image
+                             </button>
+                             <button onClick={() => setShowReport(false)} className="px-6 py-2.5 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black transition-colors shadow-md">Close</button>
+                         </div>
+                     </div>
+
+                     <div ref={reportRef} className="flex-1 overflow-y-auto bg-cream p-8 md:p-12">
+                         <div className="max-w-5xl mx-auto space-y-12">
+                             {/* Summary Section */}
+                             <div className="bg-white rounded-3xl p-8 md:p-10 shadow-[0_2px_20px_-5px_rgba(0,0,0,0.05)] border border-[#EBE8E0] flex flex-col md:flex-row gap-10 items-center md:items-start">
+                                 <div className="relative w-40 h-40 shrink-0 flex items-center justify-center">
+                                     <div className="absolute inset-0 rounded-full border-8 border-[#F5F5F0]"></div>
+                                     <div 
+                                         className="absolute inset-0 rounded-full border-8 border-gold border-t-transparent transform -rotate-45" 
+                                         style={{ 
+                                             clipPath: `polygon(0 0, 100% 0, 100% ${performanceReport.rating}%, 0 ${performanceReport.rating}%)`,
+                                             transition: 'clip-path 1s ease-out'
+                                         }}
+                                     ></div>
+                                     <div className="text-center">
+                                         <span className="block text-5xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
+                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1 block">Score</span>
+                                     </div>
                                  </div>
-                                 <div>
-                                     <div className="text-sm text-gray-500 font-medium mb-1">Overall Score</div>
-                                     <div className="text-lg text-charcoal leading-snug">{performanceReport.summary}</div>
+                                 <div className="flex-1 space-y-4 text-center md:text-left">
+                                     <h3 className="text-2xl font-serif font-bold text-charcoal">Executive Summary</h3>
+                                     <div className="text-lg text-gray-600 leading-relaxed whitespace-pre-wrap">{performanceReport.summary}</div>
                                  </div>
                              </div>
 
+                             {/* Detailed Feedback Grid */}
                              {performanceReport.detailedFeedback ? (
-                                 <div>
-                                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4"><Lightbulb size={16} className="text-gold" />Detailed Feedback</h3>
-                                     <div className="space-y-4">
+                                 <div className="space-y-6">
+                                     <h3 className="flex items-center gap-3 text-sm font-bold text-charcoal uppercase tracking-widest">
+                                         <Lightbulb size={18} className="text-gold" />
+                                         Detailed Analysis
+                                     </h3>
+                                     <div className="grid grid-cols-1 gap-6">
                                          {performanceReport.detailedFeedback.map((item, i) => (
-                                             <div key={i} className="p-5 rounded-2xl bg-[#FAF9F6] border border-[#F0F0F0] space-y-3">
-                                                 <div className="text-gold text-xs font-bold uppercase tracking-wider font-serif">{item.category}</div>
+                                             <div key={i} className="bg-white rounded-2xl p-8 border border-[#EBE8E0] shadow-sm hover:shadow-md transition-shadow">
+                                                 <div className="flex items-center gap-3 mb-4">
+                                                     <span className="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                                                     <div className="text-gold text-xs font-bold uppercase tracking-widest font-serif">{item.category}</div>
+                                                 </div>
                                                  
-                                                 <div>
-                                                     <span className="font-bold text-charcoal text-sm">The Issue: </span>
-                                                     <span className="text-gray-600 text-sm">{item.issue}</span>
+                                                 <div className="mb-6">
+                                                     <span className="font-bold text-charcoal text-base block mb-2">The Issue</span>
+                                                     <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">{item.issue}</div>
                                                  </div>
 
-                                                 <div className="pl-3 border-l-2 border-gray-200 py-1">
-                                                     <span className="text-xs text-gray-400 italic">Specific Instance: "{item.instance}"</span>
-                                                 </div>
+                                                 <div className="grid md:grid-cols-2 gap-6">
+                                                     <div className="bg-[#FAF9F6] p-5 rounded-xl border-l-4 border-gray-300">
+                                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Specific Instance</span>
+                                                         <div className="text-sm text-gray-600 italic leading-relaxed whitespace-pre-wrap">"{item.instance}"</div>
+                                                     </div>
 
-                                                 <div className="bg-green-50 p-3 rounded-lg border border-green-100 text-sm text-green-800">
-                                                     <span className="font-bold">Improvement: </span>
-                                                     {item.improvement}
+                                                     <div className="bg-[#F0FDF4] p-5 rounded-xl border-l-4 border-green-400">
+                                                         <span className="text-xs font-bold text-green-700 uppercase tracking-wider block mb-2">Improvement Strategy</span>
+                                                         <div className="text-sm text-green-800 font-medium leading-relaxed whitespace-pre-wrap">{item.improvement}</div>
+                                                     </div>
                                                  </div>
                                              </div>
                                          ))}
                                      </div>
                                  </div>
                              ) : (
-                                 <div>
-                                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4"><Lightbulb size={16} className="text-gold" />Key Suggestions</h3>
-                                     <div className="space-y-3">
+                                 <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
+                                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6"><Lightbulb size={16} className="text-gold" />Key Suggestions</h3>
+                                     <div className="space-y-4">
                                          {performanceReport.suggestions.map((tip, i) => (
-                                             <div key={i} className="flex gap-4 p-4 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
-                                                 <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs font-serif font-bold text-gold shrink-0">{i + 1}</div>
-                                                 <p className="text-gray-600 text-sm leading-relaxed">{tip}</p>
+                                             <div key={i} className="flex gap-5 p-5 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
+                                                 <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-sm font-serif font-bold text-gold shrink-0 shadow-sm">{i + 1}</div>
+                                                 <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{tip}</p>
                                              </div>
                                          ))}
                                      </div>
                                  </div>
                              )}
 
+                            {/* Pronunciation Section */}
                             {performanceReport.pronunciationFeedback && performanceReport.pronunciationFeedback.length > 0 && (
-                                 <div>
-                                    <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4">
+                                 <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
+                                    <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6">
                                         <Ear size={16} className="text-gold" />
                                         Pronunciation & Clarity
                                     </h3>
-                                    <div className="bg-[#FAF9F6] border border-[#F0F0F0] rounded-xl p-5">
-                                        <ul className="space-y-2">
-                                            {performanceReport.pronunciationFeedback.map((item, i) => (
-                                                <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 shrink-0"></span>
-                                                    <span>{item}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {performanceReport.pronunciationFeedback.map((item, i) => (
+                                            <div key={i} className="flex items-start gap-3 p-4 bg-[#FAF9F6] rounded-xl border border-[#F0F0F0]">
+                                                <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                                                <span className="text-gray-700 text-sm whitespace-pre-wrap">{item}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                  </div>
                             )}
-
-                         </div>
-                         <div className="p-6 border-t border-[#F0F0F0] bg-[#FAF9F6] flex justify-end gap-3" data-html2canvas-ignore>
-                             <button onClick={downloadReportAsImage} className="px-6 py-2 bg-white text-charcoal border border-gray-300 rounded-full text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                <Download size={14} />
-                                Download
-                             </button>
-                             <button onClick={() => setShowReport(false)} className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black transition-colors">Close Report</button>
                          </div>
                      </div>
                 </div>
@@ -1075,6 +1099,8 @@ Provide a JSON report with:
 
             {showReport && performanceReport && (
                 <div className="absolute inset-0 z-40 bg-cream/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
+                    {/* Render basic report for internal mode here, external uses the full screen one above in !hasStarted check */}
+                    {/* Actually, let's unify them. If we are here, it's post-recording internal analysis */}
                      <div ref={reportRef} className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#EBE8E0] overflow-hidden flex flex-col max-h-[90vh]">
                          <div className="p-8 border-b border-[#F0F0F0] flex justify-between items-start bg-gradient-to-br from-white to-[#FAF9F6]">
                              <div>
@@ -1095,7 +1121,7 @@ Provide a JSON report with:
                                  </div>
                                  <div>
                                      <div className="text-sm text-gray-500 font-medium mb-1">Overall Score</div>
-                                     <div className="text-lg text-charcoal leading-snug">{performanceReport.summary}</div>
+                                     <div className="text-lg text-charcoal leading-snug whitespace-pre-wrap">{performanceReport.summary}</div>
                                  </div>
                              </div>
 
@@ -1109,16 +1135,16 @@ Provide a JSON report with:
                                                  
                                                  <div>
                                                      <span className="font-bold text-charcoal text-sm">The Issue: </span>
-                                                     <span className="text-gray-600 text-sm">{item.issue}</span>
+                                                     <span className="text-gray-600 text-sm whitespace-pre-wrap">{item.issue}</span>
                                                  </div>
 
                                                  <div className="pl-3 border-l-2 border-gray-200 py-1">
-                                                     <span className="text-xs text-gray-400 italic">Specific Instance: "{item.instance}"</span>
+                                                     <span className="text-xs text-gray-400 italic whitespace-pre-wrap">Specific Instance: "{item.instance}"</span>
                                                  </div>
 
                                                  <div className="bg-green-50 p-3 rounded-lg border border-green-100 text-sm text-green-800">
                                                      <span className="font-bold">Improvement: </span>
-                                                     {item.improvement}
+                                                     <span className="whitespace-pre-wrap">{item.improvement}</span>
                                                  </div>
                                              </div>
                                          ))}
@@ -1131,7 +1157,7 @@ Provide a JSON report with:
                                          {performanceReport.suggestions.map((tip, i) => (
                                              <div key={i} className="flex gap-4 p-4 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
                                                  <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs font-serif font-bold text-gold shrink-0">{i + 1}</div>
-                                                 <p className="text-gray-600 text-sm leading-relaxed">{tip}</p>
+                                                 <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{tip}</p>
                                              </div>
                                          ))}
                                      </div>

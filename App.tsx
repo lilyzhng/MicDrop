@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { ScriptWord, PerformanceReport, DetailedFeedback } from './types';
+import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight } from './types';
 import Teleprompter from './components/Teleprompter';
 import html2canvas from 'html2canvas';
 
@@ -596,13 +597,13 @@ const App: React.FC = () => {
               contents: {
                   parts: [
                       { inlineData: { mimeType: 'audio/wav', data: base64Audio } },
-                      { text: `You are an expert public speaking coach. Analyze this audio recording of a speech. I will provide the original script below. Compare the audio to the script. Check for mispronunciations or unclear words (e.g. if the user says 'motor' instead of 'model'). 
+                      { text: `You are an expert public speaking coach. Analyze this audio recording of a speech. I will provide the original script below. Compare the audio to the script. Check for mispronunciations or unclear words. 
 
 Original Script:
 "${scriptText}"
 
 Provide a JSON report with: 
-- rating (0-100)
+- rating (integer 0-100)
 - summary
 - suggestions (3 general tips)
 - pronunciationFeedback (list of specific words that were mispronounced or unclear, compared to the script. If none, leave empty)` }
@@ -723,7 +724,8 @@ Provide a JSON report with:
                  2. Speaker Identification: Label speakers clearly (e.g., [Candidate], [Recruiter]) based on context.
                  3. Timestamps: Insert a timestamp [00:00] every 30-60 seconds or at every speaker change.
                  4. Non-Verbal Cues: Transcribe significant sounds in brackets, e.g., [nervous laughter], [long pause], [sigh], [typing noise].
-                 5. Output Format: Clean Markdown.`
+                 5. Output Format: Clean Markdown.
+                 6. Start Logic: Ignore any initial background noise, rustling, static, or setup sounds (e.g. microphone adjustments) at the very beginning of the file. Start the transcription strictly at the first intelligible human speech.`
               },
               contents: {
                   parts: [
@@ -778,6 +780,7 @@ Provide a JSON report with:
 
                   Analysis Framework:
                   1. Delivery (Audio Focus):
+                     - **Ignore Start-up Noise**: Do not penalize for initial silence or microphone rustling in the first few seconds. Focus on the delivery once the conversation actually starts.
                      - Confidence Check: Do they sound sure of their technical decisions?
                      - Pace & Clarity: Is the explanation easy to follow for both technical and non-technical stakeholders?
                      - Tone: Is it collaborative yet authoritative?
@@ -787,9 +790,11 @@ Provide a JSON report with:
                      - Depth: Did they show understanding of trade-offs?
 
                   Output Style:
-                  - Diagnosis: Identify top communication/behavioral issues.
-                  - Evidence: Quote transcript AND describe audio.
-                  - Drill: One specific exercise to fix it.`,
+                  - Rating: 0-100 integer scale.
+                  - Diagnosis: Identify top issues and highlights.
+                  - **Separation**: You MUST separate feedback into 'Improvements' (detailedFeedback) and 'Highlights' (highlights).
+                  - detailedFeedback: Strict areas for improvement.
+                  - highlights: Areas where the candidate excelled or gave a great answer.`,
                   responseMimeType: "application/json",
                   responseSchema: {
                       type: GeminiType.OBJECT,
@@ -799,6 +804,7 @@ Provide a JSON report with:
                           suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
                           detailedFeedback: {
                               type: GeminiType.ARRAY,
+                              description: "Areas for Improvement / Constructive Criticism only.",
                               items: {
                                   type: GeminiType.OBJECT,
                                   properties: {
@@ -810,9 +816,22 @@ Provide a JSON report with:
                                   required: ["category", "issue", "instance", "improvement"]
                               }
                           },
+                          highlights: {
+                              type: GeminiType.ARRAY,
+                              description: "Positive feedback / Key Strengths / Good Answers.",
+                              items: {
+                                  type: GeminiType.OBJECT,
+                                  properties: {
+                                      category: { type: GeminiType.STRING },
+                                      strength: { type: GeminiType.STRING },
+                                      quote: { type: GeminiType.STRING }
+                                  },
+                                  required: ["category", "strength", "quote"]
+                              }
+                          },
                           pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }
                       },
-                      required: ["rating", "summary", "suggestions", "detailedFeedback"]
+                      required: ["rating", "summary", "suggestions", "detailedFeedback", "highlights"]
                   }
               },
               contents: {
@@ -1131,18 +1150,13 @@ Provide a JSON report with:
          </div>
          
          <div className="p-10 space-y-10">
+             {/* Score & Summary */}
              <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
-                 <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
-                     <div className="absolute inset-0 rounded-full border-8 border-[#F5F5F0]"></div>
-                     <div 
-                         className="absolute inset-0 rounded-full border-8 border-gold border-t-transparent transform -rotate-45" 
-                         style={{ 
-                             clipPath: `polygon(0 0, 100% 0, 100% ${performanceReport!.rating}%, 0 ${performanceReport!.rating}%)`
-                         }}
-                     ></div>
-                     <div className="text-center">
-                         <span className="block text-4xl font-serif font-bold text-charcoal">{performanceReport!.rating}</span>
-                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1 block">Score</span>
+                 <div className="relative w-32 h-32 shrink-0 flex items-center justify-center rounded-full bg-white shadow-inner"
+                      style={{ background: `conic-gradient(#C7A965 ${performanceReport!.rating}%, #E5E7EB 0)` }}>
+                     <div className="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center">
+                         <span className="text-4xl font-serif font-bold text-charcoal">{performanceReport!.rating}</span>
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">/ 100</span>
                      </div>
                  </div>
                  <div className="flex-1 space-y-3 text-center md:text-left">
@@ -1151,17 +1165,18 @@ Provide a JSON report with:
                  </div>
              </div>
 
-             {performanceReport!.detailedFeedback ? (
+             {/* Section 1: Issues / Areas for Improvement */}
+             {performanceReport!.detailedFeedback && performanceReport!.detailedFeedback.length > 0 && (
                  <div className="space-y-6">
                      <h3 className="flex items-center gap-3 text-sm font-bold text-charcoal uppercase tracking-widest border-b border-gray-100 pb-2">
                          <Lightbulb size={18} className="text-gold" />
-                         Detailed Analysis
+                         Areas for Improvement
                      </h3>
                      <div className="grid grid-cols-1 gap-6">
                          {performanceReport!.detailedFeedback.map((item, i) => (
                              <div key={i} className="bg-white rounded-2xl p-8 border border-[#EBE8E0] shadow-sm">
                                  <div className="flex items-center gap-3 mb-4">
-                                     <span className="w-1.5 h-1.5 rounded-full bg-gold"></span>
+                                     <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
                                      <div className="text-gold text-xs font-bold uppercase tracking-widest font-serif">{item.category}</div>
                                  </div>
                                  
@@ -1185,20 +1200,42 @@ Provide a JSON report with:
                          ))}
                      </div>
                  </div>
-             ) : (
-                 <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
-                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6"><Lightbulb size={16} className="text-gold" />Key Suggestions</h3>
-                     <div className="space-y-4">
-                         {performanceReport!.suggestions.map((tip, i) => (
-                             <div key={i} className="flex gap-5 p-5 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
-                                 <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-sm font-serif font-bold text-gold shrink-0 shadow-sm">{i + 1}</div>
-                                 <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">{tip}</p>
+             )}
+
+             {/* Section 2: Highlights / Strengths (New) */}
+             {performanceReport!.highlights && performanceReport!.highlights.length > 0 && (
+                 <div className="space-y-6">
+                     <h3 className="flex items-center gap-3 text-sm font-bold text-charcoal uppercase tracking-widest border-b border-gray-100 pb-2">
+                         <ThumbsUp size={18} className="text-gold" />
+                         Key Strengths & Highlights
+                     </h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         {performanceReport!.highlights.map((item, i) => (
+                             <div key={i} className="bg-white rounded-2xl p-6 border border-gold/20 shadow-sm relative overflow-hidden">
+                                 <div className="absolute top-0 right-0 p-4 opacity-5">
+                                     <Star size={60} className="text-gold" />
+                                 </div>
+                                 <div className="flex items-center gap-3 mb-3 relative">
+                                     <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                         <Star size={14} fill="currentColor" />
+                                     </div>
+                                     <div className="text-gold text-xs font-bold uppercase tracking-widest font-serif">{item.category}</div>
+                                 </div>
+                                 
+                                 <div className="mb-4 relative">
+                                     <div className="text-charcoal font-medium leading-relaxed">{item.strength}</div>
+                                 </div>
+
+                                 <div className="bg-[#FAF9F6] p-4 rounded-xl border border-[#F0F0F0] relative">
+                                     <div className="text-xs text-gray-500 italic leading-relaxed">"{item.quote}"</div>
+                                 </div>
                              </div>
                          ))}
                      </div>
                  </div>
              )}
 
+             {/* Section 3: Pronunciation */}
             {performanceReport!.pronunciationFeedback && performanceReport!.pronunciationFeedback.length > 0 && (
                  <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6">
@@ -1364,10 +1401,12 @@ Provide a JSON report with:
                                     {/* Reuse the render logic but wrapped differently for this modal context */}
                                     <div className="p-8">
                                         <div className="flex items-center gap-6 mb-8">
-                                            <div className="relative w-24 h-24 shrink-0 flex items-center justify-center">
-                                                <div className="absolute inset-0 rounded-full border-4 border-[#F0F0F0]"></div>
-                                                <div className="absolute inset-0 rounded-full border-4 border-gold border-t-transparent transform -rotate-45" style={{ clipPath: `polygon(0 0, 100% 0, 100% ${performanceReport.rating}%, 0 ${performanceReport.rating}%)`}}></div>
-                                                <span className="text-3xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
+                                            <div className="relative w-24 h-24 shrink-0 flex items-center justify-center rounded-full bg-white shadow-inner"
+                                                style={{ background: `conic-gradient(#C7A965 ${performanceReport.rating}%, #E5E7EB 0)` }}>
+                                                <div className="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center">
+                                                    <span className="text-3xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">/ 100</span>
+                                                </div>
                                             </div>
                                             <div>
                                                 <div className="text-sm text-gray-500 font-medium mb-1">Summary</div>

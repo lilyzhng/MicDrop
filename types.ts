@@ -22,10 +22,17 @@ export interface DetailedFeedback {
   improvement: string; // "Improvement: ..."
 }
 
+export interface Highlight {
+  category: string;
+  strength: string;
+  quote: string;
+}
+
 export interface PerformanceReport {
   rating: number;
   summary: string;
   suggestions: string[];
   pronunciationFeedback: string[];
-  detailedFeedback?: DetailedFeedback[]; // New field for deep analysis
+  detailedFeedback?: DetailedFeedback[]; // Negative/Constructive feedback
+  highlights?: Highlight[]; // Positive feedback
 }

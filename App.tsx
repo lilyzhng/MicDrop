@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star, PenTool, Quote } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight } from './types';
 import Teleprompter from './components/Teleprompter';
@@ -210,6 +210,7 @@ const App: React.FC = () => {
   const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
   const [transcriptionResult, setTranscriptionResult] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [showRewrite, setShowRewrite] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   
   // External Upload State
@@ -309,6 +310,8 @@ const App: React.FC = () => {
           setScriptWords([]);
           setManualTranscript("");
           setSelectedFile(null);
+          setUploadContext("");
+          setShowRewrite(false);
           stopTTS();
       }
   };
@@ -323,6 +326,7 @@ const App: React.FC = () => {
       setManualTranscript("");
       setSelectedFile(null);
       setUploadContext("");
+      setShowRewrite(false);
   };
 
   // -- Script Processing --
@@ -767,34 +771,36 @@ Provide a JSON report with:
           const response = await ai.models.generateContent({
               model: 'gemini-3-pro-preview', // Using Pro/3.0 for high-level reasoning
               config: {
-                  systemInstruction: `Role: You are a Senior Technical Leadership Coach. 
-                  Target Audience: Aspiring Technical Team Leads (Tech Lead, Staff Engineer, or Engineering Manager).
-                  
-                  Objective: Provide constructive, objective feedback on the Candidate based on their Audio (tone/delivery) and Transcript (content/strategy).
-                  
-                  Persona for Evaluation:
-                  - You value technical depth AND high-level architectural vision.
-                  - You look for empathy, clear communication, and team empowerment.
-                  - You do NOT require C-level executive polish, but you do require "Senior Engineering" confidence.
-                  - Be honest about clarity and impact, but do not penalize for not sounding like a CEO. Focus on "Technical Leadership".
+                  systemInstruction: `Role: You are the "Stage 2: Coach" for the MicDrop interview preparation app. Your user is a Technical Team Lead / Engineering Manager candidate (balancing technical depth with vision/people management).
 
-                  Analysis Framework:
-                  1. Delivery (Audio Focus):
-                     - **Ignore Start-up Noise**: Do not penalize for initial silence or microphone rustling in the first few seconds. Focus on the delivery once the conversation actually starts.
-                     - Confidence Check: Do they sound sure of their technical decisions?
-                     - Pace & Clarity: Is the explanation easy to follow for both technical and non-technical stakeholders?
-                     - Tone: Is it collaborative yet authoritative?
-                  2. Strategy (Text Focus):
-                     - Problem Solving: Did they clearly define the problem before the solution?
-                     - "We" vs "I": Did they balance team credit with personal ownership?
-                     - Depth: Did they show understanding of trade-offs?
+                  Goal: Analyze the user's interview transcript/audio input and provide "brutally honest" feedback to specific issues.
+                  
+                  KEY REQUIREMENT: HUMAN STORY REWRITING
+                  For every issue identified in the "Areas for Improvement" section, you MUST provide a "Human Rewrite" instead of a generic strategy.
+                  
+                  The Rewrite Philosophy:
+                  - The goal is NOT a polished press release. It is to sound like a colleague grabbing coffee.
+                  - Use "Bridge Words": "To be honest...", "Here's the thing...", "I say this with love...".
+                  - Use Vulnerability/Humor: Make it relatable.
+                  - Use Check-ins: "Does that match what you're seeing?"
+                  
+                  Output Format:
+                  Provide feedback in this exact structure:
+                  1.  **The Diagnosis:** A 1-2 sentence summary of the biggest red flag.
+                  2.  **The Fix:** Tactical advice (Structure, Soft Skills).
+                  3.  **The "Human" Rewrite (Global):** A rewrite of the most critical part of their answer to sound conversational and high-EQ.
+                  4.  **Detailed Improvements:** For each specific issue found, provide:
+                      - The Issue: What went wrong.
+                      - Specific Instance: Quote the transcript.
+                      - The Human Rewrite: Rewrite THAT SPECIFIC part to be better.
+                      - Why This Works: Explain the EQ/Soft skills used (e.g. "bridge words signal authenticity").
 
                   Output Style:
                   - Rating: 0-100 integer scale.
-                  - Diagnosis: Identify top issues and highlights.
-                  - **Separation**: You MUST separate feedback into 'Improvements' (detailedFeedback) and 'Highlights' (highlights).
-                  - detailedFeedback: Strict areas for improvement.
-                  - highlights: Areas where the candidate excelled or gave a great answer.`,
+                  - **Separation**: Split into 'detailedFeedback' (Improvements) and 'highlights' (Strengths).
+                  - detailedFeedback: MUST use the 'rewrite' and 'explanation' fields instead of generic improvement strategies.
+                  - highlights: Areas where the candidate excelled.
+                  `,
                   responseMimeType: "application/json",
                   responseSchema: {
                       type: GeminiType.OBJECT,
@@ -802,18 +808,28 @@ Provide a JSON report with:
                           rating: { type: GeminiType.INTEGER },
                           summary: { type: GeminiType.STRING },
                           suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+                          coachingRewrite: {
+                              type: GeminiType.OBJECT,
+                              properties: {
+                                  diagnosis: { type: GeminiType.STRING },
+                                  fix: { type: GeminiType.STRING },
+                                  rewrite: { type: GeminiType.STRING }
+                              },
+                              required: ["diagnosis", "fix", "rewrite"]
+                          },
                           detailedFeedback: {
                               type: GeminiType.ARRAY,
-                              description: "Areas for Improvement / Constructive Criticism only.",
+                              description: "Areas for Improvement. For each issue, provide a Human Rewrite.",
                               items: {
                                   type: GeminiType.OBJECT,
                                   properties: {
                                       category: { type: GeminiType.STRING },
                                       issue: { type: GeminiType.STRING },
                                       instance: { type: GeminiType.STRING },
-                                      improvement: { type: GeminiType.STRING }
+                                      rewrite: { type: GeminiType.STRING, description: "The revised, human-sounding version of the answer." },
+                                      explanation: { type: GeminiType.STRING, description: "Why this rewrite works (soft skills analysis)." }
                                   },
-                                  required: ["category", "issue", "instance", "improvement"]
+                                  required: ["category", "issue", "instance", "rewrite", "explanation"]
                               }
                           },
                           highlights: {
@@ -831,7 +847,7 @@ Provide a JSON report with:
                           },
                           pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }
                       },
-                      required: ["rating", "summary", "suggestions", "detailedFeedback", "highlights"]
+                      required: ["rating", "summary", "suggestions", "detailedFeedback", "highlights", "coachingRewrite"]
                   }
               },
               contents: {
@@ -845,8 +861,8 @@ Provide a JSON report with:
                       ${transcript}
 
                       Task:
-                      Based on the Audio (for tone) and the Text (for content), analyze my performance as a Technical Lead.
-                      1. Did I demonstrate technical depth and leadership vision?
+                      Based on the Audio (for tone) and the Text (for content), analyze my performance as a Technical Team Lead.
+                      1. Did I demonstrate technical depth AND leadership vision/empathy?
                       2. Was my communication clear and concise?
                       3. Identify any "anxiety" markers (rushing, fillers) and how to fix them.` }
                   ]
@@ -1039,6 +1055,19 @@ Provide a JSON report with:
                                 />
                             </div>
 
+                            {/* Manual Transcript Input for Coach Mode */}
+                            {analysisMode === 'coach' && (
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Transcript (Optional)</label>
+                                    <textarea 
+                                        className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder:text-gray-300"
+                                        placeholder="Paste existing transcript here to skip the transcription step..."
+                                        value={manualTranscript}
+                                        onChange={(e) => setManualTranscript(e.target.value)}
+                                    />
+                                </div>
+                            )}
+
                             <div 
                                 onClick={() => fileInputRef.current?.click()}
                                 className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all ${selectedFile ? 'border-green-400 bg-green-50/50' : 'border-gray-200 hover:border-gold/50 hover:bg-gray-50'}`}
@@ -1056,456 +1085,440 @@ Provide a JSON report with:
                                     </>
                                 ) : (
                                     <>
-                                        <div className="w-14 h-14 rounded-full bg-[#FAF9F6] border border-[#E6E6E6] flex items-center justify-center text-gray-400 mb-1">
+                                        <div className="w-14 h-14 rounded-full bg-cream flex items-center justify-center text-gold mb-2">
                                             <Upload size={24} />
                                         </div>
                                         <div className="text-center">
-                                            <span className="block text-lg font-medium text-charcoal">Click to browse</span>
-                                            <span className="text-sm text-gray-400">or drag and drop audio file here</span>
+                                            <span className="block font-medium text-gray-600">Click to upload audio file</span>
+                                            <span className="text-xs text-gray-400 mt-1">or drag and drop</span>
                                         </div>
                                     </>
                                 )}
                             </div>
 
-                            {/* Additional Input for Coach Mode */}
-                            {analysisMode === 'coach' && (
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Existing Transcript (Optional)</label>
-                                    <textarea 
-                                        className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder-gray-300"
-                                        placeholder="Paste transcription here to skip Forensic Transcription..."
-                                        value={manualTranscript}
-                                        onChange={(e) => setManualTranscript(e.target.value)}
-                                    />
-                                    <p className="text-xs text-gray-400 mt-2">If left blank, we will generate a forensic transcript automatically.</p>
-                                </div>
+                            {selectedFile && !isAnalyzing && (
+                                <button 
+                                    onClick={analysisMode === 'sound_check' ? startSoundCheckAnalysis : startCoachAnalysis}
+                                    className="w-full py-4 bg-charcoal text-white rounded-xl font-bold hover:bg-black transition-colors shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    {analysisMode === 'sound_check' ? 'Start Transcription' : 'Start Coach Analysis'}
+                                    <ArrowRight size={18} />
+                                </button>
                             )}
 
-                            <button 
-                                onClick={analysisMode === 'coach' ? startCoachAnalysis : startSoundCheckAnalysis}
-                                disabled={!selectedFile || isAnalyzing}
-                                className={`w-full py-5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all text-lg shadow-lg ${!selectedFile || isAnalyzing ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-charcoal text-white hover:bg-black hover:shadow-xl hover:-translate-y-0.5'}`}
-                            >
-                                {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : analysisMode === 'coach' ? <Flame size={20} /> : <Sparkles size={20} />}
-                                <span>
-                                    {isAnalyzing 
-                                        ? (analysisStep === 'transcribing' ? 'Transcribing (Stage 1)...' : 'Analyzing (Stage 2)...') 
-                                        : (analysisMode === 'coach' ? 'Start Coaching' : 'Start Forensic Transcription')}
-                                </span>
-                            </button>
+                            {isAnalyzing && (
+                                <div className="text-center py-8">
+                                    <Loader2 className="animate-spin mx-auto text-gold mb-4" size={32} />
+                                    <p className="text-charcoal font-medium animate-pulse">
+                                        {analysisStep === 'transcribing' ? 'Phase 1: Forensic Transcription...' : 'Phase 2: Coach Analysis...'}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-2">This usually takes 15-30 seconds.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                ) : transcriptionResult && !performanceReport ? (
-                    // Transcription View (Stage 1) - Only for Sound Check or if Coach stopped early
-                     <div className="max-w-4xl mx-auto h-full flex flex-col">
-                        <div className="bg-white rounded-t-3xl border border-[#EBE8E0] border-b-0 p-8 flex justify-between items-center shadow-sm z-10">
-                             <div>
-                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Stage 1: The Scribe</div>
-                                 <h2 className="text-2xl font-serif font-bold text-charcoal">Forensic Transcript</h2>
-                             </div>
-                             <div className="flex gap-3">
-                                <button onClick={downloadTranscript} className="px-5 py-2 bg-white border border-gray-200 rounded-full text-xs font-bold hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                    <Download size={14} /> Download
-                                </button>
-                                <button onClick={proceedToCoaching} className="px-6 py-2 bg-charcoal text-white rounded-full text-xs font-bold hover:bg-black transition-colors flex items-center gap-2 shadow-lg hover:shadow-xl">
-                                    {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <ArrowRightCircle size={14} />}
-                                    Proceed to Stage 2: Coach
-                                </button>
-                             </div>
-                        </div>
-                        <div className="flex-1 bg-white border-x border-[#EBE8E0] p-10 overflow-y-auto">
-                            <div className="prose prose-lg max-w-none font-serif text-charcoal leading-relaxed whitespace-pre-wrap">
-                                {transcriptionResult}
-                            </div>
-                        </div>
-                        <div className="h-8 bg-white border border-t-0 border-[#EBE8E0] rounded-b-3xl mb-8"></div>
-                     </div>
                 ) : (
-                    // Performance Report (Stage 2)
-                    <div ref={reportRef} className="max-w-5xl mx-auto bg-white rounded-3xl shadow-xl border border-[#EBE8E0] overflow-hidden">
-                         {/* This re-uses the full report UI structure but inline */}
-                         {renderPerformanceReportContent()}
+                    // Results View
+                    <div className="max-w-4xl mx-auto pb-20">
+                         {analysisMode === 'sound_check' && transcriptionResult && !performanceReport && (
+                             <div className="bg-white rounded-3xl shadow-xl border border-[#EBE8E0] overflow-hidden animate-in fade-in slide-in-from-bottom-8">
+                                 <div className="p-8 border-b border-[#E6E6E6] flex justify-between items-center bg-cream/50">
+                                     <div>
+                                         <h3 className="text-2xl font-serif font-bold text-charcoal">Forensic Transcript</h3>
+                                         <p className="text-sm text-gray-500">Stage 1 Analysis Complete</p>
+                                     </div>
+                                     <div className="flex gap-3">
+                                         <button onClick={downloadTranscript} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-charcoal">
+                                             <Download size={14} /> Download Text
+                                         </button>
+                                         <button onClick={proceedToCoaching} className="flex items-center gap-2 px-4 py-2 bg-charcoal text-white rounded-lg text-sm font-bold hover:bg-black shadow-lg">
+                                             Proceed to Coaching <ArrowRight size={14} />
+                                         </button>
+                                     </div>
+                                 </div>
+                                 <div className="p-8 max-h-[60vh] overflow-y-auto font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-700 bg-[#FAF9F6]">
+                                     {transcriptionResult}
+                                 </div>
+                             </div>
+                         )}
+
+                         {(analysisMode === 'coach' || performanceReport) && performanceReport && (
+                             renderPerformanceReportContent()
+                         )}
                     </div>
                 )}
            </div>
       </div>
   );
 
-  const renderPerformanceReportContent = () => (
-     <div className="flex flex-col">
-         <div className="p-10 border-b border-[#F0F0F0] flex justify-between items-start bg-gradient-to-br from-white to-[#FAF9F6]">
-             <div>
-                 <div className="flex items-center gap-2 mb-2">
-                     <Award size={18} className="text-gold" />
-                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stage 2: The Coach</span>
-                 </div>
-                 <h2 className="text-4xl font-serif font-bold text-charcoal">Performance Report</h2>
-             </div>
-             <div className="flex gap-3" data-html2canvas-ignore>
-                 <button onClick={downloadReportAsImage} className="px-5 py-2.5 bg-white border border-gray-200 rounded-full text-xs font-bold hover:bg-gray-50 transition-colors flex items-center gap-2">
-                    <Download size={14} /> Export Image
-                 </button>
-                 <button onClick={goHome} className="px-5 py-2.5 bg-charcoal text-white rounded-full text-xs font-bold hover:bg-black transition-colors">Done</button>
-             </div>
-         </div>
-         
-         <div className="p-10 space-y-10">
-             {/* Score & Summary */}
-             <div className="flex flex-col md:flex-row gap-10 items-center md:items-start">
-                 <div className="relative w-32 h-32 shrink-0 flex items-center justify-center rounded-full bg-white shadow-inner"
-                      style={{ background: `conic-gradient(#C7A965 ${performanceReport!.rating}%, #E5E7EB 0)` }}>
-                     <div className="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center">
-                         <span className="text-4xl font-serif font-bold text-charcoal">{performanceReport!.rating}</span>
-                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">/ 100</span>
+  const renderPerformanceReportContent = () => {
+    if (!performanceReport) return null;
+    const { rating, summary, suggestions, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite } = performanceReport;
+
+    return (
+        <div ref={reportRef} className="bg-cream min-h-full">
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                     <div className="flex items-center gap-2 text-gold text-xs font-bold tracking-widest uppercase mb-2">
+                        <Award size={14} /> Stage 2: The Coach
                      </div>
+                     <h2 className="text-4xl font-serif font-bold text-charcoal">Performance Report</h2>
+                </div>
+                <div className="flex gap-3">
+                     <button onClick={downloadReportAsImage} className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 text-charcoal flex items-center gap-2">
+                        <Download size={14} /> Export Image
+                     </button>
+                     <button onClick={goHome} className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black">
+                        Done
+                     </button>
+                </div>
+            </div>
+
+            {/* Executive Summary Card */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-[#EBE8E0] mb-8 flex flex-col md:flex-row gap-8 items-start">
+                 <div className="shrink-0 relative w-32 h-32 flex items-center justify-center">
+                      {/* Conic Gradient Ring */}
+                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#C7A965 ${rating}%, #F0EBE0 ${rating}% 100%)` }}></div>
+                      <div className="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center z-10">
+                          <span className="text-4xl font-serif font-bold text-charcoal">{rating}</span>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">/ 100</span>
+                      </div>
                  </div>
-                 <div className="flex-1 space-y-3 text-center md:text-left">
-                     <h3 className="text-2xl font-serif font-bold text-charcoal">Executive Summary</h3>
-                     <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">{performanceReport!.summary}</div>
+                 <div className="flex-1">
+                      <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Executive Summary</h3>
+                      <p className="text-gray-600 leading-relaxed">{summary}</p>
+                      
+                      {/* Global Rewrite Toggle */}
+                      {coachingRewrite && (
+                        <div className="mt-6">
+                            <button 
+                                onClick={() => setShowRewrite(!showRewrite)}
+                                className="text-sm font-bold text-gold hover:text-charcoal transition-colors flex items-center gap-2"
+                            >
+                                <PenTool size={14} /> {showRewrite ? 'Hide Story Rewrite' : 'View Story Rewrite'}
+                            </button>
+
+                            {showRewrite && (
+                                <div className="mt-4 bg-[#FAF9F6] border-l-4 border-gold p-6 rounded-r-xl animate-in slide-in-from-top-2">
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold shrink-0">
+                                            <Quote size={14} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-charcoal uppercase tracking-widest mb-1">The Diagnosis</h4>
+                                            <p className="text-gray-600 italic text-sm">{coachingRewrite.diagnosis}</p>
+                                        </div>
+                                    </div>
+                                    <div className="mb-4">
+                                         <h4 className="text-sm font-bold text-charcoal uppercase tracking-widest mb-2">The Fix</h4>
+                                         <p className="text-gray-700 text-sm">{coachingRewrite.fix}</p>
+                                    </div>
+                                    <div>
+                                         <h4 className="text-sm font-bold text-charcoal uppercase tracking-widest mb-2">The Human Rewrite</h4>
+                                         <div className="text-charcoal font-serif text-lg leading-relaxed pl-4 border-l-2 border-gray-200">
+                                            "{coachingRewrite.rewrite}"
+                                         </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                      )}
                  </div>
-             </div>
+            </div>
 
-             {/* Section 1: Issues / Areas for Improvement */}
-             {performanceReport!.detailedFeedback && performanceReport!.detailedFeedback.length > 0 && (
-                 <div className="space-y-6">
-                     <h3 className="flex items-center gap-3 text-sm font-bold text-charcoal uppercase tracking-widest border-b border-gray-100 pb-2">
-                         <Lightbulb size={18} className="text-gold" />
-                         Areas for Improvement
-                     </h3>
-                     <div className="grid grid-cols-1 gap-6">
-                         {performanceReport!.detailedFeedback.map((item, i) => (
-                             <div key={i} className="bg-white rounded-2xl p-8 border border-[#EBE8E0] shadow-sm">
-                                 <div className="flex items-center gap-3 mb-4">
-                                     <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                                     <div className="text-gold text-xs font-bold uppercase tracking-widest font-serif">{item.category}</div>
-                                 </div>
-                                 
-                                 <div className="mb-6">
-                                     <span className="font-bold text-charcoal text-base block mb-2">The Issue</span>
-                                     <div className="text-gray-600 leading-relaxed whitespace-pre-wrap">{item.issue}</div>
-                                 </div>
+            {/* Areas for Improvement (Constructive) */}
+            <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase mt-12">
+                <Lightbulb size={14} /> Areas for Improvement
+            </div>
+            
+            <div className="space-y-6">
+                {detailedFeedback?.map((item, i) => (
+                    <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-[#EBE8E0]">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                            <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                        </div>
+                        
+                        <h4 className="text-lg font-bold text-charcoal mb-2">The Issue</h4>
+                        <p className="text-gray-600 mb-6">{item.issue}</p>
 
-                                 <div className="grid md:grid-cols-2 gap-6">
-                                     <div className="bg-[#FAF9F6] p-5 rounded-xl border-l-4 border-gray-300">
-                                         <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Specific Instance</span>
-                                         <div className="text-sm text-gray-600 italic leading-relaxed whitespace-pre-wrap">"{item.instance}"</div>
-                                     </div>
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-[#FAF9F6] p-6 rounded-xl border-l-4 border-gray-200">
+                                <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Specific Instance</h5>
+                                <p className="text-charcoal italic font-serif">"{item.instance}"</p>
+                            </div>
+                            <div className="bg-green-50/50 p-6 rounded-xl border-l-4 border-green-400">
+                                <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                   <PenTool size={12}/> The Human Rewrite
+                                </h5>
+                                <div className="text-charcoal font-serif text-lg leading-relaxed mb-4">
+                                   "{item.rewrite}"
+                                </div>
+                                <div className="pt-4 border-t border-green-200/50">
+                                    <h6 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Why this works</h6>
+                                    <p className="text-sm text-green-800 italic">{item.explanation}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                                     <div className="bg-[#F0FDF4] p-5 rounded-xl border-l-4 border-green-400">
-                                         <span className="text-xs font-bold text-green-700 uppercase tracking-wider block mb-2">Improvement Strategy</span>
-                                         <div className="text-sm text-green-800 font-medium leading-relaxed whitespace-pre-wrap">{item.improvement}</div>
-                                     </div>
-                                 </div>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
-             {/* Section 2: Highlights / Strengths (New) */}
-             {performanceReport!.highlights && performanceReport!.highlights.length > 0 && (
-                 <div className="space-y-6">
-                     <h3 className="flex items-center gap-3 text-sm font-bold text-charcoal uppercase tracking-widest border-b border-gray-100 pb-2">
-                         <ThumbsUp size={18} className="text-gold" />
-                         Key Strengths & Highlights
-                     </h3>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         {performanceReport!.highlights.map((item, i) => (
-                             <div key={i} className="bg-white rounded-2xl p-6 border border-gold/20 shadow-sm relative overflow-hidden">
-                                 <div className="absolute top-0 right-0 p-4 opacity-5">
-                                     <Star size={60} className="text-gold" />
-                                 </div>
-                                 <div className="flex items-center gap-3 mb-3 relative">
-                                     <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                                         <Star size={14} fill="currentColor" />
-                                     </div>
-                                     <div className="text-gold text-xs font-bold uppercase tracking-widest font-serif">{item.category}</div>
-                                 </div>
-                                 
-                                 <div className="mb-4 relative">
-                                     <div className="text-charcoal font-medium leading-relaxed">{item.strength}</div>
-                                 </div>
-
-                                 <div className="bg-[#FAF9F6] p-4 rounded-xl border border-[#F0F0F0] relative">
-                                     <div className="text-xs text-gray-500 italic leading-relaxed">"{item.quote}"</div>
-                                 </div>
-                             </div>
-                         ))}
-                     </div>
-                 </div>
-             )}
-
-             {/* Section 3: Pronunciation */}
-            {performanceReport!.pronunciationFeedback && performanceReport!.pronunciationFeedback.length > 0 && (
-                 <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
-                    <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6">
-                        <Ear size={16} className="text-gold" />
-                        Pronunciation & Clarity
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {performanceReport!.pronunciationFeedback.map((item, i) => (
-                            <div key={i} className="flex items-start gap-3 p-4 bg-[#FAF9F6] rounded-xl border border-[#F0F0F0]">
-                                <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-                                <span className="text-gray-700 text-sm whitespace-pre-wrap">{item}</span>
+            {/* Highlights (Positive) */}
+            {highlights && highlights.length > 0 && (
+                <>
+                    <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase mt-12">
+                        <ThumbsUp size={14} /> Key Strengths & Highlights
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {highlights.map((item, i) => (
+                            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0] relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-5">
+                                    <Star size={80} />
+                                </div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                        <Star size={12} fill="#C7A965" />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                </div>
+                                <h4 className="text-md font-bold text-charcoal mb-2">{item.strength}</h4>
+                                <div className="bg-[#FAF9F6] p-4 rounded-xl mt-4">
+                                    <p className="text-charcoal italic font-serif text-sm">"{item.quote}"</p>
+                                </div>
                             </div>
                         ))}
                     </div>
-                 </div>
-            )}
-         </div>
-     </div>
-  );
-
-  const renderTeleprompterView = () => (
-      <div className="relative h-screen w-screen bg-cream overflow-hidden flex flex-col font-sans">
-      <div className="h-16 bg-cream/90 backdrop-blur-md border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
-        <div className="flex items-center gap-4">
-            <button onClick={goHome} className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-100 transition-colors">
-                <Home size={16} className="text-gray-500" />
-            </button>
-            <h1 className="text-charcoal font-serif font-bold text-xl tracking-tight">Teleprompter Practice</h1>
-        </div>
-
-        <div className="flex items-center gap-6">
-             {!hasStarted ? (
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    Setup Mode
-                </div>
-             ) : (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-green-50 text-green-700 border border-green-200">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    Ready
-                </div>
-             )}
-             {recordingState === 'recording' && (
-                 <div className="flex items-center gap-2 text-red-500 font-bold text-[10px] tracking-widest uppercase animate-pulse">
-                     <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                     REC
-                 </div>
-             )}
-        </div>
-      </div>
-
-      <div className="relative flex-1 bg-[#1a1a1a] overflow-hidden">
-        {permissionError ? (
-          <div className="flex flex-col items-center justify-center h-full text-white/50 p-8 text-center font-serif italic gap-4">
-            <span>{permissionError}</span>
-            <button onClick={initCamera} className="px-6 py-2 bg-white/10 text-white rounded-full text-sm font-sans font-bold hover:bg-white/20 transition-colors">Retry Camera Access</button>
-          </div>
-        ) : (
-          <>
-            <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover transform scale-x-[-1]" />
-            
-            {!hasStarted ? (
-                 // Start Screen (Setup)
-                 <div className="absolute inset-0 z-40 bg-cream/80 backdrop-blur-md flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
-                      <div className="w-full max-w-3xl">
-                        <div className="bg-white rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-[#EBE8E0] overflow-hidden">
-                            <div className="px-8 py-5 border-b border-[#F0F0F0] flex justify-between items-center bg-white">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-gold"></div>
-                                    <span className="text-xs font-bold text-gray-400 tracking-widest uppercase">Script Editor</span>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <button 
-                                        onClick={generateAndPlayTTS}
-                                        disabled={isGeneratingTTS || !scriptText}
-                                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors ${isPlayingTTS ? 'text-red-500 animate-pulse' : 'text-gold hover:text-charcoal'}`}
-                                    >
-                                        {isGeneratingTTS ? <Loader2 size={14} className="animate-spin" /> : isPlayingTTS ? <><StopCircle size={14} /><span>Stop Audio</span></> : <><Volume2 size={14} /><span>Listen to AI</span></>}
-                                    </button>
-                                    <div className="h-4 w-px bg-gray-200"></div>
-                                    <button onClick={handleClearScript} className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors">Clear</button>
-                                </div>
-                            </div>
-                            <div className="p-2 bg-white">
-                                <textarea
-                                    className="w-full h-80 bg-white text-charcoal p-6 outline-none resize-none text-xl leading-relaxed font-light placeholder-gray-300 font-serif"
-                                    placeholder="Paste your script here..."
-                                    value={scriptText}
-                                    onChange={handleScriptChange}
-                                />
-                            </div>
-                            <div className="bg-[#FAF9F6] px-8 py-4 border-t border-[#F0F0F0] flex justify-between text-xs text-gray-400 font-medium tracking-wide">
-                                <span>{scriptWords.length} words</span>
-                                <span>~{Math.ceil(scriptWords.length / 2.5)}s estimated</span>
-                            </div>
-                        </div>
-
-                        <div className="mt-10 flex flex-col items-center gap-6">
-                            <button
-                                onClick={() => setHasStarted(true)}
-                                disabled={scriptWords.length === 0}
-                                className={`group px-10 py-4 rounded-full font-medium text-lg flex items-center gap-3 transition-all transform duration-300 ${scriptWords.length > 0 ? 'bg-charcoal text-white hover:bg-black hover:-translate-y-1 shadow-lg shadow-black/10' : 'bg-[#E0E0E0] text-gray-400 cursor-not-allowed'}`}
-                            >
-                                <span>Start Session</span>
-                                <ArrowRight size={18} className={`transition-transform duration-300 ${scriptWords.length > 0 ? 'group-hover:translate-x-1' : ''}`} />
-                            </button>
-                            <div className="h-8">
-                                {!stream && (
-                                     <div className="flex items-center justify-center gap-2 text-gray-400 text-sm animate-pulse">
-                                        <Sparkles size={14} className="text-gold" />
-                                        <span>Initializing Camera...</span>
-                                     </div>
-                                )}
-                            </div>
-                        </div>
-                      </div>
-                 </div>
-            ) : (
-                <>
-                    {/* Active Teleprompter */}
-                    {!isEditMode && !showReport && <Teleprompter words={scriptWords} activeWordIndex={activeWordIndex} fontSize={fontSize} opacity={opacity} />}
-                    
-                    {/* Edit Mode Overlay */}
-                    {isEditMode && (
-                       <div className="absolute inset-0 z-30 bg-cream/95 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
-                          <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-[#E6E6E6] flex flex-col h-[80vh]">
-                            <div className="flex justify-between items-center px-8 py-6 border-b border-[#F0F0F0]">
-                                <h2 className="text-2xl font-serif font-bold text-charcoal">Edit Script</h2>
-                                <div className="flex items-center gap-6">
-                                    <button 
-                                        onClick={generateAndPlayTTS}
-                                        disabled={isGeneratingTTS || !scriptText}
-                                        className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider transition-colors ${isPlayingTTS ? 'text-red-500 animate-pulse' : 'text-gold hover:text-charcoal'}`}
-                                    >
-                                        {isGeneratingTTS ? <Loader2 size={14} className="animate-spin" /> : isPlayingTTS ? <><StopCircle size={14} /><span>Stop Audio</span></> : <><Volume2 size={14} /><span>Listen to AI</span></>}
-                                    </button>
-                                    <div className="h-6 w-px bg-gray-200"></div>
-                                    <button onClick={() => setIsEditMode(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={24} className="text-gray-500" /></button>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-4 bg-white overflow-hidden">
-                                 <textarea className="w-full h-full bg-transparent text-charcoal p-4 outline-none resize-none text-2xl leading-relaxed font-serif placeholder-gray-300" placeholder="Type your script..." value={scriptText} onChange={handleScriptChange} />
-                            </div>
-                            <div className="px-8 py-5 border-t border-[#F0F0F0] bg-[#FAF9F6] flex justify-between items-center rounded-b-2xl">
-                                 <button onClick={handleClearScript} className="text-sm font-medium text-red-500 hover:text-red-600">Clear All</button>
-                                 <div className="flex items-center gap-6">
-                                    <span className="text-xs text-gray-400 font-mono">{scriptWords.length} words</span>
-                                    <button onClick={() => setIsEditMode(false)} className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black transition-colors">Done</button>
-                                 </div>
-                            </div>
-                          </div>
-                       </div>
-                    )}
-
-                    {/* Report Overlay for Teleprompter Session */}
-                    {showReport && performanceReport && (
-                        <div className="absolute inset-0 z-40 bg-cream/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-500">
-                             <div ref={reportRef} className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-[#EBE8E0] overflow-hidden flex flex-col max-h-[90vh]">
-                                 <div className="p-6 border-b border-[#F0F0F0] flex justify-between items-center bg-gradient-to-br from-white to-[#FAF9F6]">
-                                    <h2 className="text-2xl font-serif font-bold text-charcoal">Performance Report</h2>
-                                     <button onClick={() => setShowReport(false)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 hover:text-charcoal transition-colors"><X size={24} /></button>
-                                 </div>
-                                 <div className="flex-1 overflow-y-auto">
-                                    {/* Reuse the render logic but wrapped differently for this modal context */}
-                                    <div className="p-8">
-                                        <div className="flex items-center gap-6 mb-8">
-                                            <div className="relative w-24 h-24 shrink-0 flex items-center justify-center rounded-full bg-white shadow-inner"
-                                                style={{ background: `conic-gradient(#C7A965 ${performanceReport.rating}%, #E5E7EB 0)` }}>
-                                                <div className="absolute inset-2 bg-white rounded-full flex flex-col items-center justify-center">
-                                                    <span className="text-3xl font-serif font-bold text-charcoal">{performanceReport.rating}</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">/ 100</span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-500 font-medium mb-1">Summary</div>
-                                                <div className="text-lg text-charcoal leading-snug whitespace-pre-wrap">{performanceReport.summary}</div>
-                                            </div>
-                                        </div>
-                                        {/* Brief Suggestions for Teleprompter Mode */}
-                                        <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4"><Lightbulb size={16} className="text-gold" />Suggestions</h3>
-                                        <div className="space-y-3 mb-6">
-                                             {performanceReport.suggestions.map((tip, i) => (
-                                                 <div key={i} className="flex gap-4 p-4 rounded-xl bg-[#FAF9F6] border border-[#F0F0F0]">
-                                                     <div className="w-6 h-6 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xs font-serif font-bold text-gold shrink-0">{i + 1}</div>
-                                                     <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap">{tip}</p>
-                                                 </div>
-                                             ))}
-                                        </div>
-                                        {performanceReport.pronunciationFeedback && (
-                                            <div>
-                                                <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-4"><Ear size={16} className="text-gold" />Pronunciation</h3>
-                                                <div className="bg-[#FAF9F6] p-4 rounded-xl border border-[#F0F0F0]">
-                                                    {performanceReport.pronunciationFeedback.length > 0 ? (
-                                                        <ul className="space-y-2">{performanceReport.pronunciationFeedback.map((s, i) => <li key={i} className="text-sm text-gray-600 list-disc ml-4">{s}</li>)}</ul>
-                                                    ) : <span className="text-sm text-gray-400 italic">No issues detected.</span>}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                 </div>
-                                 <div className="p-4 bg-[#FAF9F6] border-t border-[#F0F0F0] flex justify-end gap-3" data-html2canvas-ignore>
-                                     <button onClick={downloadReportAsImage} className="px-5 py-2 bg-white text-charcoal border border-gray-300 rounded-full text-xs font-bold hover:bg-gray-50 flex items-center gap-2"><Download size={14} /> Download</button>
-                                     <button onClick={() => setShowReport(false)} className="px-5 py-2 bg-charcoal text-white rounded-full text-xs font-bold hover:bg-black">Close</button>
-                                 </div>
-                             </div>
-                        </div>
-                    )}
                 </>
             )}
-          </>
-        )}
-      </div>
 
-      {hasStarted && (
-          <div className="h-24 bg-cream/90 backdrop-blur-md border-t border-[#E6E6E6] flex items-center justify-between px-10 z-50 shrink-0">
-             <div className="flex items-center gap-4 w-1/3">
-                <div className="relative group">
-                    <button onClick={() => setShowSettings(!showSettings)} className={`p-3 rounded-full transition-all duration-300 ${showSettings ? 'bg-charcoal text-white' : 'text-gray-500 hover:bg-gray-200 hover:text-charcoal'}`} title="Settings"><Settings size={20} /></button>
-                    {showSettings && (
-                        <div className="absolute bottom-full left-0 mb-6 w-72 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] border border-[#EBE8E0] p-6 animate-in slide-in-from-bottom-2">
-                            <h3 className="text-[10px] font-bold text-gold mb-6 uppercase tracking-widest">Display Settings</h3>
-                            <div className="space-y-8">
-                                <div>
-                                    <div className="flex justify-between text-xs font-medium text-gray-500 mb-3"><span>Text Size</span><span>{fontSize}px</span></div>
-                                    <input type="range" min="24" max="96" value={fontSize} onChange={(e) => setFontSize(parseInt(e.target.value))} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-charcoal" />
-                                </div>
-                                <div>
-                                    <div className="flex justify-between text-xs font-medium text-gray-500 mb-3"><span>Future Text Visibility</span><span>{Math.round(opacity * 100)}%</span></div>
-                                    <input type="range" min="0" max="1" step="0.05" value={opacity} onChange={(e) => setOpacity(parseFloat(e.target.value))} className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-charcoal" />
-                                </div>
+            {/* Pronunciation */}
+            {pronunciationFeedback && pronunciationFeedback.length > 0 && (
+                <div className="mt-12">
+                     <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase">
+                        <Ear size={14} /> Pronunciation & Clarity
+                     </div>
+                     <div className="bg-[#FAF9F6] rounded-2xl p-8 border border-[#EBE8E0]">
+                         <div className="grid md:grid-cols-2 gap-4">
+                             {pronunciationFeedback.map((pf, i) => (
+                                 <div key={i} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
+                                     <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+                                     <p className="text-sm text-gray-600">{pf}</p>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                </div>
+            )}
+        </div>
+    );
+  };
+
+  const renderTeleprompterView = () => (
+      <div className="relative h-full bg-black">
+          {/* Video Layer */}
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            muted 
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover z-0 opacity-80" 
+          />
+          
+          {/* Teleprompter Overlay */}
+          <Teleprompter 
+            words={scriptWords} 
+            activeWordIndex={activeWordIndex}
+            fontSize={fontSize}
+            opacity={opacity}
+          />
+          
+          {/* Top Control Bar */}
+          <div className="absolute top-0 left-0 right-0 p-6 z-30 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
+               <div>
+                  <div className="text-[10px] font-bold text-white/60 uppercase tracking-widest mb-1">MicDrop</div>
+                  <h2 className="text-xl font-serif font-bold text-white tracking-wide">The Rehearsal</h2>
+               </div>
+               
+               <div className="flex gap-4">
+                   <button 
+                     onClick={() => setIsEditMode(true)}
+                     disabled={recordingState === 'recording'}
+                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                   >
+                     <FileText size={14} /> Script
+                   </button>
+                   <button 
+                     onClick={() => setShowSettings(!showSettings)}
+                     className="px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full text-white text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-2"
+                   >
+                     <Settings size={14} /> Settings
+                   </button>
+                   <button onClick={goHome} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
+                       <X size={16} />
+                   </button>
+               </div>
+          </div>
+          
+          {/* Settings Panel */}
+          {showSettings && (
+             <div className="absolute top-20 right-6 w-64 bg-charcoal/90 backdrop-blur-xl border border-white/10 rounded-2xl p-6 z-40 text-white animate-in slide-in-from-top-4">
+                 <h3 className="text-xs font-bold uppercase tracking-widest mb-6 text-gold">Display Settings</h3>
+                 
+                 <div className="mb-6">
+                     <div className="flex justify-between mb-2">
+                         <span className="text-xs font-medium">Font Size</span>
+                         <span className="text-xs text-gray-400">{fontSize}px</span>
+                     </div>
+                     <input 
+                       type="range" min="20" max="80" value={fontSize} 
+                       onChange={(e) => setFontSize(Number(e.target.value))}
+                       className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                     />
+                 </div>
+
+                 <div>
+                     <div className="flex justify-between mb-2">
+                         <span className="text-xs font-medium">Opacity</span>
+                         <span className="text-xs text-gray-400">{Math.round(opacity * 100)}%</span>
+                     </div>
+                     <input 
+                       type="range" min="0" max="1" step="0.1" value={opacity} 
+                       onChange={(e) => setOpacity(Number(e.target.value))}
+                       className="w-full accent-gold h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                     />
+                 </div>
+             </div>
+          )}
+
+          {/* Bottom Control Bar */}
+          <div className="absolute bottom-10 left-0 right-0 z-30 flex justify-center items-center gap-8">
+               {recordingState === 'idle' ? (
+                   <button 
+                     onClick={startRecording}
+                     className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 border-4 border-white/20 shadow-2xl flex items-center justify-center transition-all hover:scale-105 group"
+                   >
+                     <div className="w-8 h-8 rounded bg-white group-hover:rounded-sm transition-all" />
+                   </button>
+               ) : (
+                   <div className="flex items-center gap-6">
+                       <div className="px-6 py-3 bg-black/60 backdrop-blur-md rounded-full border border-white/10 text-white font-mono text-xl tabular-nums">
+                           {formatTime(recordingDuration)}
+                       </div>
+                       <button 
+                         onClick={stopRecording}
+                         className="w-20 h-20 rounded-full bg-white hover:bg-gray-200 border-4 border-white/20 shadow-2xl flex items-center justify-center transition-all hover:scale-105"
+                       >
+                         <div className="w-8 h-8 bg-red-500 rounded-sm" />
+                       </button>
+                   </div>
+               )}
+          </div>
+          
+          {/* Permission Error Overlay */}
+          {permissionError && (
+              <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center p-8 text-center">
+                  <div className="max-w-md">
+                      <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">Camera Access Required</h3>
+                      <p className="text-gray-400 mb-6">{permissionError}</p>
+                      <button onClick={initCamera} className="px-6 py-3 bg-white text-black rounded-full font-bold hover:bg-gray-200">
+                          Try Again
+                      </button>
+                  </div>
+              </div>
+          )}
+
+          {/* Script Editor Modal */}
+          {isEditMode && (
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-charcoal w-full max-w-2xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                      <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                          <h3 className="text-white font-serif font-bold text-xl">Script Editor</h3>
+                          <div className="flex gap-2">
+                             <button onClick={generateAndPlayTTS} className="text-xs font-bold text-gold uppercase tracking-widest px-3 py-1.5 border border-gold/30 rounded-full hover:bg-gold/10 flex items-center gap-2">
+                                 {isPlayingTTS ? <StopCircle size={14} /> : <Volume2 size={14} />}
+                                 {isGeneratingTTS ? 'Generating...' : (isPlayingTTS ? 'Stop AI' : 'Listen to AI')}
+                             </button>
+                             <button onClick={handleClearScript} className="text-xs font-bold text-red-400 uppercase tracking-widest px-3 py-1.5 hover:text-red-300">Clear</button>
+                          </div>
+                      </div>
+                      <textarea
+                        value={scriptText}
+                        onChange={handleScriptChange}
+                        placeholder="Paste your script here... (e.g. 'Hi, I'm Lily...')"
+                        className="flex-1 bg-black/20 text-white p-6 resize-none outline-none focus:bg-black/40 transition-colors text-lg leading-relaxed font-serif placeholder:text-white/20"
+                      />
+                      <div className="p-6 border-t border-white/10 flex justify-between items-center bg-black/20">
+                          <span className="text-xs text-gray-500 font-medium">
+                              {scriptWords.length} words • ~{Math.ceil(scriptWords.length / 150)} min
+                          </span>
+                          <button 
+                            onClick={() => setIsEditMode(false)}
+                            className="px-8 py-3 bg-gold text-charcoal rounded-xl font-bold hover:bg-yellow-500 transition-colors"
+                          >
+                            Save & Close
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
+          
+          {/* Post-Recording Modal (Analysis Trigger) */}
+          {recordedChunks.length > 0 && recordingState === 'idle' && !isAnalyzing && !showReport && (
+               <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+                    <div className="bg-white max-w-md w-full rounded-3xl p-8 text-center animate-in scale-in-95 duration-200">
+                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Check size={32} />
+                        </div>
+                        <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">Recording Complete</h3>
+                        <p className="text-gray-500 mb-8">Your rehearsal is ready for AI analysis.</p>
+                        
+                        <div className="space-y-3">
+                            <button onClick={analyzePerformance} className="w-full py-4 bg-charcoal text-white rounded-xl font-bold hover:bg-black flex items-center justify-center gap-2 shadow-lg">
+                                <Sparkles size={18} /> Analyze Performance
+                            </button>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={downloadVideo} className="py-3 bg-gray-100 text-charcoal rounded-xl font-bold hover:bg-gray-200 text-sm">
+                                    Download Video
+                                </button>
+                                <button onClick={() => setRecordedChunks([])} className="py-3 border border-gray-200 text-gray-500 rounded-xl font-bold hover:bg-gray-50 text-sm">
+                                    Discard
+                                </button>
                             </div>
                         </div>
-                    )}
-                </div>
-                <button onClick={() => setIsEditMode(true)} className="p-3 text-gray-500 hover:bg-gray-200 hover:text-charcoal rounded-full transition-all" title="Edit Script"><Type size={20} /></button>
-             </div>
-
-             <div className="flex items-center justify-center w-1/3">
-                 {recordingState === 'idle' ? (
-                    <button onClick={startRecording} disabled={scriptWords.length === 0} className={`w-16 h-16 rounded-full flex items-center justify-center border-[3px] transition-all duration-300 ${scriptWords.length > 0 ? 'border-charcoal bg-transparent hover:bg-charcoal group' : 'border-gray-300 bg-gray-100 cursor-not-allowed opacity-50'}`} title={scriptWords.length === 0 ? "Add script to record" : "Start Recording"}>
-                         <div className={`w-6 h-6 rounded-full transition-colors duration-300 ${scriptWords.length > 0 ? 'bg-red-500 group-hover:bg-red-500' : 'bg-gray-300'}`}></div>
-                    </button>
-                 ) : (
-                    <button onClick={stopRecording} className="w-16 h-16 rounded-full flex items-center justify-center border-[3px] border-red-500 bg-transparent hover:bg-red-50 transition-all group">
-                        <div className="w-6 h-6 bg-red-500 rounded-sm group-hover:scale-90 transition-transform"></div>
-                    </button>
-                 )}
-             </div>
-
-             <div className="flex items-center justify-end gap-3 w-1/3 text-sm">
-                 {recordingState !== 'idle' && <div className="font-mono text-charcoal font-medium text-lg tracking-widest">{formatTime(recordingDuration)}</div>}
-                 {recordingState === 'idle' && recordedChunks.length > 0 && (
-                    <>
-                        <button onClick={performanceReport ? () => setShowReport(true) : analyzePerformance} disabled={isAnalyzing} className={`flex items-center gap-2 px-5 py-3 rounded-full text-xs font-bold tracking-wider uppercase transition-all shadow-md ${isAnalyzing ? 'bg-gray-100 text-gray-400 cursor-wait' : 'bg-white text-gold border border-gold/30 hover:bg-gold hover:text-white'}`}>
-                            {isAnalyzing ? <><Loader2 size={16} className="animate-spin" /><span>Analyzing...</span></> : <><Sparkles size={16} /><span>{performanceReport ? 'View Report' : 'Analyze'}</span></>}
-                        </button>
-                        <button onClick={downloadVideo} className="flex items-center gap-2 px-5 py-3 bg-charcoal text-white rounded-full text-xs font-bold tracking-wider uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"><Download size={16} /><span>Save Video</span></button>
-                    </>
-                 )}
-             </div>
-          </div>
-      )}
+                    </div>
+               </div>
+          )}
+          
+          {/* Analysis Loading State */}
+          {isAnalyzing && (
+               <div className="absolute inset-0 bg-cream/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center">
+                    <Loader2 size={48} className="text-gold animate-spin mb-6" />
+                    <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">Analyzing Performance</h3>
+                    <p className="text-gray-500 max-w-xs mx-auto animate-pulse">
+                        Gemini is reviewing your pacing, clarity, and delivery...
+                    </p>
+               </div>
+          )}
+          
+          {/* Performance Report Modal (Full Screen Overlay) */}
+          {showReport && performanceReport && (
+              <div className="absolute inset-0 bg-cream z-50 overflow-y-auto animate-in slide-in-from-bottom-10">
+                   <div className="max-w-4xl mx-auto p-8 pt-12 pb-24">
+                       {renderPerformanceReportContent()}
+                   </div>
+              </div>
+          )}
       </div>
   );
 
   return (
-    <>
+    <div className="h-full w-full">
         {currentView === 'home' && renderHome()}
         {currentView === 'analysis' && renderAnalysisView()}
         {currentView === 'teleprompter' && renderTeleprompterView()}
-    </>
+    </div>
   );
 };
 

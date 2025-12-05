@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { ScriptWord, PerformanceReport, DetailedFeedback } from './types';
 import Teleprompter from './components/Teleprompter';
@@ -200,13 +200,16 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<'idle' | 'transcribing' | 'analyzing'>('idle');
   const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
+  const [transcriptionResult, setTranscriptionResult] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
+  const [showTranscription, setShowTranscription] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   
   // External Upload State
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadContext, setUploadContext] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedAudioBase64, setUploadedAudioBase64] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // TTS State
@@ -630,9 +633,12 @@ Provide a JSON report with:
               reader.onerror = reject;
               reader.readAsDataURL(selectedFile);
           });
+          
+          // Store raw audio for stage 2
+          setUploadedAudioBase64(base64Audio);
 
           // Call analysis with user provided context
-          await analyzeUploadedAudio(base64Audio, selectedFile.type, uploadContext);
+          await analyzeStage1_Transcribe(base64Audio, selectedFile.type, uploadContext);
       } catch (error) {
           console.error("Upload analysis failed:", error);
           alert("Failed to analyze uploaded audio. Please try a valid audio file (mp3, wav, m4a).");
@@ -646,105 +652,155 @@ Provide a JSON report with:
       if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const analyzeUploadedAudio = async (base64Audio: string, mimeType: string, context: string) => {
+  const analyzeStage1_Transcribe = async (base64Audio: string, mimeType: string, context: string) => {
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const audioMime = mimeType.includes('m4a') ? 'audio/mp4' : mimeType;
 
-          // STEP 1: Transcribe the audio first using Gemini Flash
+          // STEP 1: Forensic Transcription using Gemini Flash
           setAnalysisStep('transcribing');
           
           const transcriptResponse = await ai.models.generateContent({
               model: 'gemini-2.5-flash',
+              config: {
+                 systemInstruction: `You are a Professional Forensic Transcriber.
+                 Objective: Convert interview audio into a verbatim transcript optimized for behavioral analysis.
+                 Guidelines:
+                 1. Verbatim Accuracy: Do not "clean up" grammar. Keep all "ums," "uhs," "likes," and repeated words. These are crucial for the coach to analyze later.
+                 2. Speaker Identification: Label speakers clearly (e.g., [Candidate], [Recruiter]) based on context.
+                 3. Timestamps: Insert a timestamp [00:00] every 30-60 seconds or at every speaker change.
+                 4. Non-Verbal Cues: Transcribe significant sounds in brackets, e.g., [nervous laughter], [long pause], [sigh], [typing noise].
+                 5. Output Format: Clean Markdown.`
+              },
               contents: {
                   parts: [
                       { inlineData: { mimeType: audioMime, data: base64Audio } },
-                      { text: `Transcribe the following audio recording verbatim. 
-                      Based on the user's description below, identify the speakers if possible (e.g., 'Recruiter', 'Candidate').
-                      
-                      User Context: "${context}"
-                      
-                      Output only the transcription text, clearly labeled.` }
+                      { text: `Please transcribe the attached audio file following the forensic guidelines.
+                      User Context to identify speakers: "${context}"` }
                   ]
               }
           });
           
           const transcript = transcriptResponse.text;
-          console.log("Transcription complete:", transcript.substring(0, 100) + "...");
+          console.log("Stage 1 Transcription complete");
+          
+          setTranscriptionResult(transcript);
+          setShowTranscription(true);
+      } catch (error) {
+          console.error("Transcription stage failed:", error);
+          throw error;
+      } finally {
+          setIsAnalyzing(false);
+          setAnalysisStep('idle');
+      }
+  };
 
-          // STEP 2: Analyze using Gemini 3 Pro with BOTH Audio and Transcription
-          setAnalysisStep('analyzing');
+  const analyzeStage2_Coach = async (base64Audio: string, transcript: string) => {
+      if (!base64Audio || !transcript) return;
+      
+      setIsAnalyzing(true);
+      setAnalysisStep('analyzing');
+      setShowTranscription(false); // Close transcription view
+
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          // M4A is typically audio/mp4 for Gemini
+          const audioMime = selectedFile?.type.includes('m4a') ? 'audio/mp4' : (selectedFile?.type || 'audio/mp3');
 
           const response = await ai.models.generateContent({
-              model: 'gemini-3-pro-preview',
-              contents: {
-                  parts: [
-                      // We provide the audio again so the model can hear tone/pace/pitch
-                      { inlineData: { mimeType: audioMime, data: base64Audio } },
-                      { text: `You are an expert speech coach analyzing an audio recording of an interview or speech. 
-                      
-                      CONTEXT PROVIDED BY USER:
-                      "${context}"
-
-                      TRANSCRIPTION OF THE AUDIO:
-                      "${transcript}"
-                      
-                      INSTRUCTIONS:
-                      1. Use the provided Transcription to understand the exact content and context.
-                      2. Use the Audio to analyze the delivery, pace, tone, and pitch.
-                      3. Identify the primary speaker (candidate) and the interviewer/recruiter based on the context. 
-                      4. Focus your analysis ONLY on the primary speaker/candidate.
-
-                      Evaluate their performance and provide VERY CONSTRUCTIVE, DETAILED feedback in the following structure:
-                      
-                      For each point (Pace, Voice Placement, Clarity, Pitch/Tone, Content/Impact):
-                      1. Identify the Category (MUST NOT BE EMPTY).
-                      2. State "The Issue" clearly (MUST NOT BE EMPTY).
-                      3. Cite a "Specific Instance" from the audio or transcription (quote what was said or describe the moment). If no specific quote is available, describe a general pattern observed. (MUST NOT BE EMPTY).
-                      4. Provide a concrete "Improvement" strategy (e.g., "Use the comma pause", "Stop, don't bridge"). (MUST NOT BE EMPTY).
-
-                      Also provide an overall rating and summary.
-                      Ensure ALL fields in the detailedFeedback objects are filled with meaningful text. Do not return empty strings.
-
-                      Provide a JSON report.` }
-                  ]
-              },
+              model: 'gemini-3-pro-preview', // Using Pro/3.0 for high-level reasoning
               config: {
+                  systemInstruction: `Role: You are an Elite Executive Communication Coach and Technical Recruiter.
+                  Objective: Provide "brutally honest" constructive feedback to the Candidate based on their Audio (tone/delivery) and Transcript (content/strategy).
+
+                  Analysis Framework:
+                  1. Delivery (Audio Focus):
+                     - The "Nervous Spike": Correlate Audio to Transcript. Point out where pitch rises or pace rushes.
+                     - Silence & Pauses: Did the candidate pause before answering?
+                     - Tone Mapping: Does tone match content? (e.g. apologetic when discussing achievements).
+                  2. Strategy (Text Focus):
+                     - The "Punchline" Rule: Did answer start with result/impact?
+                     - Relevance: Did they answer the specific question?
+                     - Leadership Signals: "I led" vs "We did".
+
+                  Output Style:
+                  - Diagnosis: Identify top issues.
+                  - Evidence: Quote transcript AND describe audio (e.g. "At 02:14 you said 'I think so...' but voice trailed off").
+                  - Drill: One specific exercise to fix it.`,
                   responseMimeType: "application/json",
                   responseSchema: {
                       type: GeminiType.OBJECT,
                       properties: {
                           rating: { type: GeminiType.INTEGER },
                           summary: { type: GeminiType.STRING },
+                          suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
                           detailedFeedback: {
                               type: GeminiType.ARRAY,
                               items: {
                                   type: GeminiType.OBJECT,
                                   properties: {
-                                      category: { type: GeminiType.STRING, description: "e.g. Pace, Clarity, Content" },
-                                      issue: { type: GeminiType.STRING, description: "Description of the problem" },
-                                      instance: { type: GeminiType.STRING, description: "Specific quote or example from the audio" },
-                                      improvement: { type: GeminiType.STRING, description: "Actionable advice" }
+                                      category: { type: GeminiType.STRING },
+                                      issue: { type: GeminiType.STRING },
+                                      instance: { type: GeminiType.STRING },
+                                      improvement: { type: GeminiType.STRING }
                                   },
                                   required: ["category", "issue", "instance", "improvement"]
                               }
                           },
-                          suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }, // Fallback/General
                           pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }
                       },
-                      required: ["rating", "summary", "detailedFeedback", "suggestions"]
+                      required: ["rating", "summary", "suggestions", "detailedFeedback"]
                   }
+              },
+              contents: {
+                  parts: [
+                      { inlineData: { mimeType: audioMime, data: base64Audio } },
+                      { text: `Context: ${uploadContext}
+                      
+                      Input 1: Attached is the original Audio.
+                      Input 2: Below is the Transcript generated from this call.
+
+                      ${transcript}
+
+                      Task:
+                      Based on the Audio (for tone) and the Text (for content), analyze my performance.
+                      1. Did I sound like a Leader or a Contributor?
+                      2. Critique my "Check-in" questions—were they effective?
+                      3. Find the exact moment my "English anxiety" kicked in (rushing/monotone) and tell me how to fix it.` }
+                  ]
               }
           });
 
-          setPerformanceReport(JSON.parse(response.text));
+          const result = JSON.parse(response.text);
+          setPerformanceReport(result);
           setShowReport(true);
       } catch (error) {
-          console.error("External analysis failed:", error);
-          alert("Could not analyze the audio. Ensure the file format is supported.");
+          console.error("Stage 2 Coach analysis failed:", error);
+          alert("Coach analysis failed. Please try again.");
+          setShowTranscription(true); // Re-open transcript so user isn't lost
       } finally {
           setIsAnalyzing(false);
           setAnalysisStep('idle');
+      }
+  };
+
+  const downloadTranscript = () => {
+    if (!transcriptionResult) return;
+    const blob = new Blob([transcriptionResult], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `forensic-transcript-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+  
+  const proceedToCoaching = () => {
+      if (uploadedAudioBase64 && transcriptionResult) {
+          analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult);
+      } else {
+          alert("Missing audio or transcript data.");
       }
   };
 
@@ -868,7 +924,7 @@ Provide a JSON report with:
                         >
                             {isAnalyzing ? (
                                 <><Loader2 size={14} className="animate-spin" /> 
-                                  {analysisStep === 'transcribing' ? 'Transcribing Audio...' : 'Analyzing Tone & Pace...'}
+                                  {analysisStep === 'transcribing' ? 'Transcribing Audio...' : 'Coach is Analyzing...'}
                                 </>
                             ) : (
                                 <><Upload size={14} /> Analyze External Audio (M4A/MP3)</>
@@ -943,12 +999,56 @@ Provide a JSON report with:
                                     className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${!selectedFile ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-charcoal text-white hover:bg-black shadow-lg hover:shadow-xl hover:-translate-y-0.5'}`}
                                 >
                                     {isAnalyzing ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                                    <span>Start Analysis</span>
+                                    <span>Start Forensic Transcription</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Stage 1: Transcription Result View (Full Screen) */}
+            {showTranscription && transcriptionResult && (
+                 <div className="fixed inset-0 z-[100] bg-cream flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden">
+                     <div className="px-8 py-6 border-b border-[#E6E6E6] bg-white flex justify-between items-center shrink-0 shadow-sm z-10">
+                         <div className="flex items-center gap-4">
+                             <div className="w-10 h-10 rounded-full bg-cream border border-[#EBE8E0] flex items-center justify-center">
+                                 <FileText size={20} className="text-gold" />
+                             </div>
+                             <div>
+                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Stage 1: The Scribe</div>
+                                 <h2 className="text-xl font-serif font-bold text-charcoal">Forensic Transcript</h2>
+                             </div>
+                         </div>
+                         <div className="flex items-center gap-3">
+                             <button onClick={downloadTranscript} className="px-6 py-2.5 bg-white text-charcoal border border-gray-200 rounded-full text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
+                                <Download size={16} />
+                                Download Transcript
+                             </button>
+                             <button onClick={() => setShowTranscription(false)} className="px-6 py-2.5 bg-gray-200 text-charcoal rounded-full text-sm font-bold hover:bg-gray-300 transition-colors">Close</button>
+                         </div>
+                     </div>
+                     
+                     <div className="flex-1 overflow-y-auto bg-cream p-8 md:p-12">
+                         <div className="max-w-4xl mx-auto">
+                            <div className="bg-white rounded-3xl p-8 md:p-12 shadow-[0_2px_20px_-5px_rgba(0,0,0,0.05)] border border-[#EBE8E0] space-y-8">
+                                <div className="prose prose-lg max-w-none font-serif text-charcoal leading-relaxed whitespace-pre-wrap">
+                                    {transcriptionResult}
+                                </div>
+                            </div>
+                            
+                            <div className="mt-8 flex justify-center">
+                                <button 
+                                    onClick={proceedToCoaching}
+                                    className="px-8 py-4 bg-charcoal text-white rounded-full text-lg font-bold hover:bg-black transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center gap-3"
+                                >
+                                    <span>Proceed to Stage 2: Coach Analysis</span>
+                                    <ArrowRightCircle size={20} />
+                                </button>
+                            </div>
+                         </div>
+                     </div>
+                 </div>
             )}
 
             {/* Performance Report - Full Screen Overlay */}
@@ -1046,7 +1146,6 @@ Provide a JSON report with:
                                  </div>
                              )}
 
-                            {/* Pronunciation Section */}
                             {performanceReport.pronunciationFeedback && performanceReport.pronunciationFeedback.length > 0 && (
                                  <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
                                     <h3 className="flex items-center gap-2 text-sm font-bold text-charcoal uppercase tracking-widest mb-6">

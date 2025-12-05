@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { ScriptWord, PerformanceReport, DetailedFeedback } from './types';
 import Teleprompter from './components/Teleprompter';
@@ -849,42 +848,65 @@ Provide a JSON report with:
 
           <div className="text-center mb-16 z-10 max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="mb-4 inline-block px-4 py-1.5 rounded-full border border-gold/40 text-gold text-[10px] font-bold tracking-[0.2em] uppercase bg-white/50 backdrop-blur-sm">
-                  AI-Powered Communications
+                  Executive Performance Suite
               </div>
               <h1 className="text-6xl md:text-8xl font-serif mb-6 tracking-tight text-charcoal">
-                  Interview Coach
+                  MicDrop
               </h1>
               <p className="text-gray-500 text-xl font-serif italic max-w-lg mx-auto leading-relaxed">
-                  Master your delivery with adaptive teleprompting and multi-modal behavioral analysis.
+                  Don't just answer. Perform.
               </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 z-10 w-full max-w-4xl">
-              <button onClick={() => { setCurrentView('teleprompter'); setHasStarted(false); }} className="group bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                       <Video size={100} className="text-charcoal" />
+          <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4">
+              {/* Card 1: The Sound Check */}
+              <button onClick={() => { setCurrentView('analysis'); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+                   <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                       <AudioLines size={80} className="text-charcoal" />
                    </div>
-                   <div className="w-16 h-16 rounded-2xl bg-charcoal text-white flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                       <Video size={32} />
+                   <div className="w-14 h-14 rounded-2xl bg-charcoal text-white flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
+                       <AudioLines size={24} />
                    </div>
-                   <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">Teleprompter Practice</h3>
-                   <p className="text-gray-500 leading-relaxed mb-6">Record yourself with a smart, listening script. Get real-time scrolling and instant feedback.</p>
-                   <div className="flex items-center gap-2 text-gold font-bold text-sm tracking-widest uppercase">
-                       Start Session <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                   <div className="flex-1">
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Sound Check</h3>
+                       <p className="text-gray-500 text-sm leading-relaxed mb-6">Upload your raw audio. Get a forensic, timestamped transcript that captures every hesitation.</p>
+                   </div>
+                   <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
+                       Analyze Audio <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                    </div>
               </button>
 
-              <button onClick={() => { setCurrentView('analysis'); }} className="group bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                       <FileAudio size={100} className="text-gold" />
+              {/* Card 2: The Roast */}
+              <button onClick={() => { setCurrentView('analysis'); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+                   <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                       <Flame size={80} className="text-gold" />
                    </div>
-                   <div className="w-16 h-16 rounded-2xl bg-cream border border-gold/20 text-gold flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                       <Upload size={32} />
+                   <div className="w-14 h-14 rounded-2xl bg-cream border border-gold/20 text-gold flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
+                       <Flame size={24} />
                    </div>
-                   <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">Forensic Analysis</h3>
-                   <p className="text-gray-500 leading-relaxed mb-6">Upload an existing interview recording. Get a forensic transcript and executive coaching critique.</p>
-                   <div className="flex items-center gap-2 text-gold font-bold text-sm tracking-widest uppercase">
-                       Upload Audio <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                   <div className="flex-1">
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Roast</h3>
+                       <p className="text-gray-500 text-sm leading-relaxed mb-6">Brutally honest feedback on your delivery, pitch, and strategy. Find out if you sound like a leader.</p>
+                   </div>
+                   <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
+                       Get Critiqued <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                   </div>
+              </button>
+
+              {/* Card 3: The Rehearsal */}
+              <button onClick={() => { setCurrentView('teleprompter'); setHasStarted(false); }} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+                   <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                       <ScrollText size={80} className="text-charcoal" />
+                   </div>
+                   <div className="w-14 h-14 rounded-2xl bg-charcoal text-white flex items-center justify-center mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
+                       <ScrollText size={24} />
+                   </div>
+                   <div className="flex-1">
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">The Rehearsal</h3>
+                       <p className="text-gray-500 text-sm leading-relaxed mb-6">Practice your pitch with an adaptive teleprompter that listens to your pace in real-time.</p>
+                   </div>
+                   <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
+                       Start Practice <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                    </div>
               </button>
           </div>
@@ -900,7 +922,7 @@ Provide a JSON report with:
                         <Home size={18} className="text-gray-500" />
                     </button>
                     <div>
-                        <div className="text-[10px] font-bold text-gold uppercase tracking-widest">Interview Coach</div>
+                        <div className="text-[10px] font-bold text-gold uppercase tracking-widest">MicDrop</div>
                         <h2 className="text-xl font-serif font-bold text-charcoal">Forensic Analysis</h2>
                     </div>
                 </div>

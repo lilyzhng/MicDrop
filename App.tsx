@@ -177,7 +177,7 @@ const isMatch = (scriptWord: string, spokenWord: string): boolean => {
 
 // Application Views
 type AppView = 'home' | 'teleprompter' | 'analysis';
-type AnalysisMode = 'sound_check' | 'roast';
+type AnalysisMode = 'sound_check' | 'coach';
 
 const App: React.FC = () => {
   // Navigation State
@@ -670,8 +670,8 @@ Provide a JSON report with:
       }
   };
 
-  // Stage 2 Start Trigger (Roast)
-  const startRoastAnalysis = async () => {
+  // Stage 2 Start Trigger (Coach)
+  const startCoachAnalysis = async () => {
       if (!selectedFile) return;
 
       setIsAnalyzing(true);
@@ -698,7 +698,7 @@ Provide a JSON report with:
           }
 
       } catch (error) {
-          console.error("Roast analysis failed:", error);
+          console.error("Coach analysis failed:", error);
           alert("Failed to analyze uploaded audio.");
           setIsAnalyzing(false);
           setAnalysisStep('idle');
@@ -945,8 +945,8 @@ Provide a JSON report with:
                    </div>
               </button>
 
-              {/* Card 2: Roast */}
-              <button onClick={() => navigateToAnalysis('roast')} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
+              {/* Card 2: Coach */}
+              <button onClick={() => navigateToAnalysis('coach')} className="group bg-white p-8 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                    <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                        <Flame size={80} className="text-gold" />
                    </div>
@@ -954,11 +954,11 @@ Provide a JSON report with:
                        <Flame size={24} />
                    </div>
                    <div className="flex-1">
-                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Roast</h3>
-                       <p className="text-gray-500 text-sm leading-relaxed mb-6">Brutally honest feedback on your delivery, pitch, and strategy. Find out if you sound like a leader.</p>
+                       <h3 className="text-xl font-serif font-bold text-charcoal mb-3">Coach</h3>
+                       <p className="text-gray-500 text-sm leading-relaxed mb-6">Executive-level feedback on delivery, strategy, and leadership presence.</p>
                    </div>
                    <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
-                       Get Critiqued <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                       Get Coached <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                    </div>
               </button>
 
@@ -993,14 +993,14 @@ Provide a JSON report with:
                     <div>
                         <div className="text-[10px] font-bold text-gold uppercase tracking-widest">MicDrop</div>
                         <h2 className="text-xl font-serif font-bold text-charcoal">
-                            {analysisMode === 'sound_check' ? 'Sound Check' : 'The Roast'}
+                            {analysisMode === 'sound_check' ? 'Sound Check' : 'The Coach'}
                         </h2>
                     </div>
                 </div>
            </div>
 
            {/* Main Content Area */}
-           <div className="flex-1 overflow-y-auto p-8 relative">
+           <div className="flex-1 overflow-y-auto p-8 relative min-h-0">
                 {!transcriptionResult && !performanceReport ? (
                     // Upload State
                     <div className="max-w-2xl mx-auto mt-12 bg-white rounded-3xl shadow-xl border border-[#EBE8E0] p-10 animate-in fade-in slide-in-from-bottom-4">
@@ -1048,13 +1048,13 @@ Provide a JSON report with:
                                 )}
                             </div>
 
-                            {/* Additional Input for Roast Mode */}
-                            {analysisMode === 'roast' && (
+                            {/* Additional Input for Coach Mode */}
+                            {analysisMode === 'coach' && (
                                 <div>
                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Existing Transcript (Optional)</label>
                                     <textarea 
                                         className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder-gray-300"
-                                        placeholder="Paste transcription here to skip Stage 1..."
+                                        placeholder="Paste transcription here to skip Forensic Transcription..."
                                         value={manualTranscript}
                                         onChange={(e) => setManualTranscript(e.target.value)}
                                     />
@@ -1063,21 +1063,21 @@ Provide a JSON report with:
                             )}
 
                             <button 
-                                onClick={analysisMode === 'roast' ? startRoastAnalysis : startSoundCheckAnalysis}
+                                onClick={analysisMode === 'coach' ? startCoachAnalysis : startSoundCheckAnalysis}
                                 disabled={!selectedFile || isAnalyzing}
                                 className={`w-full py-5 rounded-xl font-bold flex items-center justify-center gap-3 transition-all text-lg shadow-lg ${!selectedFile || isAnalyzing ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-charcoal text-white hover:bg-black hover:shadow-xl hover:-translate-y-0.5'}`}
                             >
-                                {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : analysisMode === 'roast' ? <Flame size={20} /> : <Sparkles size={20} />}
+                                {isAnalyzing ? <Loader2 size={20} className="animate-spin" /> : analysisMode === 'coach' ? <Flame size={20} /> : <Sparkles size={20} />}
                                 <span>
                                     {isAnalyzing 
                                         ? (analysisStep === 'transcribing' ? 'Transcribing (Stage 1)...' : 'Analyzing (Stage 2)...') 
-                                        : (analysisMode === 'roast' ? 'Roast Me' : 'Start Forensic Transcription')}
+                                        : (analysisMode === 'coach' ? 'Start Coaching' : 'Start Forensic Transcription')}
                                 </span>
                             </button>
                         </div>
                     </div>
                 ) : transcriptionResult && !performanceReport ? (
-                    // Transcription View (Stage 1) - Only for Sound Check or if Roast stopped early
+                    // Transcription View (Stage 1) - Only for Sound Check or if Coach stopped early
                      <div className="max-w-4xl mx-auto h-full flex flex-col">
                         <div className="bg-white rounded-t-3xl border border-[#EBE8E0] border-b-0 p-8 flex justify-between items-center shadow-sm z-10">
                              <div>

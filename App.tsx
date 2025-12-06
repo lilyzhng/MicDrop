@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star, PenTool, Quote, Mic2, PlayCircle } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star, PenTool, Quote, Mic2, PlayCircle, Bookmark, Trash2, Database } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight, SpeechDrill } from './types';
+import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight, SpeechDrill, SavedItem } from './types';
 import Teleprompter from './components/Teleprompter';
 import html2canvas from 'html2canvas';
 
@@ -177,7 +177,7 @@ const isMatch = (scriptWord: string, spokenWord: string): boolean => {
 };
 
 // Application Views
-type AppView = 'home' | 'teleprompter' | 'analysis';
+type AppView = 'home' | 'teleprompter' | 'analysis' | 'database';
 type AnalysisMode = 'sound_check' | 'coach';
 
 const App: React.FC = () => {
@@ -219,6 +219,9 @@ const App: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedAudioBase64, setUploadedAudioBase64] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Database / Saved Items State
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
 
   // TTS State
   const [isPlayingTTS, setIsPlayingTTS] = useState(false);
@@ -284,6 +287,18 @@ const App: React.FC = () => {
       videoRef.current.srcObject = stream;
     }
   }, [hasStarted, stream, videoRef.current, currentView]);
+
+  // Load saved items from localStorage on mount
+  useEffect(() => {
+      const stored = localStorage.getItem('micdrop_saved_items');
+      if (stored) {
+          try {
+              setSavedItems(JSON.parse(stored));
+          } catch (e) {
+              console.error("Failed to parse saved items", e);
+          }
+      }
+  }, []);
 
   // Cleanup when leaving view
   useEffect(() => {
@@ -658,6 +673,41 @@ Provide a JSON report with:
       }
   };
 
+  // -- Database & Saving --
+  
+  const toggleSaveItem = (item: Omit<SavedItem, 'id' | 'date'>) => {
+      // Check if item exists (simple check based on title/content match for this session)
+      const existingIndex = savedItems.findIndex(i => i.title === item.title && i.content === item.content);
+      
+      let newItems: SavedItem[];
+      
+      if (existingIndex >= 0) {
+          // Remove
+          newItems = savedItems.filter((_, idx) => idx !== existingIndex);
+      } else {
+          // Add
+          const newItem: SavedItem = {
+              ...item,
+              id: generateId(),
+              date: new Date().toISOString()
+          };
+          newItems = [newItem, ...savedItems];
+      }
+      
+      setSavedItems(newItems);
+      localStorage.setItem('micdrop_saved_items', JSON.stringify(newItems));
+  };
+  
+  const isSaved = (title: string, content: string) => {
+      return savedItems.some(i => i.title === title && i.content === content);
+  };
+  
+  const deleteSavedItem = (id: string) => {
+      const newItems = savedItems.filter(i => i.id !== id);
+      setSavedItems(newItems);
+      localStorage.setItem('micdrop_saved_items', JSON.stringify(newItems));
+  };
+
   // -- External Audio Analysis --
   
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1028,6 +1078,116 @@ Provide a JSON report with:
   };
 
   // -- Render Components --
+  
+  const renderDatabaseView = () => (
+      <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
+           {/* Header */}
+           <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setCurrentView('home')} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
+                        <Home size={18} className="text-gray-500" />
+                    </button>
+                    <div>
+                        <div className="text-[10px] font-bold text-gold uppercase tracking-widest">MicDrop</div>
+                        <h2 className="text-xl font-serif font-bold text-charcoal">
+                            My Database
+                        </h2>
+                    </div>
+                </div>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto p-8 relative min-h-0">
+               <div className="max-w-4xl mx-auto pb-20">
+                   {savedItems.length === 0 ? (
+                       <div className="text-center py-20">
+                           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-400">
+                               <Database size={32} />
+                           </div>
+                           <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">No Saved Items</h3>
+                           <p className="text-gray-500 max-w-sm mx-auto">
+                               Bookmark highlights and improvement feedback from your coaching sessions to build your personal knowledge base.
+                           </p>
+                       </div>
+                   ) : (
+                       <div className="space-y-8">
+                           {/* Improvements Section */}
+                           {savedItems.filter(i => i.type === 'improvement').length > 0 && (
+                               <div>
+                                   <div className="flex items-center gap-2 mb-6">
+                                       <Lightbulb className="text-charcoal" size={20} />
+                                       <h3 className="text-lg font-bold text-charcoal uppercase tracking-widest">Improvements to Work On</h3>
+                                   </div>
+                                   <div className="grid gap-6">
+                                       {savedItems.filter(i => i.type === 'improvement').map(item => (
+                                           <div key={item.id} className="bg-white rounded-2xl p-8 shadow-sm border border-[#EBE8E0] relative group">
+                                               <button 
+                                                   onClick={() => deleteSavedItem(item.id)}
+                                                   className="absolute top-4 right-4 p-2 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                   title="Remove from database"
+                                               >
+                                                   <Trash2 size={16} />
+                                               </button>
+                                               <div className="flex items-center gap-2 mb-4">
+                                                    <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                                                    <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                                    <span className="text-[10px] text-gray-300 ml-auto">{new Date(item.date).toLocaleDateString()}</span>
+                                               </div>
+                                               <h4 className="text-lg font-bold text-charcoal mb-2">{item.title}</h4>
+                                               <div className="bg-[#FAF9F6] p-4 rounded-xl border-l-4 border-gray-200 mb-4">
+                                                    <p className="text-charcoal font-serif text-sm leading-relaxed">"{item.content}"</p>
+                                               </div>
+                                               {item.rewrite && (
+                                                   <div className="bg-green-50/50 p-4 rounded-xl border-l-4 border-green-400">
+                                                       <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                          <PenTool size={12}/> The Rewrite
+                                                       </h5>
+                                                       <p className="text-charcoal font-serif text-sm leading-relaxed">"{item.rewrite}"</p>
+                                                   </div>
+                                               )}
+                                           </div>
+                                       ))}
+                                   </div>
+                               </div>
+                           )}
+
+                           {/* Highlights Section */}
+                           {savedItems.filter(i => i.type === 'highlight').length > 0 && (
+                               <div>
+                                   <div className="flex items-center gap-2 mb-6 mt-12">
+                                       <Star className="text-gold" size={20} />
+                                       <h3 className="text-lg font-bold text-charcoal uppercase tracking-widest">Key Strengths</h3>
+                                   </div>
+                                   <div className="grid md:grid-cols-2 gap-6">
+                                       {savedItems.filter(i => i.type === 'highlight').map(item => (
+                                           <div key={item.id} className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0] relative group">
+                                               <button 
+                                                   onClick={() => deleteSavedItem(item.id)}
+                                                   className="absolute top-4 right-4 p-2 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                   title="Remove from database"
+                                               >
+                                                   <Trash2 size={16} />
+                                               </button>
+                                               <div className="flex items-center gap-2 mb-3">
+                                                   <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                                       <Star size={12} fill="#C7A965" />
+                                                   </div>
+                                                   <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                               </div>
+                                               <h4 className="text-md font-bold text-charcoal mb-2">{item.title}</h4>
+                                               <div className="bg-[#FAF9F6] p-4 rounded-xl mt-4">
+                                                   <p className="text-charcoal italic font-serif text-sm">"{item.content}"</p>
+                                               </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               </div>
+                           )}
+                       </div>
+                   )}
+               </div>
+           </div>
+      </div>
+  );
 
   const renderHome = () => (
       <div className="h-full bg-cream text-charcoal flex flex-col items-center md:justify-center p-6 relative overflow-y-auto font-sans">
@@ -1045,6 +1205,13 @@ Provide a JSON report with:
               <p className="text-gray-500 text-xl font-serif italic max-w-lg mx-auto leading-relaxed">
                   Don't just answer. Perform.
               </p>
+              
+              <button 
+                onClick={() => setCurrentView('database')}
+                className="mt-8 px-6 py-2 bg-white border border-[#EBE8E0] hover:border-gold/50 rounded-full text-charcoal text-xs font-bold uppercase tracking-widest shadow-sm hover:shadow-md transition-all flex items-center gap-2 mx-auto"
+              >
+                  <Database size={14} className="text-gold" /> My Database
+              </button>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4 pb-10 shrink-0">
@@ -1134,7 +1301,7 @@ Provide a JSON report with:
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Context & Roles</label>
                                 <textarea 
                                     className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50"
-                                    placeholder="e.g., 'This is an interview between recruiter (Joe) and me (Lily).'"
+                                    placeholder="e.g., 'This is an interview between recruiter Joe and me Lily.'"
                                     value={uploadContext}
                                     onChange={(e) => setUploadContext(e.target.value)}
                                 />
@@ -1332,36 +1499,54 @@ Provide a JSON report with:
             </div>
             
             <div className="space-y-6">
-                {detailedFeedback?.map((item, i) => (
-                    <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-[#EBE8E0]">
-                        <div className="flex items-center gap-2 mb-4">
-                            <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                            <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
-                        </div>
-                        
-                        <h4 className="text-lg font-bold text-charcoal mb-2">The Issue</h4>
-                        <p className="text-gray-600 mb-6">{item.issue}</p>
+                {detailedFeedback?.map((item, i) => {
+                    const saved = isSaved(item.issue, item.instance);
+                    return (
+                        <div key={i} className="bg-white rounded-2xl p-8 shadow-sm border border-[#EBE8E0] relative group">
+                            <button 
+                                onClick={() => toggleSaveItem({
+                                    type: 'improvement',
+                                    category: item.category,
+                                    title: item.issue,
+                                    content: item.instance,
+                                    rewrite: item.rewrite,
+                                    explanation: item.explanation
+                                })}
+                                className={`absolute top-6 right-6 p-2 rounded-full transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
+                                title={saved ? "Remove from database" : "Save to database"}
+                            >
+                                <Bookmark size={18} fill={saved ? "currentColor" : "none"} />
+                            </button>
 
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <div className="bg-[#FAF9F6] p-6 rounded-xl border-l-4 border-gray-200">
-                                <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Specific Instance</h5>
-                                <p className="text-charcoal font-serif text-lg leading-relaxed">"{item.instance}"</p>
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-2 h-2 rounded-full bg-red-400"></div>
+                                <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
                             </div>
-                            <div className="bg-green-50/50 p-6 rounded-xl border-l-4 border-green-400">
-                                <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                   <PenTool size={12}/> The Human Rewrite
-                                </h5>
-                                <div className="text-charcoal font-serif text-lg leading-relaxed mb-4">
-                                   "{item.rewrite}"
+                            
+                            <h4 className="text-lg font-bold text-charcoal mb-2">The Issue</h4>
+                            <p className="text-gray-600 mb-6 mr-8">{item.issue}</p>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="bg-[#FAF9F6] p-6 rounded-xl border-l-4 border-gray-200">
+                                    <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Specific Instance</h5>
+                                    <p className="text-charcoal font-serif text-lg leading-relaxed">"{item.instance}"</p>
                                 </div>
-                                <div className="pt-4 border-t border-green-200/50">
-                                    <h6 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Why this works</h6>
-                                    <p className="text-sm text-green-800 italic">{item.explanation}</p>
+                                <div className="bg-green-50/50 p-6 rounded-xl border-l-4 border-green-400">
+                                    <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <PenTool size={12}/> The Human Rewrite
+                                    </h5>
+                                    <div className="text-charcoal font-serif text-lg leading-relaxed mb-4">
+                                    "{item.rewrite}"
+                                    </div>
+                                    <div className="pt-4 border-t border-green-200/50">
+                                        <h6 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Why this works</h6>
+                                        <p className="text-sm text-green-800 italic">{item.explanation}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Highlights (Positive) */}
@@ -1371,23 +1556,40 @@ Provide a JSON report with:
                         <ThumbsUp size={14} /> Key Strengths & Highlights
                     </div>
                     <div className="grid md:grid-cols-2 gap-6">
-                        {highlights.map((item, i) => (
-                            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0] relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-5">
-                                    <Star size={80} />
-                                </div>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                                        <Star size={12} fill="#C7A965" />
+                        {highlights.map((item, i) => {
+                            const saved = isSaved(item.strength, item.quote);
+                            return (
+                                <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0] relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                                        <Star size={80} />
                                     </div>
-                                    <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                    
+                                    <button 
+                                        onClick={() => toggleSaveItem({
+                                            type: 'highlight',
+                                            category: item.category,
+                                            title: item.strength,
+                                            content: item.quote
+                                        })}
+                                        className={`absolute top-4 right-4 p-2 rounded-full z-10 transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
+                                        title={saved ? "Remove from database" : "Save to database"}
+                                    >
+                                        <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
+                                    </button>
+
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                            <Star size={12} fill="#C7A965" />
+                                        </div>
+                                        <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                    </div>
+                                    <h4 className="text-md font-bold text-charcoal mb-2 pr-6">{item.strength}</h4>
+                                    <div className="bg-[#FAF9F6] p-4 rounded-xl mt-4">
+                                        <p className="text-charcoal italic font-serif text-sm">"{item.quote}"</p>
+                                    </div>
                                 </div>
-                                <h4 className="text-md font-bold text-charcoal mb-2">{item.strength}</h4>
-                                <div className="bg-[#FAF9F6] p-4 rounded-xl mt-4">
-                                    <p className="text-charcoal italic font-serif text-sm">"{item.quote}"</p>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </>
             )}
@@ -1640,6 +1842,7 @@ Provide a JSON report with:
         {currentView === 'home' && renderHome()}
         {currentView === 'analysis' && renderAnalysisView()}
         {currentView === 'teleprompter' && renderTeleprompterView()}
+        {currentView === 'database' && renderDatabaseView()}
     </div>
   );
 };

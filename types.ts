@@ -51,3 +51,14 @@ export interface PerformanceReport {
   highlights?: Highlight[]; // Positive feedback
   coachingRewrite?: CoachingRewrite; // Global rewrite
 }
+
+export interface SavedItem {
+  id: string;
+  type: 'improvement' | 'highlight';
+  date: string;
+  category: string;
+  title: string; // "strength" or "issue"
+  content: string; // "quote" or "instance"
+  rewrite?: string; // Only for improvements
+  explanation?: string; // Only for improvements
+}

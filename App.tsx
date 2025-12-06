@@ -299,8 +299,9 @@ const App: React.FC = () => {
 
   // -- Navigation --
 
-  const goHome = () => {
-      if (performanceReport || transcriptionResult) {
+  const goHome = (force: boolean = false) => {
+      // If we have report results, warn unless forced (e.g. clicking Done button)
+      if (!force && (performanceReport || transcriptionResult)) {
           if (!confirm("Are you sure you want to go back? Current progress will be lost.")) {
               return;
           }
@@ -969,9 +970,17 @@ Provide a JSON report with:
   
   const proceedToCoaching = () => {
       if (uploadedAudioBase64 && transcriptionResult) {
+          // Trigger loading state immediately
+          setIsAnalyzing(true);
+          setAnalysisStep('analyzing');
+          
           // Use helper to get type from file if available, otherwise assume mp3
           const mimeType = selectedFile ? getAudioMimeType(selectedFile) : 'audio/mp3';
-          analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult, mimeType);
+          
+          // Small timeout to allow UI to update to loader before async work potentially blocks
+          setTimeout(() => {
+             analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult, mimeType);
+          }, 50);
       } else {
           alert("Missing audio or transcript data.");
       }
@@ -1098,7 +1107,7 @@ Provide a JSON report with:
            {/* Header */}
            <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
                 <div className="flex items-center gap-4">
-                    <button onClick={goHome} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <button onClick={() => goHome(false)} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
                         <Home size={18} className="text-gray-500" />
                     </button>
                     <div>
@@ -1259,7 +1268,7 @@ Provide a JSON report with:
                      <button onClick={downloadReportAsImage} className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium hover:bg-gray-50 text-charcoal flex items-center gap-2">
                         <Download size={14} /> Export Image
                      </button>
-                     <button onClick={goHome} className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black">
+                     <button onClick={() => goHome(true)} className="px-6 py-2 bg-charcoal text-white rounded-full text-sm font-bold hover:bg-black">
                         Done
                      </button>
                 </div>
@@ -1467,7 +1476,7 @@ Provide a JSON report with:
                    >
                      <Settings size={14} /> Settings
                    </button>
-                   <button onClick={goHome} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
+                   <button onClick={() => goHome(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20">
                        <X size={16} />
                    </button>
                </div>

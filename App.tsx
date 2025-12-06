@@ -648,9 +648,33 @@ Provide a JSON report with:
       }
   };
 
+  // Helper to get robust mime type
+  const getAudioMimeType = (file: File): string => {
+      // Priority 1: Check extension (safest for m4a)
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext === 'm4a') return 'audio/mp4';
+      
+      // Priority 2: Use file type if available and not empty
+      if (file.type) return file.type;
+      
+      // Priority 3: Fallbacks
+      if (ext === 'mp3') return 'audio/mp3';
+      if (ext === 'wav') return 'audio/wav';
+      if (ext === 'aac') return 'audio/aac';
+      
+      return 'audio/mp3';
+  };
+
   // Stage 1 Analysis (Sound Check)
   const startSoundCheckAnalysis = async () => {
       if (!selectedFile) return;
+
+      // Check file size (20MB limit for inline base64)
+      const MAX_SIZE = 20 * 1024 * 1024;
+      if (selectedFile.size > MAX_SIZE) {
+          alert("File is too large. Please upload an audio file smaller than 20MB.");
+          return;
+      }
 
       setIsAnalyzing(true);
       try {
@@ -666,10 +690,12 @@ Provide a JSON report with:
           });
           
           setUploadedAudioBase64(base64Audio);
-          await analyzeStage1_Transcribe(base64Audio, selectedFile.type, uploadContext);
+          const mimeType = getAudioMimeType(selectedFile);
+          await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext);
       } catch (error) {
           console.error("Upload analysis failed:", error);
-          alert("Failed to analyze uploaded audio. Please try a valid audio file (mp3, wav, m4a).");
+          const msg = error instanceof Error ? error.message : JSON.stringify(error);
+          alert(`Failed to analyze uploaded audio. Error: ${msg}`);
           setIsAnalyzing(false);
           setAnalysisStep('idle');
       }
@@ -679,6 +705,13 @@ Provide a JSON report with:
   const startCoachAnalysis = async () => {
       if (!selectedFile) return;
 
+       // Check file size
+       const MAX_SIZE = 20 * 1024 * 1024;
+       if (selectedFile.size > MAX_SIZE) {
+           alert("File is too large. Please upload an audio file smaller than 20MB.");
+           return;
+       }
+
       setIsAnalyzing(true);
       try {
           // Convert file to base64
@@ -693,18 +726,20 @@ Provide a JSON report with:
           });
           
           setUploadedAudioBase64(base64Audio);
+          const mimeType = getAudioMimeType(selectedFile);
 
           if (manualTranscript.trim()) {
               // User provided transcript, skip stage 1
-              await analyzeStage2_Coach(base64Audio, manualTranscript);
+              await analyzeStage2_Coach(base64Audio, manualTranscript, mimeType);
           } else {
               // No transcript, run stage 1 internally then stage 2
-              await analyzeStage1_Transcribe(base64Audio, selectedFile.type, uploadContext, true);
+              await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext, true);
           }
 
       } catch (error) {
           console.error("Coach analysis failed:", error);
-          alert("Failed to analyze uploaded audio.");
+          const msg = error instanceof Error ? error.message : JSON.stringify(error);
+          alert(`Failed to analyze uploaded audio. Error: ${msg}`);
           setIsAnalyzing(false);
           setAnalysisStep('idle');
       }
@@ -714,8 +749,7 @@ Provide a JSON report with:
   const analyzeStage1_Transcribe = async (base64Audio: string, mimeType: string, context: string, autoChainToStage2: boolean = false) => {
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const audioMime = mimeType.includes('m4a') ? 'audio/mp4' : mimeType;
-
+          
           setAnalysisStep('transcribing');
           
           const transcriptResponse = await ai.models.generateContent({
@@ -733,7 +767,7 @@ Provide a JSON report with:
               },
               contents: {
                   parts: [
-                      { inlineData: { mimeType: audioMime, data: base64Audio } },
+                      { inlineData: { mimeType: mimeType, data: base64Audio } },
                       { text: `Please transcribe the attached audio file following the forensic guidelines.
                       User Context to identify speakers: "${context}"` }
                   ]
@@ -744,7 +778,7 @@ Provide a JSON report with:
           setTranscriptionResult(transcript);
 
           if (autoChainToStage2) {
-              await analyzeStage2_Coach(base64Audio, transcript);
+              await analyzeStage2_Coach(base64Audio, transcript, mimeType);
           }
 
       } catch (error) {
@@ -758,7 +792,7 @@ Provide a JSON report with:
       }
   };
 
-  const analyzeStage2_Coach = async (base64Audio: string, transcript: string) => {
+  const analyzeStage2_Coach = async (base64Audio: string, transcript: string, mimeType?: string) => {
       if (!base64Audio || !transcript) return;
       
       setIsAnalyzing(true);
@@ -766,7 +800,8 @@ Provide a JSON report with:
 
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-          const audioMime = selectedFile?.type.includes('m4a') ? 'audio/mp4' : (selectedFile?.type || 'audio/mp3');
+          // Ensure we have a mime type, default to mp3 if not passed
+          const audioMime = mimeType || 'audio/mp3';
 
           const response = await ai.models.generateContent({
               model: 'gemini-3-pro-preview', // Using Pro/3.0 for high-level reasoning
@@ -876,7 +911,7 @@ Provide a JSON report with:
           setShowReport(true);
       } catch (error) {
           console.error("Stage 2 Coach analysis failed:", error);
-          alert("Coach analysis failed. Please try again.");
+          throw error;
       } finally {
           setIsAnalyzing(false);
           setAnalysisStep('idle');
@@ -897,7 +932,9 @@ Provide a JSON report with:
   
   const proceedToCoaching = () => {
       if (uploadedAudioBase64 && transcriptionResult) {
-          analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult);
+          // Use helper to get type from file if available, otherwise assume mp3
+          const mimeType = selectedFile ? getAudioMimeType(selectedFile) : 'audio/mp3';
+          analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult, mimeType);
       } else {
           alert("Missing audio or transcript data.");
       }

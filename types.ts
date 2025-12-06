@@ -35,12 +35,19 @@ export interface CoachingRewrite {
   rewrite: string;   // "The Human Rewrite"
 }
 
+export interface SpeechDrill {
+  phrase: string;       // The original phrase spoken
+  issue: string;        // e.g. "Rushed technical term", "Monotone"
+  practiceDrill: string; // Visual guide: "Con-vo-LU-tion-al ... NET-works"
+  reason: string;       // Why this emphasis matters
+}
+
 export interface PerformanceReport {
   rating: number;
   summary: string;
   suggestions: string[];
-  pronunciationFeedback: string[];
+  pronunciationFeedback: SpeechDrill[];
   detailedFeedback?: DetailedFeedback[]; // Negative/Constructive feedback
   highlights?: Highlight[]; // Positive feedback
-  coachingRewrite?: CoachingRewrite; // Global rewrite (optional/legacy)
+  coachingRewrite?: CoachingRewrite; // Global rewrite
 }

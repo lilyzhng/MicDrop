@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star, PenTool, Quote } from 'lucide-react';
+import { Settings, Download, Type, MonitorPlay, Sparkles, ArrowRight, X, Loader2, Award, Lightbulb, Volume2, StopCircle, Mic, Ear, Upload, MessageSquare, AlertCircle, Check, ChevronLeft, FileText, ArrowRightCircle, Video, FileAudio, Home, AudioLines, Flame, ScrollText, ThumbsUp, Star, PenTool, Quote, Mic2, PlayCircle } from 'lucide-react';
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight } from './types';
+import { ScriptWord, PerformanceReport, DetailedFeedback, Highlight, SpeechDrill } from './types';
 import Teleprompter from './components/Teleprompter';
 import html2canvas from 'html2canvas';
 
@@ -300,20 +300,26 @@ const App: React.FC = () => {
   // -- Navigation --
 
   const goHome = () => {
-      if (confirm("Are you sure you want to go back? Current progress will be lost.")) {
-          setCurrentView('home');
-          // Reset states
-          setPerformanceReport(null);
-          setTranscriptionResult(null);
-          setUploadedAudioBase64(null);
-          setScriptText("");
-          setScriptWords([]);
-          setManualTranscript("");
-          setSelectedFile(null);
-          setUploadContext("");
-          setShowRewrite(false);
-          stopTTS();
+      if (performanceReport || transcriptionResult) {
+          if (!confirm("Are you sure you want to go back? Current progress will be lost.")) {
+              return;
+          }
       }
+      
+      setCurrentView('home');
+      // Reset states
+      setPerformanceReport(null);
+      setTranscriptionResult(null);
+      setUploadedAudioBase64(null);
+      setScriptText("");
+      setScriptWords([]);
+      setManualTranscript("");
+      setSelectedFile(null);
+      setUploadContext("");
+      setShowRewrite(false);
+      setIsAnalyzing(false);
+      setAnalysisStep('idle');
+      stopTTS();
   };
 
   const navigateToAnalysis = (mode: AnalysisMode) => {
@@ -621,7 +627,19 @@ Provide a JSON report with:
                           rating: { type: GeminiType.INTEGER },
                           summary: { type: GeminiType.STRING },
                           suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
-                          pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }
+                          pronunciationFeedback: { 
+                              type: GeminiType.ARRAY, 
+                              items: { 
+                                  type: GeminiType.OBJECT,
+                                  properties: {
+                                      phrase: { type: GeminiType.STRING },
+                                      issue: { type: GeminiType.STRING },
+                                      practiceDrill: { type: GeminiType.STRING },
+                                      reason: { type: GeminiType.STRING }
+                                  },
+                                  required: ["phrase", "issue", "practiceDrill", "reason"]
+                              } 
+                          }
                       },
                       required: ["rating", "summary", "suggestions", "pronunciationFeedback"]
                   }
@@ -818,6 +836,12 @@ Provide a JSON report with:
                   - Use "Bridge Words": "To be honest...", "Here's the thing...", "I say this with love...".
                   - Use Vulnerability/Humor: Make it relatable.
                   - Use Check-ins: "Does that match what you're seeing?"
+
+                  KEY REQUIREMENT: DELIVERY DYNAMICS (Pronunciation & Clarity)
+                  You must identify 3 specific moments where the user sounded 'Machine Gun' (Rushed/Monotone) vs 'Maestro' (Varied Pace/Emphasis).
+                  - Focus on Technical Terms: Candidates often rush "Convolutional Neural Networks". They should say "Con-vo-LU-tion-al... Neu-ral... NET-works".
+                  - Focus on Tone: Detect robotic delivery.
+                  - Create a "Drill": Use visual cues like UPPERCASE for stress and '...' for pauses.
                   
                   Output Format:
                   Provide feedback in this exact structure:
@@ -880,9 +904,22 @@ Provide a JSON report with:
                                   required: ["category", "strength", "quote"]
                               }
                           },
-                          pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } }
+                          pronunciationFeedback: { 
+                              type: GeminiType.ARRAY, 
+                              description: "3 Specific drills to fix Monotone/Rushed delivery",
+                              items: { 
+                                  type: GeminiType.OBJECT,
+                                  properties: {
+                                      phrase: { type: GeminiType.STRING, description: "The original phrase spoken" },
+                                      issue: { type: GeminiType.STRING, description: "e.g. 'Rushed technical term', 'Monotone'" },
+                                      practiceDrill: { type: GeminiType.STRING, description: "Visual guide using CAPS and ... for rhythm" },
+                                      reason: { type: GeminiType.STRING, description: "Why this emphasis matters" }
+                                  },
+                                  required: ["phrase", "issue", "practiceDrill", "reason"]
+                              } 
+                          }
                       },
-                      required: ["rating", "summary", "suggestions", "detailedFeedback", "highlights", "coachingRewrite"]
+                      required: ["rating", "summary", "suggestions", "detailedFeedback", "highlights", "coachingRewrite", "pronunciationFeedback"]
                   }
               },
               contents: {
@@ -1159,30 +1196,45 @@ Provide a JSON report with:
                 ) : (
                     // Results View
                     <div className="max-w-4xl mx-auto pb-20">
-                         {analysisMode === 'sound_check' && transcriptionResult && !performanceReport && (
-                             <div className="bg-white rounded-3xl shadow-xl border border-[#EBE8E0] overflow-hidden animate-in fade-in slide-in-from-bottom-8">
-                                 <div className="p-8 border-b border-[#E6E6E6] flex justify-between items-center bg-cream/50">
-                                     <div>
-                                         <h3 className="text-2xl font-serif font-bold text-charcoal">Forensic Transcript</h3>
-                                         <p className="text-sm text-gray-500">Stage 1 Analysis Complete</p>
-                                     </div>
-                                     <div className="flex gap-3">
-                                         <button onClick={downloadTranscript} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-charcoal">
-                                             <Download size={14} /> Download Text
-                                         </button>
-                                         <button onClick={proceedToCoaching} className="flex items-center gap-2 px-4 py-2 bg-charcoal text-white rounded-lg text-sm font-bold hover:bg-black shadow-lg">
-                                             Proceed to Coaching <ArrowRight size={14} />
-                                         </button>
-                                     </div>
-                                 </div>
-                                 <div className="p-8 max-h-[60vh] overflow-y-auto font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-700 bg-[#FAF9F6]">
-                                     {transcriptionResult}
-                                 </div>
+                         {isAnalyzing ? (
+                             <div className="bg-white rounded-3xl shadow-xl border border-[#EBE8E0] p-12 text-center animate-in fade-in zoom-in-95 duration-300">
+                                 <Loader2 className="animate-spin mx-auto text-gold mb-6" size={48} />
+                                 <h3 className="text-2xl font-serif font-bold text-charcoal mb-2">
+                                     {analysisStep === 'transcribing' ? 'Phase 1: Forensic Transcription...' : 'Phase 2: Coach Analysis...'}
+                                 </h3>
+                                 <p className="text-gray-500 animate-pulse">
+                                     Gemini is reviewing your pacing, clarity, and delivery...
+                                 </p>
+                                 <p className="text-xs text-gray-400 mt-4">This usually takes 15-30 seconds.</p>
                              </div>
-                         )}
+                         ) : (
+                             <>
+                                 {analysisMode === 'sound_check' && transcriptionResult && !performanceReport && (
+                                     <div className="bg-white rounded-3xl shadow-xl border border-[#EBE8E0] overflow-hidden animate-in fade-in slide-in-from-bottom-8">
+                                         <div className="p-8 border-b border-[#E6E6E6] flex justify-between items-center bg-cream/50">
+                                             <div>
+                                                 <h3 className="text-2xl font-serif font-bold text-charcoal">Forensic Transcript</h3>
+                                                 <p className="text-sm text-gray-500">Stage 1 Analysis Complete</p>
+                                             </div>
+                                             <div className="flex gap-3">
+                                                 <button onClick={downloadTranscript} className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 text-charcoal">
+                                                     <Download size={14} /> Download Text
+                                                 </button>
+                                                 <button onClick={proceedToCoaching} className="flex items-center gap-2 px-4 py-2 bg-charcoal text-white rounded-lg text-sm font-bold hover:bg-black shadow-lg">
+                                                     Proceed to Coaching <ArrowRight size={14} />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                         <div className="p-8 max-h-[60vh] overflow-y-auto font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-700 bg-[#FAF9F6]">
+                                             {transcriptionResult}
+                                         </div>
+                                     </div>
+                                 )}
 
-                         {(analysisMode === 'coach' || performanceReport) && performanceReport && (
-                             renderPerformanceReportContent()
+                                 {(analysisMode === 'coach' || performanceReport) && performanceReport && (
+                                     renderPerformanceReportContent()
+                                 )}
+                             </>
                          )}
                     </div>
                 )}
@@ -1331,18 +1383,40 @@ Provide a JSON report with:
                 </>
             )}
 
-            {/* Pronunciation */}
+            {/* Pronunciation & Pacing (New Rich Design) */}
             {pronunciationFeedback && pronunciationFeedback.length > 0 && (
                 <div className="mt-12">
                      <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase">
-                        <Ear size={14} /> Pronunciation & Clarity
+                        <Ear size={14} /> Pronunciation, Pace & Presence
                      </div>
-                     <div className="bg-[#FAF9F6] rounded-2xl p-8 border border-[#EBE8E0]">
-                         <div className="grid md:grid-cols-2 gap-4">
-                             {pronunciationFeedback.map((pf, i) => (
-                                 <div key={i} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100">
-                                     <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
-                                     <p className="text-sm text-gray-600">{pf}</p>
+                     <div className="bg-white rounded-3xl p-8 border border-[#EBE8E0] shadow-sm">
+                         <p className="text-gray-600 mb-6">Targeted drills to shift from "Machine Gun" delivery to "Executive Presence".</p>
+                         <div className="grid gap-6">
+                             {pronunciationFeedback.map((drill, i) => (
+                                 <div key={i} className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl border border-gray-100 bg-[#FAF9F6]">
+                                     {/* The Issue */}
+                                     <div className="md:w-1/3">
+                                        <div className="flex items-center gap-2 mb-2 text-red-500">
+                                            <AlertCircle size={14} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">The Trap</span>
+                                        </div>
+                                        <h5 className="font-bold text-charcoal mb-1">{drill.issue}</h5>
+                                        <p className="text-sm text-gray-500 italic mb-2">"{drill.phrase}"</p>
+                                     </div>
+
+                                     {/* The Fix */}
+                                     <div className="flex-1 bg-white p-6 rounded-xl border border-gold/20 shadow-sm">
+                                         <div className="flex items-center gap-2 mb-3 text-gold">
+                                            <Mic2 size={14} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest">The Drill</span>
+                                        </div>
+                                        <div className="font-serif text-xl text-charcoal tracking-wide mb-3 leading-relaxed">
+                                            {drill.practiceDrill}
+                                        </div>
+                                        <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+                                            <span className="font-bold">Why:</span> {drill.reason}
+                                        </p>
+                                     </div>
                                  </div>
                              ))}
                          </div>

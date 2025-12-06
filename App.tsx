@@ -11,6 +11,9 @@ import TeleprompterView from './views/TeleprompterView';
 type AppView = 'home' | 'teleprompter' | 'analysis' | 'database';
 type AnalysisMode = 'sound_check' | 'coach';
 
+const STORAGE_KEY_ITEMS = 'micdrop_saved_items_v2';
+const STORAGE_KEY_REPORTS = 'micdrop_saved_reports_v2';
+
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('sound_check');
@@ -19,7 +22,8 @@ const App: React.FC = () => {
   // We initialize state directly from localStorage to prevent data loss on initial render
   const [savedItems, setSavedItems] = useState<SavedItem[]>(() => {
       try {
-          const stored = localStorage.getItem('micdrop_saved_items');
+          if (typeof window === 'undefined') return [];
+          const stored = localStorage.getItem(STORAGE_KEY_ITEMS);
           return stored ? JSON.parse(stored) : [];
       } catch (e) {
           console.error("Failed to load saved items", e);
@@ -29,7 +33,8 @@ const App: React.FC = () => {
 
   const [savedReports, setSavedReports] = useState<SavedReport[]>(() => {
       try {
-          const stored = localStorage.getItem('micdrop_saved_reports');
+          if (typeof window === 'undefined') return [];
+          const stored = localStorage.getItem(STORAGE_KEY_REPORTS);
           return stored ? JSON.parse(stored) : [];
       } catch (e) {
           console.error("Failed to load saved reports", e);
@@ -39,13 +44,20 @@ const App: React.FC = () => {
 
   // -- Auto-Sync Effects --
   // Whenever state changes, we automatically sync to localStorage.
-  // This decoupling ensures we never save "stale" data from closures.
   useEffect(() => {
-      localStorage.setItem('micdrop_saved_items', JSON.stringify(savedItems));
+      try {
+          localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(savedItems));
+      } catch (e) {
+          console.error("Failed to save items to localStorage", e);
+      }
   }, [savedItems]);
 
   useEffect(() => {
-      localStorage.setItem('micdrop_saved_reports', JSON.stringify(savedReports));
+      try {
+          localStorage.setItem(STORAGE_KEY_REPORTS, JSON.stringify(savedReports));
+      } catch (e) {
+          console.error("Failed to save reports to localStorage", e);
+      }
   }, [savedReports]);
 
 

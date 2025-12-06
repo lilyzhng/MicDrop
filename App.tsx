@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { SavedItem } from './types';
+import { SavedItem, SavedReport, PerformanceReport } from './types';
 import { generateId } from './utils';
 import HomeView from './views/HomeView';
 import DatabaseView from './views/DatabaseView';
@@ -14,21 +14,25 @@ type AnalysisMode = 'sound_check' | 'coach';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('sound_check');
+  
+  // Persistence State
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
 
-  // Load saved items from localStorage on mount
+  // Load saved data from localStorage on mount
   useEffect(() => {
-      const stored = localStorage.getItem('micdrop_saved_items');
-      if (stored) {
-          try {
-              setSavedItems(JSON.parse(stored));
-          } catch (e) {
-              console.error("Failed to parse saved items", e);
-          }
+      const storedItems = localStorage.getItem('micdrop_saved_items');
+      if (storedItems) {
+          try { setSavedItems(JSON.parse(storedItems)); } catch (e) { console.error("Failed to parse saved items", e); }
+      }
+      
+      const storedReports = localStorage.getItem('micdrop_saved_reports');
+      if (storedReports) {
+          try { setSavedReports(JSON.parse(storedReports)); } catch (e) { console.error("Failed to parse saved reports", e); }
       }
   }, []);
 
-  // -- Database Logic (Shared) --
+  // -- Snippet Logic --
   const toggleSaveItem = (item: Omit<SavedItem, 'id' | 'date'>) => {
       const existingIndex = savedItems.findIndex(i => i.title === item.title && i.content === item.content);
       let newItems: SavedItem[];
@@ -53,14 +57,44 @@ const App: React.FC = () => {
       localStorage.setItem('micdrop_saved_items', JSON.stringify(newItems));
   };
 
+  // -- Report Logic --
+  const saveReport = (title: string, type: 'coach' | 'rehearsal', report: PerformanceReport) => {
+      const newReport: SavedReport = {
+          id: generateId(),
+          date: new Date().toISOString(),
+          title: title || "Untitled Session",
+          type,
+          rating: report.rating,
+          reportData: report
+      };
+      const newReports = [newReport, ...savedReports];
+      setSavedReports(newReports);
+      localStorage.setItem('micdrop_saved_reports', JSON.stringify(newReports));
+  };
+
+  const updateSavedReport = (id: string, updates: Partial<SavedReport>) => {
+      const newReports = savedReports.map(report => 
+          report.id === id ? { ...report, ...updates } : report
+      );
+      setSavedReports(newReports);
+      localStorage.setItem('micdrop_saved_reports', JSON.stringify(newReports));
+  };
+
+  const deleteSavedReport = (id: string) => {
+      const newReports = savedReports.filter(r => r.id !== id);
+      setSavedReports(newReports);
+      localStorage.setItem('micdrop_saved_reports', JSON.stringify(newReports));
+  };
+
   const handleNavigate = (view: AppView, mode?: AnalysisMode) => {
       if (mode) setAnalysisMode(mode);
       setCurrentView(view);
   };
 
   const goHome = (force: boolean = false) => {
-      if (!force) {
-          if (!confirm("Are you sure you want to go back? Current progress will be lost.")) return;
+      const shouldForce = force === true;
+      if (!shouldForce) {
+          if (!window.confirm("Are you sure you want to go back? Current progress will be lost.")) return;
       }
       setCurrentView('home');
   };
@@ -72,7 +106,16 @@ const App: React.FC = () => {
       )}
       
       {currentView === 'database' && (
-          <DatabaseView savedItems={savedItems} onDelete={deleteSavedItem} onHome={() => setCurrentView('home')} />
+          <DatabaseView 
+            savedItems={savedItems} 
+            savedReports={savedReports}
+            onDeleteSnippet={deleteSavedItem} 
+            onDeleteReport={deleteSavedReport}
+            onUpdateReport={updateSavedReport}
+            onHome={() => setCurrentView('home')} 
+            isSaved={isSaved}
+            onToggleSave={toggleSaveItem}
+          />
       )}
       
       {currentView === 'analysis' && (
@@ -80,7 +123,8 @@ const App: React.FC = () => {
               mode={analysisMode} 
               onHome={goHome} 
               isSaved={isSaved} 
-              onToggleSave={toggleSaveItem} 
+              onToggleSave={toggleSaveItem}
+              onSaveReport={saveReport}
           />
       )}
       
@@ -89,6 +133,7 @@ const App: React.FC = () => {
               onHome={goHome} 
               isSaved={isSaved} 
               onToggleSave={toggleSaveItem}
+              onSaveReport={saveReport}
           />
       )}
     </div>

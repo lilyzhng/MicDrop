@@ -11,9 +11,10 @@ interface AnalysisViewProps {
     onHome: (force: boolean) => void;
     isSaved: (title: string, content: string) => boolean;
     onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
+    onSaveReport: (title: string, type: 'coach' | 'rehearsal', report: PerformanceReport) => void;
 }
 
-const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onToggleSave }) => {
+const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onToggleSave, onSaveReport }) => {
     // Local State
     const [uploadContext, setUploadContext] = useState("");
     const [manualTranscript, setManualTranscript] = useState("");
@@ -27,6 +28,11 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onTo
     const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleHomeClick = () => {
+        const hasData = !!(selectedFile || manualTranscript.trim() || uploadContext.trim() || transcriptionResult || performanceReport);
+        onHome(!hasData);
+    };
 
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -94,20 +100,23 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onTo
             }
 
             setAnalysisStep('analyzing');
+            let report: PerformanceReport;
+
             if (manualTranscript.trim()) {
-                const report = await analyzeStage2_Coach(base64Audio, manualTranscript, uploadContext, mimeType);
-                setPerformanceReport(report);
+                report = await analyzeStage2_Coach(base64Audio, manualTranscript, uploadContext, mimeType);
             } else {
                 if (base64Audio) {
                     setAnalysisStep('transcribing');
                     const transcript = await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext);
                     setAnalysisStep('analyzing');
-                    const report = await analyzeStage2_Coach(base64Audio, transcript, uploadContext, mimeType);
-                    setPerformanceReport(report);
+                    report = await analyzeStage2_Coach(base64Audio, transcript, uploadContext, mimeType);
                 } else {
                     throw new Error("No input provided");
                 }
             }
+            setPerformanceReport(report);
+            onSaveReport(uploadContext || "Interview Analysis", 'coach', report);
+
         } catch (error) {
             console.error("Coach analysis failed:", error);
             alert(`Failed to analyze. Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
@@ -126,6 +135,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onTo
             analyzeStage2_Coach(uploadedAudioBase64, transcriptionResult!, uploadContext, mimeType)
             .then(report => {
                 setPerformanceReport(report);
+                onSaveReport(uploadContext || "Interview Analysis", 'coach', report);
                 setIsAnalyzing(false);
                 setAnalysisStep('idle');
             })
@@ -154,7 +164,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onTo
            {/* Header */}
            <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => onHome(false)} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <button onClick={handleHomeClick} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
                         <Home size={18} className="text-gray-500" />
                     </button>
                     <div>
@@ -288,7 +298,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ mode, onHome, isSaved, onTo
                                         report={performanceReport}
                                         isSaved={isSaved}
                                         onToggleSave={onToggleSave}
-                                        onDone={onHome}
+                                        onDone={(f) => onHome(f)}
                                      />
                                  )}
                              </>

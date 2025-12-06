@@ -1,3 +1,4 @@
+
 export interface ScriptWord {
   id: string;
   word: string;
@@ -60,4 +61,13 @@ export interface SavedItem {
   content: string; // "quote" or "instance"
   rewrite?: string; // Only for improvements
   explanation?: string; // Only for improvements
+}
+
+export interface SavedReport {
+    id: string;
+    date: string;
+    title: string; // Context string or Script name
+    type: 'coach' | 'rehearsal';
+    rating: number;
+    reportData: PerformanceReport;
 }

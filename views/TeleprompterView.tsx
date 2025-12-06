@@ -18,9 +18,10 @@ interface TeleprompterViewProps {
     onHome: (force: boolean) => void;
     isSaved: (title: string, content: string) => boolean;
     onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
+    onSaveReport: (title: string, type: 'coach' | 'rehearsal', report: PerformanceReport) => void;
 }
 
-const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, onToggleSave }) => {
+const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, onToggleSave, onSaveReport }) => {
     // State
     const [hasStarted, setHasStarted] = useState(false);
     const [scriptText, setScriptText] = useState("");
@@ -54,6 +55,13 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const timerIntervalRef = useRef<number | null>(null);
 
+    // --- Logic ---
+    const handleHomeClick = () => {
+        // Smart check: Only ask for confirmation if script has content
+        const hasData = scriptText.trim().length > 0;
+        onHome(!hasData);
+    };
+
     // --- Init ---
     const initCamera = useCallback(async () => {
         setPermissionError(null);
@@ -85,7 +93,6 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
         }
     }, [hasStarted, stream]);
 
-    // --- Logic ---
     const processScript = (text: string) => {
         const safeText = text.replace(/-/g, ' ');
         const paragraphs = safeText.split(/\n/);
@@ -250,6 +257,7 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
             const base64Audio = await extractAudioFromVideo(videoBlob);
             const report = await analyzeTeleprompterRecording(base64Audio, scriptText);
             setPerformanceReport(report);
+            onSaveReport(scriptText.substring(0, 30) + (scriptText.length > 30 ? "..." : "") || "Rehearsal", 'rehearsal', report);
         } catch (e) {
             console.error(e);
             alert("Analysis failed.");
@@ -263,7 +271,7 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
             {!hasStarted ? (
                  <div className="h-full flex flex-col p-8 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4 overflow-y-auto">
                     <div className="flex items-center justify-between mb-8">
-                        <button onClick={() => onHome(false)} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
+                        <button onClick={handleHomeClick} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
                             <Home size={18} className="text-gray-500" />
                         </button>
                          <div className="text-center">

@@ -105,8 +105,14 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                 console.log("🤖 Starting Stage 2 (Coach)...");
                 const report = await analyzeStage2_Coach(base64Audio, transcript, uploadContext, mimeType);
                 console.log("✅ Stage 2 complete, report:", report);
+                
+                // Set report FIRST before saving
                 setPerformanceReport(report);
+                
+                // Wait a tick to ensure state is updated
+                await new Promise(resolve => setTimeout(resolve, 0));
                 console.log("💾 Saving report to database...");
+                
                 await onSaveReport(uploadContext || "Coach Session", 'coach', report);
                 console.log("✅ Report saved successfully");
             } else {
@@ -142,8 +148,15 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
 
             console.error("❌ Final error message:", errorMessage);
             alert(`Analysis failed. ${errorMessage}`);
-        } finally {
-            console.log("🔄 Analysis complete, resetting state");
+            
+            // Only reset state on error
+            setIsAnalyzing(false);
+            setAnalysisStep('idle');
+        }
+        
+        // On success, only reset analyzing state (keep the report!)
+        if (performanceReport) {
+            console.log("🔄 Analysis complete, keeping report");
             setIsAnalyzing(false);
             setAnalysisStep('idle');
         }

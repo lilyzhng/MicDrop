@@ -44,6 +44,7 @@ export interface Database {
           rating: number
           report_data: Json
           created_at: string
+          report_date: string
         }
         Insert: {
           id?: string
@@ -53,6 +54,7 @@ export interface Database {
           rating: number
           report_data: Json
           created_at?: string
+          report_date?: string
         }
         Update: {
           id?: string
@@ -62,6 +64,7 @@ export interface Database {
           rating?: number
           report_data?: Json
           created_at?: string
+          report_date?: string
         }
       }
     }

@@ -71,7 +71,7 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
         .from('saved_reports')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('report_date', { ascending: false });
 
     if (error) {
         console.error('Error fetching saved reports:', error);
@@ -84,7 +84,7 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
         type: report.type,
         rating: report.rating,
         reportData: report.report_data as PerformanceReport,
-        date: report.created_at
+        date: report.report_date || report.created_at
     }));
 };
 
@@ -101,7 +101,8 @@ export const createSavedReport = async (
             title: title || 'Untitled Session',
             type,
             rating: report.rating,
-            report_data: report as any
+            report_data: report as any,
+            report_date: new Date().toISOString()
         })
         .select()
         .single();
@@ -117,7 +118,7 @@ export const createSavedReport = async (
         type: data.type,
         rating: data.rating,
         reportData: data.report_data as PerformanceReport,
-        date: data.created_at
+        date: data.report_date || data.created_at
     };
 };
 
@@ -127,6 +128,7 @@ export const updateSavedReport = async (reportId: string, updates: Partial<Saved
     if (updates.title !== undefined) updateData.title = updates.title;
     if (updates.rating !== undefined) updateData.rating = updates.rating;
     if (updates.reportData !== undefined) updateData.report_data = updates.reportData;
+    if (updates.date !== undefined) updateData.report_date = updates.date;
 
     const { error } = await supabase
         .from('saved_reports')

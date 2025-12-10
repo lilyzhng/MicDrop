@@ -21,6 +21,11 @@ ADD COLUMN IF NOT EXISTS question TEXT;
 ALTER TABLE saved_items 
 ADD COLUMN IF NOT EXISTS human_rewrite TEXT;
 
+-- Add report_data field to store full report context (JSONB for flexibility)
+-- This stores the full performance report, transcript, and context for future use
+ALTER TABLE saved_items 
+ADD COLUMN IF NOT EXISTS report_data JSONB;
+
 -- Optional: Add an index for better query performance
 CREATE INDEX IF NOT EXISTS idx_saved_items_user_type ON saved_items(user_id, type);
 

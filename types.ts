@@ -21,12 +21,14 @@ export interface DetailedFeedback {
   instance: string; // "Specific Instance: ..."
   rewrite: string;  // "The Human Rewrite" - Conversational, high-EQ revision
   explanation: string; // "Why this works" - Breakdown of techniques used
+  question?: string; // The specific question or discussion point from the interviewer
 }
 
 export interface Highlight {
   category: string;
   strength: string;
   quote: string;
+  question?: string; // The specific question or discussion point from the interviewer
 }
 
 export interface CoachingRewrite {
@@ -40,6 +42,7 @@ export interface SpeechDrill {
   issue: string;        // e.g. "Rushed technical term", "Monotone"
   practiceDrill: string; // Visual guide: "Con-vo-LU-tion-al ... NET-works"
   reason: string;       // Why this emphasis matters
+  question?: string;    // The specific question or discussion point from the interviewer
 }
 
 export interface PerformanceReport {
@@ -63,6 +66,11 @@ export interface SavedItem {
   explanation?: string; // Only for improvements
   question?: string; // The original interview question (for rehearsal practice)
   humanRewrite?: string; // AI recommended human-like rewrite for speaking practice
+  reportData?: { // Full context for future flexibility
+    report: PerformanceReport;
+    transcript?: string;
+    context?: string;
+  };
 }
 
 export interface SavedReport {

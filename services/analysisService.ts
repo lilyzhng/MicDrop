@@ -96,6 +96,7 @@ export const analyzeStage2_Coach = async (base64Audio: string | null, transcript
             2.  **The Fix:** Tactical advice (Structure, Soft Skills).
             3.  **The "Human" Rewrite (Global):** A rewrite of the most critical part of their answer to sound conversational and high-EQ.
             4.  **Detailed Improvements:** For each specific issue found, provide:
+                - Question: The specific question or discussion point from the interviewer that prompted this response (extract from transcript, or infer based on the answer).
                 - The Issue: What went wrong.
                 - Specific Instance: Quote the transcript.
                 - The Human Rewrite: Rewrite THAT SPECIFIC part to be better.
@@ -125,44 +126,47 @@ export const analyzeStage2_Coach = async (base64Audio: string | null, transcript
                     },
                     detailedFeedback: {
                         type: GeminiType.ARRAY,
-                        description: "Areas for Improvement. For each issue, provide a Human Rewrite.",
+                        description: "Areas for Improvement. For each issue, provide a Human Rewrite AND the specific question.",
                         items: {
                             type: GeminiType.OBJECT,
                             properties: {
                                 category: { type: GeminiType.STRING },
+                                question: { type: GeminiType.STRING, description: "The specific question or discussion point from the interviewer that prompted this response." },
                                 issue: { type: GeminiType.STRING },
                                 instance: { type: GeminiType.STRING },
                                 rewrite: { type: GeminiType.STRING, description: "The revised, human-sounding version of the answer." },
                                 explanation: { type: GeminiType.STRING, description: "Why this rewrite works (soft skills analysis)." }
                             },
-                            required: ["category", "issue", "instance", "rewrite", "explanation"]
+                            required: ["category", "question", "issue", "instance", "rewrite", "explanation"]
                         }
                     },
                     highlights: {
                         type: GeminiType.ARRAY,
-                        description: "Positive feedback / Key Strengths / Good Answers.",
+                        description: "Positive feedback / Key Strengths / Good Answers. Include the question.",
                         items: {
                             type: GeminiType.OBJECT,
                             properties: {
                                 category: { type: GeminiType.STRING },
+                                question: { type: GeminiType.STRING, description: "The specific question from the interviewer." },
                                 strength: { type: GeminiType.STRING },
                                 quote: { type: GeminiType.STRING }
                             },
-                            required: ["category", "strength", "quote"]
+                            required: ["category", "question", "strength", "quote"]
                         }
                     },
                     pronunciationFeedback: { 
                         type: GeminiType.ARRAY, 
-                        description: "3 Specific drills to fix Monotone/Rushed delivery",
+                        description: "3 Specific drills to fix Monotone/Rushed delivery. Include the question context.",
                         items: { 
                             type: GeminiType.OBJECT,
                             properties: {
                                 phrase: { type: GeminiType.STRING, description: "The original phrase spoken" },
+                                question: { type: GeminiType.STRING, description: "The question being answered when this was said" },
                                 issue: { type: GeminiType.STRING, description: "e.g. 'Rushed technical term', 'Monotone'" },
                                 practiceDrill: { type: GeminiType.STRING, description: "Visual guide using CAPS and ... for rhythm" },
                                 reason: { type: GeminiType.STRING, description: "Why this emphasis matters" }
                             },
-                            required: ["phrase", "issue", "practiceDrill", "reason"]
+                            required: ["phrase", "question", "issue", "practiceDrill", "reason"]
                         } 
                     }
                 },

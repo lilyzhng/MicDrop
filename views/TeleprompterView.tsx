@@ -27,10 +27,11 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
     const location = useLocation();
     const rehearsalQuestion = (location.state as any)?.question;
     const targetAnswer = (location.state as any)?.targetAnswer;
+    const originalAnswer = (location.state as any)?.originalAnswer;
     
     // State
     const [hasStarted, setHasStarted] = useState(false);
-    const [scriptText, setScriptText] = useState(rehearsalQuestion ? `Question: ${rehearsalQuestion}\n\nYour Answer:\n` : "");
+    const [scriptText, setScriptText] = useState(rehearsalQuestion ? `Question: ${rehearsalQuestion}\n\nImproved Answer:\n${targetAnswer || ''}` : "");
     const [scriptWords, setScriptWords] = useState<ScriptWord[]>([]);
     const [activeWordIndex, setActiveWordIndex] = useState(0);
     const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'paused'>('idle');
@@ -98,6 +99,13 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
             videoRef.current.srcObject = stream;
         }
     }, [hasStarted, stream]);
+
+    // Process initial script text for rehearsal mode
+    useEffect(() => {
+        if (scriptText) {
+            processScript(scriptText);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const processScript = (text: string) => {
         const safeText = text.replace(/-/g, ' ');
@@ -295,12 +303,12 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
                                     <div className="w-2 h-2 rounded-full bg-gold animate-pulse"></div>
                                     <span className="text-xs font-bold text-gold uppercase tracking-widest">Rehearsal Mode</span>
                                 </div>
-                                <p className="text-sm text-charcoal font-medium">Practice answering this interview question</p>
-                                {targetAnswer && (
+                                <p className="text-sm text-charcoal font-medium">Practice the improved answer below.</p>
+                                {originalAnswer && (
                                     <details className="mt-3">
-                                        <summary className="text-xs text-gold cursor-pointer hover:text-gold/80 font-bold uppercase tracking-widest">View Target Answer</summary>
+                                        <summary className="text-xs text-gold cursor-pointer hover:text-gold/80 font-bold uppercase tracking-widest">View Your Past Mistake</summary>
                                         <div className="mt-2 p-3 bg-white/50 rounded-lg text-sm text-charcoal font-serif italic border-l-2 border-gold">
-                                            "{targetAnswer}"
+                                            "{originalAnswer}"
                                         </div>
                                     </details>
                                 )}
@@ -316,7 +324,7 @@ const TeleprompterView: React.FC<TeleprompterViewProps> = ({ onHome, isSaved, on
                                     {isGeneratingTTS ? <Loader2 size={12} className="animate-spin"/> : isPlayingTTS ? <StopCircle size={12}/> : <Volume2 size={12}/>}
                                     {isPlayingTTS ? 'Stop' : 'Listen'}
                                 </button>
-                                <button onClick={() => { setScriptText(rehearsalQuestion ? `Question: ${rehearsalQuestion}\n\nYour Answer:\n` : ""); setScriptWords([]); }} className="text-xs font-bold text-gray-400 hover:text-red-400 uppercase tracking-widest px-3 py-1.5">Clear</button>
+                                <button onClick={() => { setScriptText(rehearsalQuestion ? `Question: ${rehearsalQuestion}\n\nImproved Answer:\n${targetAnswer || ''}` : ""); setScriptWords([]); }} className="text-xs font-bold text-gray-400 hover:text-red-400 uppercase tracking-widest px-3 py-1.5">Clear</button>
                             </div>
                         </div>
                         <textarea className="flex-1 p-8 text-lg font-serif leading-relaxed resize-none outline-none text-charcoal placeholder:text-gray-300" placeholder="Paste speech here..." value={scriptText} onChange={handleScriptChange} />

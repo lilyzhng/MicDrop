@@ -22,6 +22,7 @@ export interface Database {
           explanation?: string
           question?: string
           human_rewrite?: string
+          report_data?: Json
         }
         Insert: {
           id?: string
@@ -35,6 +36,7 @@ export interface Database {
           explanation?: string
           question?: string
           human_rewrite?: string
+          report_data?: Json
         }
         Update: {
           id?: string
@@ -48,6 +50,7 @@ export interface Database {
           explanation?: string
           question?: string
           human_rewrite?: string
+          report_data?: Json
         }
       }
       saved_reports: {

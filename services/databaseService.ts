@@ -25,7 +25,8 @@ export const fetchSavedItems = async (userId: string): Promise<SavedItem[]> => {
         humanRewrite: item.human_rewrite,
         category: item.category || '',
         rewrite: item.rewrite,
-        explanation: item.explanation
+        explanation: item.explanation,
+        reportData: item.report_data as any
     }));
 };
 
@@ -41,7 +42,8 @@ export const createSavedItem = async (userId: string, item: Omit<SavedItem, 'id'
             rewrite: item.rewrite,
             explanation: item.explanation,
             question: item.question,
-            human_rewrite: item.humanRewrite
+            human_rewrite: item.humanRewrite,
+            report_data: item.reportData as any
         })
         .select()
         .single();
@@ -61,7 +63,8 @@ export const createSavedItem = async (userId: string, item: Omit<SavedItem, 'id'
         rewrite: data.rewrite,
         explanation: data.explanation,
         question: data.question,
-        humanRewrite: data.human_rewrite
+        humanRewrite: data.human_rewrite,
+        reportData: data.report_data as any
     };
 };
 

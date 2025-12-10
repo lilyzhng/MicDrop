@@ -13,6 +13,13 @@ interface PerformanceReportProps {
     onDone: (force: boolean) => void;
 }
 
+// Helper to create report data context for saving
+const createReportContext = (report: ReportType, transcript?: string, context?: string) => ({
+    report,
+    transcript,
+    context
+});
+
 const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcript, context, isSaved, onToggleSave, onDone }) => {
     const { rating, summary, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite } = report;
     const [showRewrite, setShowRewrite] = useState(false);
@@ -144,8 +151,9 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                     content: item.instance,
                                     rewrite: item.rewrite,
                                     explanation: item.explanation,
-                                    question: context,
-                                    humanRewrite: item.rewrite
+                                    question: item.question || context,
+                                    humanRewrite: item.rewrite,
+                                    reportData: createReportContext(report, transcript, context)
                                 })}
                                 className={`absolute top-6 right-6 p-2 rounded-full transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
                                 title={saved ? "Remove from database" : "Save to database"}
@@ -158,13 +166,22 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                 <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
                             </div>
                             
-                            <h4 className="text-lg font-bold text-charcoal mb-2">The Issue</h4>
-                            <p className="text-gray-600 mb-6 mr-8">{item.issue}</p>
+                            {/* Question Context */}
+                            {item.question && (
+                                <div className="mb-4 mr-8">
+                                    <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Interview Question</h5>
+                                    <p className="text-gray-600 text-sm italic">"{item.question}"</p>
+                                </div>
+                            )}
 
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div className="bg-[#FAF9F6] p-6 rounded-xl border-l-4 border-gray-200">
-                                    <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Specific Instance</h5>
-                                    <p className="text-charcoal text-lg leading-relaxed">"{item.instance}"</p>
+                                    <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">What You Said</h5>
+                                    <p className="text-charcoal font-serif text-lg leading-relaxed mb-3">"{item.instance}"</p>
+                                    <div className="pt-3 border-t border-gray-200">
+                                        <h6 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">The Issue</h6>
+                                        <p className="text-sm text-gray-600">{item.issue}</p>
+                                    </div>
                                 </div>
                                 <div className="bg-green-50/50 p-6 rounded-xl border-l-4 border-green-400">
                                     <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -205,7 +222,8 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                             category: item.category,
                                             title: item.strength,
                                             content: item.quote,
-                                            question: context
+                                            question: item.question || context,
+                                            reportData: createReportContext(report, transcript, context)
                                         })}
                                         className={`absolute top-4 right-4 p-2 rounded-full z-10 transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
                                         title={saved ? "Remove from database" : "Save to database"}
@@ -219,9 +237,18 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                         </div>
                                         <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
                                     </div>
+                                    
+                                    {/* Question Context */}
+                                    {item.question && (
+                                        <div className="mb-3 mr-6">
+                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Interview Question</h5>
+                                            <p className="text-gray-600 text-xs italic">"{item.question}"</p>
+                                        </div>
+                                    )}
+                                    
                                     <h4 className="text-md font-bold text-charcoal mb-2 pr-6">{item.strength}</h4>
                                     <div className="bg-[#FAF9F6] p-4 rounded-xl mt-4">
-                                        <p className="text-charcoal italic font-serif text-sm">"{item.quote}"</p>
+                                        <p className="text-charcoal font-serif text-sm">"{item.quote}"</p>
                                     </div>
                                 </div>
                             );
@@ -242,7 +269,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                              {pronunciationFeedback.map((drill, i) => {
                                  const saved = isSaved(drill.issue, drill.phrase);
                                  return (
-                                     <div key={i} className="flex flex-col md:flex-row gap-6 p-6 rounded-2xl border border-gray-100 bg-[#FAF9F6] relative group">
+                                     <div key={i} className="flex flex-col gap-4 p-6 rounded-2xl border border-gray-100 bg-[#FAF9F6] relative group">
                                          <button 
                                             onClick={() => onToggleSave({
                                                 type: 'drill',
@@ -250,8 +277,9 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                                 title: drill.issue,
                                                 content: drill.phrase,
                                                 rewrite: drill.practiceDrill,
-                                                question: context,
-                                                humanRewrite: drill.practiceDrill
+                                                question: drill.question || context,
+                                                humanRewrite: drill.practiceDrill,
+                                                reportData: createReportContext(report, transcript, context)
                                             })}
                                             className={`absolute top-4 right-4 p-2 rounded-full transition-all z-10 ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-white'}`}
                                             title={saved ? "Remove from database" : "Save to database"}
@@ -259,26 +287,36 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, transcrip
                                             <Bookmark size={16} fill={saved ? "currentColor" : "none"} />
                                         </button>
 
-                                         <div className="md:w-1/3">
-                                            <div className="flex items-center gap-2 mb-2 text-red-500">
-                                                <AlertCircle size={14} />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">The Trap</span>
-                                            </div>
-                                            <h5 className="font-bold text-charcoal mb-1">{drill.issue}</h5>
-                                            <p className="text-sm text-gray-500 italic mb-2">"{drill.phrase}"</p>
-                                         </div>
+                                         {/* Question Context */}
+                                         {drill.question && (
+                                             <div className="mr-8 mb-2">
+                                                 <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Interview Question</h5>
+                                                 <p className="text-gray-600 text-xs italic">"{drill.question}"</p>
+                                             </div>
+                                         )}
 
-                                         <div className="flex-1 bg-white p-6 rounded-xl border border-gold/20 shadow-sm">
-                                             <div className="flex items-center gap-2 mb-3 text-gold">
-                                                <Mic2 size={14} />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest">The Drill</span>
-                                            </div>
-                                            <div className="font-serif text-xl text-charcoal tracking-wide mb-3 leading-relaxed">
-                                                {drill.practiceDrill}
-                                            </div>
-                                            <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
-                                                <span className="font-bold">Why:</span> {drill.reason}
-                                            </p>
+                                         <div className="flex flex-col md:flex-row gap-6">
+                                             <div className="md:w-1/3">
+                                                <div className="flex items-center gap-2 mb-2 text-red-500">
+                                                    <AlertCircle size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">The Trap</span>
+                                                </div>
+                                                <h5 className="font-bold text-charcoal mb-1">{drill.issue}</h5>
+                                                <p className="text-sm text-gray-500 italic mb-2">"{drill.phrase}"</p>
+                                             </div>
+
+                                             <div className="flex-1 bg-white p-6 rounded-xl border border-gold/20 shadow-sm">
+                                                 <div className="flex items-center gap-2 mb-3 text-gold">
+                                                    <Mic2 size={14} />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest">The Drill</span>
+                                                </div>
+                                                <div className="font-serif text-xl text-charcoal tracking-wide mb-3 leading-relaxed">
+                                                    {drill.practiceDrill}
+                                                </div>
+                                                <p className="text-xs text-gray-500 border-t border-gray-100 pt-3">
+                                                    <span className="font-bold">Why:</span> {drill.reason}
+                                                </p>
+                                             </div>
                                          </div>
                                      </div>
                                  );

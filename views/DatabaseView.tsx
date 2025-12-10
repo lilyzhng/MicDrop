@@ -257,41 +257,51 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                              <h3 className="text-lg font-bold text-charcoal uppercase tracking-widest">Improvements to Work On</h3>
                                          </div>
                                          <div className="grid gap-6">
-                                             {savedItems.filter(i => i.type === 'improvement').map(item => (
+                                             {savedItems.filter(i => i.type === 'improvement').map(item => {
+                                                 // Extract data from reportData for backward compatibility
+                                                 const questionText = item.question || item.reportData?.context;
+                                                 const humanRewriteText = item.humanRewrite || item.rewrite;
+                                                 
+                                                 return (
                                                 <div key={item.id} className="bg-white rounded-2xl p-8 shadow-sm border border-[#EBE8E0] relative group">
                                                     <button 
                                                         onClick={() => onDeleteSnippet(item.id)}
-                                                        className="absolute top-4 right-4 p-2 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                        className="absolute top-4 right-4 p-2 text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all z-10"
                                                         title="Remove from database"
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
-                                                    <div className="flex items-center gap-2 mb-4">
+                                                    <div className="flex items-center gap-2 mb-4 pr-12">
                                                          <div className="w-2 h-2 rounded-full bg-red-400"></div>
                                                          <span className="text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
                                                          <span className="text-[10px] text-gray-300 ml-auto">{new Date(item.date).toLocaleDateString()}</span>
                                                     </div>
                                                     
                                                     {/* Question Context */}
-                                                    {item.question && (
-                                                        <div className="bg-blue-50/50 p-4 rounded-xl border-l-4 border-blue-400 mb-4">
-                                                            <h5 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Interview Question</h5>
-                                                            <p className="text-charcoal text-sm italic">"{item.question}"</p>
+                                                    {questionText && (
+                                                        <div className="mb-4">
+                                                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Interview Question</h5>
+                                                            <p className="text-gray-600 text-sm italic">"{questionText}"</p>
                                                         </div>
                                                     )}
                                                     
-                                                    <h4 className="text-lg font-bold text-charcoal mb-2">{item.title}</h4>
                                                     <div className="bg-[#FAF9F6] p-4 rounded-xl border-l-4 border-gray-200 mb-4">
                                                          <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">What You Said</h5>
-                                                         <p className="text-charcoal font-serif text-sm leading-relaxed">"{item.content}"</p>
+                                                         <p className="text-charcoal font-serif text-sm leading-relaxed mb-3">"{item.content}"</p>
+                                                         {item.title && (
+                                                             <div className="pt-3 border-t border-gray-200">
+                                                                 <h6 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">The Issue</h6>
+                                                                 <p className="text-sm text-gray-600">{item.title}</p>
+                                                             </div>
+                                                         )}
                                                     </div>
                                                     
-                                                    {(item.rewrite || item.humanRewrite) && (
+                                                    {humanRewriteText && (
                                                         <div className="bg-green-50/50 p-4 rounded-xl border-l-4 border-green-400 mb-4">
                                                             <h5 className="text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 flex items-center gap-2">
                                                                <PenTool size={12}/> The Human Rewrite (For Practice)
                                                             </h5>
-                                                            <p className="text-charcoal font-serif text-sm leading-relaxed">"{item.humanRewrite || item.rewrite}"</p>
+                                                            <p className="text-charcoal font-serif text-sm leading-relaxed">"{humanRewriteText}"</p>
                                                             {item.explanation && (
                                                                 <div className="mt-3 pt-3 border-t border-green-200/50">
                                                                     <p className="text-xs text-green-800 italic">{item.explanation}</p>
@@ -301,16 +311,20 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                     )}
                                                     
                                                     {/* Rehearse Button */}
-                                                    {item.question && (
+                                                    {questionText && (
                                                         <button 
-                                                            onClick={() => navigate('/teleprompter', { state: { question: item.question, targetAnswer: item.humanRewrite || item.rewrite } })}
+                                                            onClick={() => navigate('/teleprompter', { state: { 
+                                                                question: questionText, 
+                                                                targetAnswer: humanRewriteText,
+                                                                originalAnswer: item.content 
+                                                            }})}
                                                             className="w-full py-3 bg-gold text-white rounded-xl font-bold hover:bg-gold/90 transition-colors shadow-sm flex items-center justify-center gap-2"
                                                         >
                                                             <Play size={16} /> Start Rehearsal with This Question
                                                         </button>
                                                     )}
                                                 </div>
-                                             ))}
+                                             )})}
                                          </div>
                                      </div>
                                  )}

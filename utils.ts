@@ -172,3 +172,19 @@ export const isMatch = (scriptWord: string, spokenWord: string): boolean => {
     const dist = getLevenshteinDistance(scriptWord, spokenWord);
     return dist <= Math.floor(len * 0.4); 
 };
+
+// Utility to create URL-safe slugs from titles
+export const titleToSlug = (title: string): string => {
+  return title
+    .toLowerCase()
+    .trim()                    // Trim whitespace first
+    .replace(/[^\w\s-]/g, '')  // Remove special characters
+    .replace(/\s+/g, '-')      // Replace spaces with hyphens
+    .replace(/-+/g, '-')       // Replace multiple hyphens with single
+    .replace(/^-+|-+$/g, '');  // Remove leading and trailing hyphens
+};
+
+// Utility to find report by slug
+export const findReportBySlug = <T extends { title: string }>(reports: T[], slug: string): T | undefined => {
+  return reports.find(report => titleToSlug(report.title) === slug);
+};

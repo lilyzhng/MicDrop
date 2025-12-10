@@ -1,8 +1,10 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ChevronRight, ArrowLeft, Edit2, Check, X } from 'lucide-react';
 import { SavedItem, SavedReport, PerformanceReport } from '../types';
 import PerformanceReportComponent from '../components/PerformanceReport';
+import { titleToSlug, findReportBySlug } from '../utils';
 
 interface DatabaseViewProps {
     savedItems: SavedItem[];
@@ -13,6 +15,7 @@ interface DatabaseViewProps {
     onHome: () => void;
     isSaved: (title: string, content: string) => boolean;
     onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
+    selectedReportSlug?: string;
 }
 
 const DatabaseView: React.FC<DatabaseViewProps> = ({ 
@@ -23,10 +26,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     onUpdateReport,
     onHome,
     isSaved,
-    onToggleSave
+    onToggleSave,
+    selectedReportSlug
 }) => {
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'reports' | 'snippets'>('reports');
-    const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
+    const selectedReport = selectedReportSlug ? findReportBySlug(savedReports, selectedReportSlug) : null;
     
     // Edit State
     const [editingReportId, setEditingReportId] = useState<string | null>(null);
@@ -66,7 +71,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
             <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
                 <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setSelectedReport(null)} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-bold uppercase tracking-widest text-gray-600">
+                        <button onClick={() => navigate('/database')} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-bold uppercase tracking-widest text-gray-600">
                             <ArrowLeft size={14} /> Back to Database
                         </button>
                     </div>
@@ -77,7 +82,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                             report={selectedReport.reportData} 
                             isSaved={isSaved} 
                             onToggleSave={onToggleSave} 
-                            onDone={() => setSelectedReport(null)} 
+                            onDone={() => navigate('/database')} 
                          />
                      </div>
                 </div>
@@ -207,12 +212,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                      >
                                                          <Edit2 size={16} />
                                                      </button>
-                                                     <button 
-                                                        onClick={() => setSelectedReport(report)}
-                                                        className="px-4 py-2 bg-charcoal text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors"
-                                                     >
-                                                        View
-                                                     </button>
+                                                    <button 
+                                                       onClick={() => navigate(`/report/${titleToSlug(report.title)}`)}
+                                                       className="px-4 py-2 bg-charcoal text-white rounded-lg text-xs font-bold uppercase tracking-widest hover:bg-black transition-colors"
+                                                    >
+                                                       View
+                                                    </button>
                                                      <button 
                                                         onClick={(e) => { e.stopPropagation(); onDeleteReport(report.id); }}
                                                         className="p-2 text-gray-300 hover:text-red-400 transition-colors"

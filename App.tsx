@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { SavedItem, SavedReport, PerformanceReport } from './types';
 import HomeView from './views/HomeView';
 import DatabaseView from './views/DatabaseView';
@@ -9,13 +10,55 @@ import LoginView from './views/LoginView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserMenu from './components/UserMenu';
 import * as db from './services/databaseService';
+import { titleToSlug, findReportBySlug } from './utils';
 
-// Application Views
-type AppView = 'home' | 'teleprompter' | 'analysis' | 'database';
+// Component to view individual reports by slug
+interface ReportViewerProps {
+  savedReports: SavedReport[];
+  isSaved: (title: string, content: string) => boolean;
+  onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
+}
+
+const ReportViewer: React.FC<ReportViewerProps> = ({ savedReports, isSaved, onToggleSave }) => {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const report = slug ? findReportBySlug(savedReports, slug) : null;
+
+  if (!report) {
+    return (
+      <div className="h-full bg-cream text-charcoal flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-serif font-bold mb-4">Report Not Found</h2>
+          <p className="text-gray-500 mb-6">The report you're looking for doesn't exist or has been deleted.</p>
+          <button 
+            onClick={() => navigate('/database')}
+            className="px-6 py-3 bg-charcoal text-white rounded-lg hover:bg-black transition-colors"
+          >
+            View All Reports
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <DatabaseView 
+      savedItems={[]} 
+      savedReports={savedReports}
+      onDeleteSnippet={() => {}}
+      onDeleteReport={() => navigate('/database')}
+      onUpdateReport={() => {}}
+      onHome={() => navigate('/')} 
+      isSaved={isSaved}
+      onToggleSave={onToggleSave}
+      selectedReportSlug={slug}
+    />
+  );
+};
 
 const MainApp: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const [currentView, setCurrentView] = useState<AppView>('home');
+  const navigate = useNavigate();
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -107,8 +150,8 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Navigation --
-  const handleNavigate = (view: AppView) => {
-      setCurrentView(view);
+  const handleNavigate = (view: 'teleprompter' | 'analysis' | 'database') => {
+      navigate(`/${view}`);
   };
 
   const goHome = (force: boolean | unknown = false) => {
@@ -116,7 +159,7 @@ const MainApp: React.FC = () => {
       if (!shouldForce) {
           if (!window.confirm("Are you sure you want to go back? Current progress will be lost.")) return;
       }
-      setCurrentView('home');
+      navigate('/');
   };
 
   if (isLoading || isLoadingData) {
@@ -136,49 +179,62 @@ const MainApp: React.FC = () => {
           <UserMenu />
       </div>
 
-      {currentView === 'home' && (
-          <HomeView onNavigate={handleNavigate} />
-      )}
-      
-      {currentView === 'database' && (
+      <Routes>
+        <Route path="/" element={<HomeView onNavigate={handleNavigate} />} />
+        
+        <Route path="/database" element={
           <DatabaseView 
             savedItems={savedItems} 
             savedReports={savedReports}
             onDeleteSnippet={deleteSavedItem} 
             onDeleteReport={deleteSavedReport}
             onUpdateReport={updateSavedReport}
-            onHome={() => setCurrentView('home')} 
+            onHome={() => navigate('/')} 
             isSaved={isSaved}
             onToggleSave={toggleSaveItem}
           />
-      )}
-      
-      {currentView === 'analysis' && (
+        } />
+        
+        <Route path="/report/:slug" element={
+          <ReportViewer 
+            savedReports={savedReports}
+            isSaved={isSaved}
+            onToggleSave={toggleSaveItem}
+          />
+        } />
+        
+        <Route path="/analysis" element={
           <AnalysisView 
-              onHome={goHome} 
-              isSaved={isSaved} 
-              onToggleSave={toggleSaveItem}
-              onSaveReport={saveReport}
+            onHome={goHome} 
+            isSaved={isSaved} 
+            onToggleSave={toggleSaveItem}
+            onSaveReport={saveReport}
           />
-      )}
-      
-      {currentView === 'teleprompter' && (
+        } />
+        
+        <Route path="/teleprompter" element={
           <TeleprompterView 
-              onHome={goHome} 
-              isSaved={isSaved} 
-              onToggleSave={toggleSaveItem}
-              onSaveReport={saveReport}
+            onHome={goHome} 
+            isSaved={isSaved} 
+            onToggleSave={toggleSaveItem}
+            onSaveReport={saveReport}
           />
-      )}
+        } />
+        
+        {/* Redirect any unknown routes to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 };
 
 const App: React.FC = () => {
     return (
-        <AuthProvider>
-            <MainApp />
-        </AuthProvider>
+        <BrowserRouter>
+            <AuthProvider>
+                <MainApp />
+            </AuthProvider>
+        </BrowserRouter>
     );
 };
 

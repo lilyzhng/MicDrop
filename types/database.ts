@@ -9,6 +9,62 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      blind_problems: {
+        Row: {
+          id: string
+          title: string
+          prompt: string
+          example: string | null
+          constraints: string[]
+          pattern: string
+          key_idea: string
+          skeleton: string
+          time_complexity: string
+          space_complexity: string
+          steps: string[]
+          expected_edge_cases: string[]
+          topics: string[]
+          difficulty: 'easy' | 'medium' | 'hard'
+          leetcode_number: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          prompt: string
+          example?: string | null
+          constraints?: string[]
+          pattern: string
+          key_idea: string
+          skeleton: string
+          time_complexity: string
+          space_complexity: string
+          steps?: string[]
+          expected_edge_cases?: string[]
+          topics?: string[]
+          difficulty: 'easy' | 'medium' | 'hard'
+          leetcode_number?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          prompt?: string
+          example?: string | null
+          constraints?: string[]
+          pattern?: string
+          key_idea?: string
+          skeleton?: string
+          time_complexity?: string
+          space_complexity?: string
+          steps?: string[]
+          expected_edge_cases?: string[]
+          topics?: string[]
+          difficulty?: 'easy' | 'medium' | 'hard'
+          leetcode_number?: number | null
+          created_at?: string
+        }
+      }
       saved_items: {
         Row: {
           id: string

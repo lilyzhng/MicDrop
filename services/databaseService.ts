@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { SavedItem, SavedReport, PerformanceReport } from '../types';
+import { SavedItem, SavedReport, PerformanceReport, BlindProblem } from '../types';
 
 // ========== SAVED ITEMS (Snippets) ==========
 
@@ -174,4 +174,96 @@ export const deleteSavedReport = async (reportId: string): Promise<boolean> => {
 
     return true;
 };
+
+// ========== BLIND PROBLEMS ==========
+
+/**
+ * Fetch blind problems by topics
+ * Selects random problems that match any of the given topics
+ */
+export const fetchBlindProblemsByTopics = async (
+    topics: string[],
+    limit: number = 5,
+    excludeIds: string[] = []
+): Promise<BlindProblem[]> => {
+    // Supabase doesn't have native array overlap, so we'll fetch all and filter
+    // For a small dataset of 75 problems, this is efficient enough
+    let query = supabase
+        .from('blind_problems')
+        .select('*');
+
+    if (excludeIds.length > 0) {
+        query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching blind problems:', error);
+        return [];
+    }
+
+    // Filter problems that match any of the requested topics
+    const matchingProblems = data.filter(problem => {
+        const problemTopics = problem.topics as string[];
+        return problemTopics.some(topic => topics.includes(topic));
+    });
+
+    // Shuffle and take the requested number
+    const shuffled = matchingProblems.sort(() => Math.random() - 0.5);
+    const selected = shuffled.slice(0, limit);
+
+    return selected.map(mapDbProblemToBlindProblem);
+};
+
+/**
+ * Fetch all blind problems (for stats/admin purposes)
+ */
+export const fetchAllBlindProblems = async (): Promise<BlindProblem[]> => {
+    const { data, error } = await supabase
+        .from('blind_problems')
+        .select('*')
+        .order('title', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching all blind problems:', error);
+        return [];
+    }
+
+    return data.map(mapDbProblemToBlindProblem);
+};
+
+/**
+ * Get total count of blind problems
+ */
+export const getBlindProblemsCount = async (): Promise<number> => {
+    const { count, error } = await supabase
+        .from('blind_problems')
+        .select('*', { count: 'exact', head: true });
+
+    if (error) {
+        console.error('Error counting blind problems:', error);
+        return 0;
+    }
+
+    return count || 0;
+};
+
+/**
+ * Helper to map database row to BlindProblem type
+ */
+const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
+    id: row.id,
+    title: row.title,
+    prompt: row.prompt,
+    example: row.example || undefined,
+    constraints: row.constraints as string[],
+    pattern: row.pattern,
+    keyIdea: row.key_idea,
+    skeleton: row.skeleton,
+    timeComplexity: row.time_complexity,
+    spaceComplexity: row.space_complexity,
+    steps: row.steps as string[],
+    expectedEdgeCases: row.expected_edge_cases as string[]
+});
 

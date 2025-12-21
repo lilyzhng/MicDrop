@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat } from 'lucide-react';
 import { BlindProblem, PerformanceReport } from '../types';
-import { analyzeWalkieSession, refineTranscript, generateProblemSet } from '../services/analysisService';
+import { analyzeWalkieSession, refineTranscript } from '../services/analysisService';
+import { fetchBlindProblemsByTopics } from '../services/databaseService';
 import PerformanceReportComponent from '../components/PerformanceReport';
 
 interface WalkieTalkieViewProps {
@@ -198,9 +199,23 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setStep('curating');
     
     try {
-        // Updated to pass topics instead of name to avoid thematic hallucinations
-        const problems = await generateProblemSet(spot.topics, spot.batchSize);
-        setProblemQueue(problems);
+        // Fetch pre-generated problems from Supabase instead of generating on the fly
+        const problems = await fetchBlindProblemsByTopics(spot.topics, spot.batchSize, masteredIds);
+        
+        if (problems.length === 0) {
+            console.warn("No problems found for topics:", spot.topics);
+            // Fallback: try fetching without excluding mastered IDs
+            const fallbackProblems = await fetchBlindProblemsByTopics(spot.topics, spot.batchSize, []);
+            if (fallbackProblems.length === 0) {
+                console.error("No problems available in database for these topics");
+                setStep('locations');
+                return;
+            }
+            setProblemQueue(fallbackProblems);
+        } else {
+            setProblemQueue(problems);
+        }
+        
         setCurrentQueueIdx(0);
         setSessionScore(0);
         setStep('problem');
@@ -370,7 +385,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         </div>
         <h2 className="text-4xl font-serif font-bold mb-4">Entering {selectedSpot?.name}</h2>
         <p className="text-gray-400 font-light italic leading-relaxed max-w-sm">
-          Gemini is selecting 5 unmastered challenges for your ritual...
+          Selecting 5 unmastered challenges for your ritual...
         </p>
         <Loader2 size={24} className="mt-12 animate-spin text-gold/40" />
       </div>

@@ -7,6 +7,7 @@ import DatabaseView from './views/DatabaseView';
 import AnalysisView from './views/AnalysisView';
 import TeleprompterView from './views/TeleprompterView';
 import HotTakeView from './views/HotTakeView';
+import WalkieTalkieView from './views/WalkieTalkieView';
 import LoginView from './views/LoginView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserMenu from './components/UserMenu';
@@ -63,6 +64,26 @@ const MainApp: React.FC = () => {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  
+  // Walkie-Talkie mastery state
+  const [masteredIds, setMasteredIds] = useState<string[]>(() => {
+      try {
+          const stored = localStorage.getItem('micdrop_mastery_ids');
+          return stored ? JSON.parse(stored) : [];
+      } catch { return []; }
+  });
+
+  // Persist mastery state
+  useEffect(() => {
+      localStorage.setItem('micdrop_mastery_ids', JSON.stringify(masteredIds));
+  }, [masteredIds]);
+
+  const markAsMastered = useCallback((problemId: string) => {
+      setMasteredIds(prev => {
+          if (prev.includes(problemId)) return prev;
+          return [...prev, problemId];
+      });
+  }, []);
 
   // Load data from Supabase when user logs in
   useEffect(() => {
@@ -125,7 +146,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Report Logic --
-  const saveReport = useCallback(async (title: string, type: 'coach' | 'rehearsal' | 'hot-take', report: PerformanceReport) => {
+  const saveReport = useCallback(async (title: string, type: 'coach' | 'rehearsal' | 'walkie' | 'hot-take', report: PerformanceReport) => {
       if (!user) return;
       
       const newReport = await db.createSavedReport(user.id, title, type, report);
@@ -151,7 +172,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Navigation --
-  const handleNavigate = (view: 'teleprompter' | 'analysis' | 'database' | 'hot-take') => {
+  const handleNavigate = (view: 'teleprompter' | 'analysis' | 'database' | 'hot-take' | 'walkie-talkie') => {
       navigate(`/${view}`);
   };
 
@@ -228,6 +249,15 @@ const MainApp: React.FC = () => {
             onSaveReport={saveReport}
             isSaved={isSaved}
             onToggleSave={toggleSaveItem}
+          />
+        } />
+        
+        <Route path="/walkie-talkie" element={
+          <WalkieTalkieView 
+            onHome={goHome}
+            onSaveReport={saveReport}
+            masteredIds={masteredIds}
+            onMastered={markAsMastered}
           />
         } />
         

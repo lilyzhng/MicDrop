@@ -109,6 +109,15 @@ export interface PerformanceReport {
   highlights?: Highlight[]; // Positive feedback
   coachingRewrite?: CoachingRewrite; // Global rewrite
   flipTheTable?: FlipTheTable; // Analysis of candidate's questions
+  // Walkie Talkie specific fields
+  mentalModelChecklist?: {
+    logicCorrect: boolean;
+    edgeCasesMentioned: boolean;
+    complexityAnalyzed: boolean;
+    exampleTraced: boolean;
+  };
+  missingEdgeCases?: string[];
+  detectedAutoScore?: 'good' | 'partial' | 'missed';
   // Hot Take specific fields
   hotTakeRubric?: Record<string, number>;
   continueSparring?: boolean;
@@ -145,7 +154,7 @@ export interface SavedReport {
     id: string;
     date: string;
     title: string; // Context string or Script name
-    type: 'coach' | 'rehearsal' | 'hot-take';
+    type: 'coach' | 'rehearsal' | 'walkie' | 'hot-take';
     rating: number;
     reportData: PerformanceReport;
 }
@@ -155,4 +164,21 @@ export interface User {
     name: string;
     email: string;
     avatarUrl?: string;
+}
+
+// --- Walkie-Talkie Specific Types ---
+
+export interface BlindProblem {
+  id: string;
+  title: string;
+  prompt: string;
+  example?: string;
+  constraints: string[];
+  pattern: string;
+  keyIdea: string;
+  skeleton: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  steps: string[];
+  expectedEdgeCases: string[];
 }

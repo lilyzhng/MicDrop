@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { PerformanceReport, HotTakeGlobalContext, HotTakePreference, HotTakeQuestion } from '../types';
+import { PerformanceReport, HotTakeGlobalContext, HotTakePreference, HotTakeQuestion, BlindProblem } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -300,6 +300,113 @@ Provide:
     });
 
     return JSON.parse(response.text);
+};
+
+// ========== WALKIE TALKIE FUNCTIONS ==========
+
+const WALKIE_REPORT_SCHEMA = {
+    type: GeminiType.OBJECT,
+    properties: {
+        rating: { type: GeminiType.INTEGER },
+        summary: { type: GeminiType.STRING },
+        suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+        pronunciationFeedback: { type: GeminiType.ARRAY, items: { type: GeminiType.OBJECT, properties: { phrase: { type: GeminiType.STRING }, issue: { type: GeminiType.STRING }, practiceDrill: { type: GeminiType.STRING }, reason: { type: GeminiType.STRING } } } },
+        mentalModelChecklist: {
+            type: GeminiType.OBJECT,
+            properties: {
+                logicCorrect: { type: GeminiType.BOOLEAN },
+                edgeCasesMentioned: { type: GeminiType.BOOLEAN },
+                complexityAnalyzed: { type: GeminiType.BOOLEAN },
+                exampleTraced: { type: GeminiType.BOOLEAN },
+            }
+        },
+        missingEdgeCases: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+        detectedAutoScore: { type: GeminiType.STRING },
+    },
+    required: ["rating", "summary", "detectedAutoScore"]
+};
+
+const BLIND_PROBLEM_SCHEMA = {
+    type: GeminiType.ARRAY,
+    items: {
+        type: GeminiType.OBJECT,
+        properties: {
+            id: { type: GeminiType.STRING },
+            title: { type: GeminiType.STRING },
+            prompt: { type: GeminiType.STRING },
+            example: { type: GeminiType.STRING },
+            constraints: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            pattern: { type: GeminiType.STRING },
+            keyIdea: { type: GeminiType.STRING },
+            skeleton: { type: GeminiType.STRING },
+            timeComplexity: { type: GeminiType.STRING },
+            spaceComplexity: { type: GeminiType.STRING },
+            steps: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            expectedEdgeCases: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+        }
+    }
+};
+
+export const analyzeWalkieSession = async (base64Audio: string, polishedText: string, currentProblem: BlindProblem): Promise<PerformanceReport> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `
+            Analyze this coding interview explanation.
+            Problem: ${currentProblem.title}
+            Description: ${currentProblem.prompt}
+            User's Explanation: "${polishedText}"
+            
+            Evaluate if the user correctly identified the pattern, complexity, and edge cases.
+            Set 'detectedAutoScore' to 'good' if the solution is correct and optimal.
+            Set 'detectedAutoScore' to 'partial' if it's correct but suboptimal or missing edge cases.
+            Set 'detectedAutoScore' to 'missed' if the approach is wrong.
+
+            CRITICAL: Return PURE JSON. Do not include internal monologue or thinking steps in the output strings.
+        `,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: WALKIE_REPORT_SCHEMA
+        }
+    });
+    return JSON.parse(response.text);
+};
+
+export const refineTranscript = async (rawTranscript: string, currentProblem: BlindProblem): Promise<string> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `
+            Refine the following raw speech-to-text transcript from a technical interview.
+            The user is solving the coding problem: "${currentProblem.title}".
+            Fix technical terms (e.g., "hash map", "O of N", "dynamic programming").
+            Remove filler words (um, ah, like). Keep the sentence structure natural.
+            
+            Raw: "${rawTranscript}"
+            
+            Return only the refined transcript text.
+        `
+    });
+    return response.text || rawTranscript;
+};
+
+export const generateProblemSet = async (topics: string[], batchSize: number): Promise<BlindProblem[]> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `
+        You are an Interview Problem Database.
+        Generate ${batchSize} authentic Blind 75 / LeetCode problems related to these topics: ${topics.join(', ')}.
+        
+        CRITICAL RULES:
+        1. DO NOT HALLUCINATE OR INVENT NEW PROBLEMS. Use only well-known Blind 75 / LeetCode 150 problems.
+        2. DO NOT change the problem context to fit a theme (e.g., do not mention coffee shops, parks, or baristas). Use the ORIGINAL problem statement (e.g., "Given an array of integers...").
+        3. The 'prompt' field must be the full, original problem description.
+        
+        Return JSON.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: BLIND_PROBLEM_SCHEMA
+        }
+    });
+    return JSON.parse(response.text || "[]");
 };
 
 // ========== HOT TAKE FUNCTIONS ==========

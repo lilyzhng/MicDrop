@@ -6,6 +6,7 @@ import HomeView from './views/HomeView';
 import DatabaseView from './views/DatabaseView';
 import AnalysisView from './views/AnalysisView';
 import TeleprompterView from './views/TeleprompterView';
+import HotTakeView from './views/HotTakeView';
 import LoginView from './views/LoginView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserMenu from './components/UserMenu';
@@ -124,7 +125,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Report Logic --
-  const saveReport = useCallback(async (title: string, type: 'coach' | 'rehearsal', report: PerformanceReport) => {
+  const saveReport = useCallback(async (title: string, type: 'coach' | 'rehearsal' | 'hot-take', report: PerformanceReport) => {
       if (!user) return;
       
       const newReport = await db.createSavedReport(user.id, title, type, report);
@@ -150,7 +151,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Navigation --
-  const handleNavigate = (view: 'teleprompter' | 'analysis' | 'database') => {
+  const handleNavigate = (view: 'teleprompter' | 'analysis' | 'database' | 'hot-take') => {
       navigate(`/${view}`);
   };
 
@@ -218,6 +219,15 @@ const MainApp: React.FC = () => {
             isSaved={isSaved} 
             onToggleSave={toggleSaveItem}
             onSaveReport={saveReport}
+          />
+        } />
+        
+        <Route path="/hot-take" element={
+          <HotTakeView 
+            onHome={goHome}
+            onSaveReport={saveReport}
+            isSaved={isSaved}
+            onToggleSave={toggleSaveItem}
           />
         } />
         

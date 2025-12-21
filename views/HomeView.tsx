@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { ArrowRight, Flame, ScrollText, BarChart3 } from 'lucide-react';
+import { ArrowRight, Flame, ScrollText, BarChart3, Zap } from 'lucide-react';
 
 interface HomeViewProps {
-    onNavigate: (view: 'teleprompter' | 'analysis' | 'database') => void;
+    onNavigate: (view: 'teleprompter' | 'analysis' | 'database' | 'hot-take') => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
@@ -22,7 +22,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
                 </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6 z-10 w-full max-w-6xl px-4 pb-10 shrink-0">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 z-10 w-full max-w-7xl px-4 pb-10 shrink-0">
                 {/* Card 1: The Coach */}
                 <button onClick={() => onNavigate('analysis')} className="group bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                      <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -61,7 +61,26 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
                      </div>
                 </button>
 
-                {/* Card 3: My Performance */}
+                {/* Card 3: Hot Take */}
+                <button onClick={() => onNavigate('hot-take')} className="group bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-gold/30 hover:border-gold text-left relative overflow-hidden flex flex-col h-full ring-2 ring-gold/10">
+                     <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                         <Zap size={120} className="text-gold" />
+                     </div>
+                     <div className="w-16 h-16 rounded-2xl bg-gold text-white flex items-center justify-center mb-8 shadow-lg group-hover:scale-110 transition-transform duration-300 shrink-0">
+                         <Zap size={32} />
+                     </div>
+                     <div className="flex-1">
+                         <h3 className="text-2xl font-serif font-bold text-charcoal mb-4">Hot Take</h3>
+                         <p className="text-gray-500 text-base leading-relaxed mb-8">
+                            Live voice sparring. Gemini evaluates your story and probes with follow-up questions to stress-test your narrative.
+                         </p>
+                     </div>
+                     <div className="flex items-center gap-2 text-gold font-bold text-xs tracking-widest uppercase mt-auto">
+                         Start Sparring <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                     </div>
+                </button>
+
+                {/* Card 4: My Performance */}
                 <button onClick={() => onNavigate('database')} className="group bg-white p-10 rounded-3xl shadow-xl hover:shadow-2xl transition-all border border-[#EBE8E0] hover:border-gold/30 text-left relative overflow-hidden flex flex-col h-full">
                      <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                          <BarChart3 size={120} className="text-gold" />

@@ -14,25 +14,65 @@ interface AnalysisViewProps {
 }
 
 const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSave, onSaveReport }) => {
-    // Local State
-    const [uploadContext, setUploadContext] = useState("");
-    const [manualTranscript, setManualTranscript] = useState("");
+    // Local State with session storage persistence
+    const [uploadContext, setUploadContext] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_uploadContext') || "";
+        } catch {
+            return "";
+        }
+    });
+    const [manualTranscript, setManualTranscript] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_manualTranscript') || "";
+        } catch {
+            return "";
+        }
+    });
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadedAudioBase64, setUploadedAudioBase64] = useState<string | null>(null);
-    
+
     // Process State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisStep, setAnalysisStep] = useState<'idle' | 'transcribing' | 'analyzing'>('idle');
     const [transcriptionResult, setTranscriptionResult] = useState<string | null>(null);
     const [performanceReport, setPerformanceReport] = useState<PerformanceReport | null>(null);
-    
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Persist form data to session storage
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_uploadContext', uploadContext);
+        } catch (e) {
+            console.error('Failed to save uploadContext to session storage', e);
+        }
+    }, [uploadContext]);
+
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_manualTranscript', manualTranscript);
+        } catch (e) {
+            console.error('Failed to save manualTranscript to session storage', e);
+        }
+    }, [manualTranscript]);
+
+    // Clear session storage when analysis is complete or user goes home
+    const clearSessionData = () => {
+        try {
+            sessionStorage.removeItem('coach_uploadContext');
+            sessionStorage.removeItem('coach_manualTranscript');
+        } catch (e) {
+            console.error('Failed to clear session storage', e);
+        }
+    };
 
     const handleHomeClick = () => {
         const hasData = !!(selectedFile || manualTranscript.trim() || uploadContext.trim() || transcriptionResult || performanceReport);
         if (hasData && !performanceReport) {
             if (!window.confirm("Are you sure you want to go back? Current progress will be lost.")) return;
         }
+        clearSessionData();
         onHome(true);
     };
 
@@ -89,6 +129,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                 console.log("💾 Saving report to database...");
                 await onSaveReport(uploadContext || "Coach Session", 'coach', report);
                 console.log("✅ Report saved successfully");
+                clearSessionData();
             } 
             // Path B: Audio Only -> Run Stage 1 (Transcribe) -> Automatically Run Stage 2 (Coach)
             else if (base64Audio) {
@@ -115,6 +156,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                 
                 await onSaveReport(uploadContext || "Coach Session", 'coach', report);
                 console.log("✅ Report saved successfully");
+                clearSessionData();
             } else {
                 throw new Error("No input provided");
             }

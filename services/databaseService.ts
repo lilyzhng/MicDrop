@@ -109,7 +109,7 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
 export const createSavedReport = async (
     userId: string, 
     title: string, 
-    type: 'coach' | 'rehearsal', 
+    type: 'coach' | 'rehearsal' | 'hot-take', 
     report: PerformanceReport
 ): Promise<SavedReport | null> => {
     const { data, error } = await supabase

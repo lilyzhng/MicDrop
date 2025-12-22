@@ -1,10 +1,19 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat } from 'lucide-react';
+import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf } from 'lucide-react';
 import { BlindProblem, PerformanceReport, SavedItem } from '../types';
 import { analyzeWalkieSession, refineTranscript } from '../services/analysisService';
-import { fetchBlindProblemsByTopics } from '../services/databaseService';
+import { buildProblemQueue } from '../services/databaseService';
 import PerformanceReportComponent from '../components/PerformanceReport';
+
+// Difficulty mode types
+type DifficultyMode = 'warmup' | 'standard' | 'challenge';
+
+const DIFFICULTY_MAP: Record<DifficultyMode, ('easy' | 'medium' | 'hard')[]> = {
+  warmup: ['easy'],
+  standard: ['easy', 'medium'],
+  challenge: ['easy', 'medium', 'hard']
+};
 
 interface WalkieTalkieViewProps {
   onHome: (force: boolean) => void;
@@ -15,7 +24,7 @@ interface WalkieTalkieViewProps {
   onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
 }
 
-// 3 REAL WORLD LOCATIONS MAPPED TO BLIND 75 TOPICS
+// 3 REAL WORLD LOCATIONS - Just fun location names (no topic association)
 const POWER_SPOTS = [
   { 
     id: 'spot1', 
@@ -23,8 +32,7 @@ const POWER_SPOTS = [
     ritual: 'Deep Focus Batch', 
     batchSize: 5, 
     icon: 'coffee', 
-    description: 'Best for complex DP and Graph logic over a warm brew.',
-    topics: ['Dynamic Programming', 'Graph', 'Matrix', 'Binary Search Tree']
+    description: 'A warm brew and 5 curated challenges await.'
   },
   { 
     id: 'spot2', 
@@ -32,8 +40,7 @@ const POWER_SPOTS = [
     ritual: 'Movement Batch', 
     batchSize: 5, 
     icon: 'park', 
-    description: 'Walk and talk through Arrays, Strings, and Two-Pointer patterns.',
-    topics: ['Array', 'String', 'Two Pointers', 'Sliding Window', 'Stack']
+    description: 'Walk and talk through patterns in nature.'
   },
   { 
     id: 'spot3', 
@@ -41,8 +48,7 @@ const POWER_SPOTS = [
     ritual: 'Transit Batch', 
     batchSize: 5, 
     icon: 'train', 
-    description: 'Quick-fire Tree and Heap traversals while on the move.',
-    topics: ['Binary Tree', 'Heap', 'Intervals', 'Linked List']
+    description: 'Quick-fire problem solving on the move.'
   }
 ];
 
@@ -51,6 +57,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [analysisPhase, setAnalysisPhase] = useState<'refining' | 'evaluating'>('refining');
   const [selectedSpot, setSelectedSpot] = useState<typeof POWER_SPOTS[0] | null>(null);
   const [showStats, setShowStats] = useState(false);
+  
+  // Difficulty Mode State
+  const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('standard');
   
   // Session State
   const [problemQueue, setProblemQueue] = useState<BlindProblem[]>([]);
@@ -205,15 +214,16 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setStep('curating');
     
     try {
-        // Fetch pre-generated problems from Supabase instead of generating on the fly
-        const problems = await fetchBlindProblemsByTopics(spot.topics, spot.batchSize, masteredIds);
+        // Build problem queue using focus groups and progressive difficulty
+        const allowedDifficulties = DIFFICULTY_MAP[difficultyMode];
+        const problems = await buildProblemQueue(masteredIds, allowedDifficulties, spot.batchSize);
         
         if (problems.length === 0) {
-            console.warn("No problems found for topics:", spot.topics);
+            console.warn("No problems found for difficulty mode:", difficultyMode);
             // Fallback: try fetching without excluding mastered IDs
-            const fallbackProblems = await fetchBlindProblemsByTopics(spot.topics, spot.batchSize, []);
+            const fallbackProblems = await buildProblemQueue([], allowedDifficulties, spot.batchSize);
             if (fallbackProblems.length === 0) {
-                console.error("No problems available in database for these topics");
+                console.error("No problems available in database");
                 setStep('locations');
                 return;
             }
@@ -271,6 +281,51 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-white mb-1 sm:mb-2">Power Spots</h2>
               <p className="text-gray-500 text-xs sm:text-sm italic px-4">Clear 5 problems at any spot to complete your ritual.</p>
           </div>
+
+          {/* Difficulty Mode Selector */}
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <button
+              onClick={() => setDifficultyMode('warmup')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
+                difficultyMode === 'warmup'
+                  ? 'bg-green-500/20 border-green-500/50 text-green-300'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'
+              }`}
+            >
+              <Leaf size={12} className="sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Warm-Up</span>
+              <span className="sm:hidden">Easy</span>
+            </button>
+            <button
+              onClick={() => setDifficultyMode('standard')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
+                difficultyMode === 'standard'
+                  ? 'bg-gold/20 border-gold/50 text-gold'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'
+              }`}
+            >
+              <Zap size={12} className="sm:w-3.5 sm:h-3.5" />
+              <span>Standard</span>
+            </button>
+            <button
+              onClick={() => setDifficultyMode('challenge')}
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-full border text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
+                difficultyMode === 'challenge'
+                  ? 'bg-red-500/20 border-red-500/50 text-red-300'
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'
+              }`}
+            >
+              <Flame size={12} className="sm:w-3.5 sm:h-3.5" />
+              <span>Challenge</span>
+            </button>
+          </div>
+          
+          {/* Difficulty Description */}
+          <p className="text-center text-[10px] sm:text-xs text-gray-500 italic mb-4 sm:mb-6">
+            {difficultyMode === 'warmup' && 'Easy problems only — build momentum'}
+            {difficultyMode === 'standard' && 'Easy + Medium — balanced practice'}
+            {difficultyMode === 'challenge' && 'All difficulties — test your limits'}
+          </p>
 
           {POWER_SPOTS.map((spot) => (
             <button 
@@ -385,6 +440,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   }
 
   if (step === 'curating') {
+    const modeLabel = difficultyMode === 'warmup' ? 'easy' : difficultyMode === 'standard' ? 'easy + medium' : 'all';
     return (
       <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
         <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gold/10 flex items-center justify-center text-gold mb-6 sm:mb-8 animate-pulse border border-gold/20">
@@ -392,7 +448,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         </div>
         <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">Entering {selectedSpot?.name}</h2>
         <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
-          Selecting 5 unmastered challenges for your ritual...
+          Curating 5 related {modeLabel} problems for your ritual...
         </p>
         <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-gold/40" />
       </div>

@@ -26,6 +26,7 @@ export interface Database {
           expected_edge_cases: string[]
           topics: string[]
           difficulty: 'easy' | 'medium' | 'hard'
+          problem_group: string | null
           leetcode_number: number | null
           created_at: string
         }
@@ -45,6 +46,7 @@ export interface Database {
           expected_edge_cases?: string[]
           topics?: string[]
           difficulty: 'easy' | 'medium' | 'hard'
+          problem_group?: string | null
           leetcode_number?: number | null
           created_at?: string
         }
@@ -64,6 +66,7 @@ export interface Database {
           expected_edge_cases?: string[]
           topics?: string[]
           difficulty?: 'easy' | 'medium' | 'hard'
+          problem_group?: string | null
           leetcode_number?: number | null
           created_at?: string
         }

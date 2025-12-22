@@ -198,4 +198,8 @@ export interface BlindProblem {
   spaceComplexity: string;
   steps: string[];
   expectedEdgeCases: string[];
+  topics: string[];
+  difficulty: 'easy' | 'medium' | 'hard';
+  problemGroup?: string; // Learning group/pattern (e.g., 'arrays_hashing', 'two_pointers', 'dp_1d')
+  leetcodeNumber?: number;
 }

@@ -269,6 +269,145 @@ const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
     timeComplexity: row.time_complexity,
     spaceComplexity: row.space_complexity,
     steps: row.steps as string[],
-    expectedEdgeCases: row.expected_edge_cases as string[]
+    expectedEdgeCases: row.expected_edge_cases as string[],
+    topics: row.topics as string[],
+    difficulty: row.difficulty as 'easy' | 'medium' | 'hard',
+    problemGroup: row.problem_group || undefined,
+    leetcodeNumber: row.leetcode_number || undefined
 });
+
+// ========== PROGRESSIVE QUEUE BUILDING ==========
+
+type DifficultyLevel = 'easy' | 'medium' | 'hard';
+
+/**
+ * Shuffle an array in place using Fisher-Yates algorithm
+ */
+const shuffleArray = <T>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+};
+
+/**
+ * Sort problems by difficulty (easy → medium → hard)
+ */
+const sortByDifficulty = (problems: BlindProblem[]): BlindProblem[] => {
+    const order: Record<DifficultyLevel, number> = { easy: 0, medium: 1, hard: 2 };
+    return [...problems].sort((a, b) => order[a.difficulty] - order[b.difficulty]);
+};
+
+/**
+ * Pick a random element from an array
+ */
+const pickRandom = <T>(array: T[]): T => {
+    return array[Math.floor(Math.random() * array.length)];
+};
+
+/**
+ * Group problems by their problem_group field
+ */
+const groupByProblemGroup = (problems: BlindProblem[]): Record<string, BlindProblem[]> => {
+    return problems.reduce((acc, problem) => {
+        const group = problem.problemGroup || 'ungrouped';
+        if (!acc[group]) acc[group] = [];
+        acc[group].push(problem);
+        return acc;
+    }, {} as Record<string, BlindProblem[]>);
+};
+
+/**
+ * Build a progressive problem queue using focus groups
+ * 
+ * Algorithm:
+ * 1. Fetch all problems, exclude mastered, filter by difficulty
+ * 2. Group by problem_group
+ * 3. Pick a random focus group
+ * 4. Fill from focus group first
+ * 5. Backfill from other groups if needed
+ * 6. Sort by difficulty (easy → medium → hard)
+ */
+export const buildProblemQueue = async (
+    masteredIds: string[],
+    allowedDifficulties: DifficultyLevel[],
+    limit: number = 5
+): Promise<BlindProblem[]> => {
+    // 1. Fetch all problems
+    let query = supabase
+        .from('blind_problems')
+        .select('*');
+
+    // Exclude mastered problems
+    if (masteredIds.length > 0) {
+        // Supabase uses title for mastered IDs in this app
+        query = query.not('title', 'in', `(${masteredIds.map(id => `"${id}"`).join(',')})`);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        console.error('Error fetching problems for queue:', error);
+        return [];
+    }
+
+    if (!data || data.length === 0) {
+        console.warn('No problems found in database');
+        return [];
+    }
+
+    // Map to BlindProblem type
+    const allProblems = data.map(mapDbProblemToBlindProblem);
+
+    // 2. Filter by allowed difficulties
+    const filteredProblems = allProblems.filter(p => 
+        allowedDifficulties.includes(p.difficulty)
+    );
+
+    if (filteredProblems.length === 0) {
+        console.warn('No problems match the difficulty filter, falling back to all difficulties');
+        // Fallback: use all problems if no match
+        const fallback = allProblems.slice(0, limit);
+        return sortByDifficulty(shuffleArray(fallback));
+    }
+
+    // 3. Group by problem_group
+    const byGroup = groupByProblemGroup(filteredProblems);
+    const groupNames = Object.keys(byGroup);
+
+    if (groupNames.length === 0) {
+        // No groups, just shuffle and return
+        return sortByDifficulty(shuffleArray(filteredProblems).slice(0, limit));
+    }
+
+    // 4. Pick a random focus group
+    const focusGroup = pickRandom(groupNames);
+    console.log(`[Queue Builder] Focus group: ${focusGroup}`);
+
+    // 5. Start with focus group problems (shuffled)
+    const queue: BlindProblem[] = shuffleArray([...byGroup[focusGroup]]);
+    delete byGroup[focusGroup];
+
+    // 6. Backfill from other groups if needed
+    const remainingGroups = Object.keys(byGroup);
+    while (queue.length < limit && remainingGroups.length > 0) {
+        const nextGroupIdx = Math.floor(Math.random() * remainingGroups.length);
+        const nextGroup = remainingGroups[nextGroupIdx];
+        
+        // Add shuffled problems from next group
+        queue.push(...shuffleArray(byGroup[nextGroup]));
+        
+        // Remove from remaining groups
+        remainingGroups.splice(nextGroupIdx, 1);
+    }
+
+    // 7. Sort by difficulty and take first `limit`
+    const finalQueue = sortByDifficulty(queue).slice(0, limit);
+    
+    console.log(`[Queue Builder] Final queue: ${finalQueue.map(p => `${p.title} (${p.difficulty})`).join(', ')}`);
+    
+    return finalQueue;
+};
 

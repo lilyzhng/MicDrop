@@ -34,6 +34,25 @@
         -ms-overflow-style: none;
         scrollbar-width: none;
       }
+      /* Line clamp utility for mobile text truncation */
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .line-clamp-none {
+        display: block;
+        -webkit-line-clamp: unset;
+        -webkit-box-orient: initial;
+        overflow: visible;
+      }
+      /* Touch feedback for mobile */
+      @media (hover: none) and (pointer: coarse) {
+        .active\:scale-\[0\.98\]:active {
+          transform: scale(0.98);
+        }
+      }
     </style>
 <script type="importmap">
 {

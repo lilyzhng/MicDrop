@@ -7,18 +7,18 @@ const LoginView: React.FC = () => {
     const { signInWithGoogle, isLoading } = useAuth();
 
     return (
-        <div className="h-screen w-screen bg-cream flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans">
+        <div className="h-screen w-screen bg-cream flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
             {/* Background Pattern */}
             <div className="fixed inset-0 opacity-40 pointer-events-none" 
                  style={{ backgroundImage: 'radial-gradient(circle at 15% 15%, #F0EBE0 0%, transparent 20%), radial-gradient(circle at 85% 85%, #E8E0D0 0%, transparent 20%)' }}>
             </div>
 
-            <div className="z-10 max-w-md w-full bg-white rounded-3xl shadow-xl border border-[#EBE8E0] p-10 text-center animate-in fade-in slide-in-from-bottom-8 duration-700">
-                <h1 className="text-5xl font-serif font-bold text-charcoal mb-4 tracking-tight">
+            <div className="z-10 max-w-md w-full bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-[#EBE8E0] p-6 sm:p-8 md:p-10 text-center animate-in fade-in slide-in-from-bottom-8 duration-700 mx-4">
+                <h1 className="text-4xl sm:text-5xl font-serif font-bold text-charcoal mb-3 sm:mb-4 tracking-tight">
                     MicDrop
                 </h1>
                 
-                <p className="text-gray-500 text-lg font-serif italic mb-10 leading-relaxed">
+                <p className="text-gray-500 text-base sm:text-lg font-serif italic mb-6 sm:mb-8 md:mb-10 leading-relaxed">
                     "Don't just answer. Perform."
                 </p>
 
@@ -26,12 +26,12 @@ const LoginView: React.FC = () => {
                     <button 
                         onClick={signInWithGoogle}
                         disabled={isLoading}
-                        className="w-full py-4 bg-charcoal text-white rounded-xl font-bold hover:bg-black transition-all shadow-lg flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed group"
+                        className="w-full py-3.5 sm:py-4 bg-charcoal text-white rounded-xl font-bold hover:bg-black active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed group text-sm sm:text-base"
                     >
                         {isLoading ? (
-                            <Loader2 size={20} className="animate-spin text-gold" />
+                            <Loader2 size={18} className="sm:w-5 sm:h-5 animate-spin text-gold" />
                         ) : (
-                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shrink-0">
                                 <svg width="12" height="12" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -43,13 +43,14 @@ const LoginView: React.FC = () => {
                         {isLoading ? 'Signing in...' : 'Sign in with Google'}
                     </button>
                     
-                    <p className="text-xs text-gray-400 mt-6">
+                    <p className="text-[10px] sm:text-xs text-gray-400 mt-4 sm:mt-6 leading-relaxed">
                         By signing in, you agree to store your analysis data securely associated with your account.
                     </p>
                 </div>
             </div>
             
-            <div className="absolute bottom-6 text-[10px] text-gray-300 font-bold tracking-widest uppercase">
+            {/* Footer - positioned with safe area for phones */}
+            <div className="absolute bottom-4 sm:bottom-6 text-[9px] sm:text-[10px] text-gray-300 font-bold tracking-widest uppercase px-4 text-center">
                 Powered by Gemini 2.5 Flash & 3.0 Pro
             </div>
         </div>

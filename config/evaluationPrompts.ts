@@ -332,7 +332,7 @@ Do NOT give partial credit for things not mentioned.`,
         expectedEdgeCases: string[];
         steps: string[];
     }, userExplanation: string) => `
-You are a STRICT coding interview evaluator. Score the user's explanation against a specific rubric.
+You are a STRICT coding interview evaluator. Use CHAIN-OF-THOUGHT reasoning to evaluate the user's explanation.
 
 PROBLEM BEING SOLVED:
 - Title: ${problem.title}
@@ -349,52 +349,85 @@ EXPECTED CORRECT ANSWER:
 USER'S EXPLANATION TO EVALUATE:
 "${userExplanation}"
 
-STRICT RUBRIC SCORING (Total = 100 points):
+=== CHAIN-OF-THOUGHT EVALUATION PROCESS ===
 
-1. ALGORITHM (0-25 points):
-   - 25: Correctly identified the pattern (${problem.pattern}) AND explained the core logic correctly
-   - 15-20: Correct pattern but incomplete or slightly incorrect logic
+For EACH of the 4 categories below, you MUST follow this reasoning chain:
+
+STEP 1 - EXTRACT: Quote exactly what the user said about this category (or "Not mentioned" if absent)
+STEP 2 - ANALYZE: What was correct? What was missing, wrong, or ambiguous?
+STEP 3 - SCORE: Based on Steps 1-2, assign a score using the rubric below
+STEP 4 - FEEDBACK: If score < 25, explain the specific issue that caused the deduction
+
+CRITICAL CONSISTENCY RULE: 
+- If you identify ANY issue, gap, or ambiguity in Step 2, the score in Step 3 MUST be < 25
+- The feedback in Step 4 MUST directly correspond to the issues found in Step 2
+- You CANNOT give 25/25 and also list an improvement for the same category
+
+=== RUBRIC (0-25 points each) ===
+
+1. ALGORITHM:
+   - 25: Correctly identified the pattern (${problem.pattern}) AND explained the core logic clearly and unambiguously
+   - 20: Correct pattern with minor ambiguity in explanation (e.g., saying "recursion" without specifying memoization when needed for stated complexity)
+   - 15: Correct pattern but incomplete, vague, or misleading logic explanation
    - 5-10: Wrong pattern but some valid approach ideas
    - 0: Completely wrong or no algorithm mentioned
    
-2. EDGE CASES (0-25 points):
-   - 25: Mentioned most of the expected edge cases: ${JSON.stringify(problem.expectedEdgeCases)}
-   - 15-20: Mentioned some edge cases
-   - 5-10: Mentioned 1-2 edge cases
+2. EDGE CASES:
+   - 25: Mentioned most expected edge cases: ${JSON.stringify(problem.expectedEdgeCases)}
+   - 20: Mentioned some edge cases but missed important ones
+   - 15: Mentioned only basic cases (e.g., base cases but no constraint edge cases like overflow)
+   - 5-10: Mentioned 1-2 trivial edge cases only
    - 0: No edge cases mentioned at all
    
-3. TIME COMPLEXITY (0-25 points):
+3. TIME COMPLEXITY:
    - 25: Correctly stated "${problem.timeComplexity}" with valid reasoning
-   - 15-20: Mentioned time complexity but wrong value or no reasoning
+   - 20: Correct value but weak/incomplete reasoning
+   - 15: Mentioned complexity but wrong value OR no reasoning
    - 5-10: Vaguely mentioned performance but no specific complexity
    - 0: No time complexity mentioned at all
    
-4. SPACE COMPLEXITY (0-25 points):
-   - 25: Correctly stated "${problem.spaceComplexity}" with valid reasoning
-   - 15-20: Mentioned space complexity but wrong value or no reasoning
+4. SPACE COMPLEXITY:
+   - 25: Correctly stated optimal "${problem.spaceComplexity}" with valid reasoning
+   - 20: Stated a valid (but not optimal) complexity with reasoning
+   - 15: Mentioned complexity but wrong value OR no reasoning
    - 5-10: Vaguely mentioned memory but no specific complexity
    - 0: No space complexity mentioned at all
 
-IMPORTANT EVALUATION RULES:
-- Be STRICT. If they didn't mention something, score it 0 or very low.
-- If they mentioned time complexity but got it wrong, max 15 points for that category.
-- If they didn't mention edge cases AT ALL, give 0 for edge cases.
-- The rating MUST equal: algorithmScore + edgeCasesScore + timeComplexityScore + spaceComplexityScore
+=== STRICT EVALUATION RULES ===
+
+1. Be STRICT. If they didn't mention something, score it 0 or very low.
+2. If they mentioned complexity but got it wrong, max 15 points for that category.
+3. If they didn't mention edge cases AT ALL, give 0 for edge cases.
+4. If the algorithm explanation is AMBIGUOUS (e.g., says "recursion" but claims O(n) time without mentioning memoization), deduct points - max 20 for ambiguity.
+5. The rating MUST equal: algorithmScore + edgeCasesScore + timeComplexityScore + spaceComplexityScore
+
+=== FINAL CONSISTENCY CHECK (REQUIRED) ===
+
+Before outputting, verify:
+- For each category: if detailedFeedback contains an issue for this category, the score MUST be < 25
+- "What You Said" in detailedFeedback must quote the user's ACTUAL words (not "Not mentioned" if they said something related)
+- "The Issue" must match why points were deducted from the rubric score
+
+=== OUTPUT FORMAT ===
+
+- rubricScores: Individual scores (0-25 each) with specific feedback for each category
+- rating: Sum of the 4 rubric scores (0-100)
+- mentalModelChecklist: Boolean flags for what was covered
+- detailedFeedback: Array of issues ONLY for categories where points were deducted. Each must include:
+  - category: Which rubric category
+  - whatYouSaid: EXACT quote from user's explanation
+  - theIssue: Why points were deducted (must match the gap found in analysis)
+  - rewrite: Improved version of what they should have said
+  - whyThisWorks: Educational explanation
+- missingEdgeCases: List edge cases they failed to mention
+- summary: Brief overall assessment
 
 DETECTEDAUTOSCORE RULES:
 - "good": rating >= 75 (they covered most areas correctly)
 - "partial": rating 50-74 (significant gaps)
 - "missed": rating < 50 (failed to demonstrate understanding)
 
-OUTPUT REQUIREMENTS:
-- rubricScores: Individual scores (0-25 each) with specific feedback for each category
-- rating: Sum of the 4 rubric scores (0-100)
-- mentalModelChecklist: Boolean flags for what was covered
-- detailedFeedback: Array of issues for any category scoring below 20
-- missingEdgeCases: List edge cases they failed to mention
-- summary: Brief overall assessment
-
-CRITICAL: Return PURE JSON. Be strict - do not give points for things they didn't actually say.`,
+CRITICAL: Return PURE JSON. No markdown, no commentary. Be strict and consistent.`,
 
     generateRefinePrompt: (rawTranscript: string, context: string) => `
 Refine the following raw speech-to-text transcript from an interview.

@@ -78,6 +78,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [aiReport, setAiReport] = useState<PerformanceReport | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [revealHintIdx, setRevealHintIdx] = useState(0);
+  const [usedHints, setUsedHints] = useState(false); // Track if user requested any hints
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -153,10 +154,16 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               
               // Determine mastery based on rating (source of truth)
               // The AI's detectedAutoScore can be inconsistent, so we use rating thresholds
-              const score: 'good' | 'partial' | 'missed' = 
+              // HINT PENALTY: If user used hints, they cannot achieve 'good' (mastered) status
+              let score: 'good' | 'partial' | 'missed' = 
                 report.rating >= 75 ? 'good' : 
                 report.rating >= 50 ? 'partial' : 
                 'missed';
+              
+              // Apply hint penalty - max score is 'partial' if hints were used
+              if (usedHints && score === 'good') {
+                score = 'partial';
+              }
               report.detectedAutoScore = score;
               
               setAiReport(report);
@@ -202,6 +209,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setCurrentQueueIdx(prev => prev + 1);
       setStep('problem');
       setRevealHintIdx(0);
+      setUsedHints(false); // Reset hint usage for next problem
       setTranscript("");
       setRawTranscript("");
     } else {
@@ -504,7 +512,10 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             </div>
             {revealHintIdx < 4 && (
               <button 
-                onClick={() => setRevealHintIdx(p => Math.min(p + 1, 4))} 
+                onClick={() => {
+                  setRevealHintIdx(p => Math.min(p + 1, 4));
+                  setUsedHints(true); // Mark that hints were used - prevents 'Mastered' status
+                }} 
                 className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] border border-gold/40 px-5 sm:px-8 py-3 sm:py-4 rounded-full hover:bg-gold/10 transition-all flex items-center gap-2 sm:gap-3 mx-auto"
               >
                 {revealHintIdx === 0 ? 'Need a Hint?' : 'Need More Hints?'} <Sparkles size={12} className="sm:w-3.5 sm:h-3.5" />
@@ -514,7 +525,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               {revealHintIdx >= 1 && <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gold tracking-widest mb-2 sm:mb-3 block opacity-60">Pattern</span><p className="text-lg sm:text-2xl font-serif font-semibold">{currentProblem?.pattern}</p></div>}
               {revealHintIdx >= 2 && <div className="p-5 sm:p-8 bg-white/5 border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-2 sm:mb-3 block">Key Idea</span><p className="text-base sm:text-xl italic font-light">"{currentProblem?.keyIdea}"</p></div>}
               {revealHintIdx >= 3 && currentProblem?.detailedHint && <div className="p-5 sm:p-8 bg-blue-950/30 border border-blue-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-400 tracking-widest mb-2 sm:mb-3 block">Approach Walkthrough</span><p className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">{currentProblem?.detailedHint}</p></div>}
-              {revealHintIdx >= 4 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton}</pre></div>}
+              {revealHintIdx >= 4 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton?.replace(/\\n/g, '\n')}</pre></div>}
             </div>
           </div>
         </div>
@@ -571,9 +582,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                              </div>
                          )}
                          {score === 'partial' && (
-                             <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg sm:rounded-xl text-yellow-300 w-full sm:w-auto justify-center">
-                                 <AlertCircle size={20} className="sm:w-6 sm:h-6" />
-                                 <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Partial</span>
+                             <div className="flex flex-col items-center gap-1">
+                                 <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg sm:rounded-xl text-yellow-300 w-full sm:w-auto justify-center">
+                                     <AlertCircle size={20} className="sm:w-6 sm:h-6" />
+                                     <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Partial</span>
+                                 </div>
+                                 {usedHints && aiReport && aiReport.rating >= 75 && (
+                                     <span className="text-[9px] sm:text-[10px] text-yellow-400/70 italic">Hints used — try again without hints to master</span>
+                                 )}
                              </div>
                          )}
                          {score === 'missed' && (

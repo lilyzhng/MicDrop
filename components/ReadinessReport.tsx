@@ -2,30 +2,33 @@
  * Readiness Report Component
  * 
  * Displays the "Readiness to Teach" evaluation after Pass 1 (Explain mode).
- * Shows what's ready and what's missing before moving to Pass 2 (Teach mode).
+ * Layout: Score → Rubric → Two columns (Analysis | Model) → Full-width Code
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { 
     CheckCircle2, 
     XCircle, 
     AlertTriangle, 
     Lightbulb, 
-    Clock, 
     Database, 
     Route, 
     Shield,
     ArrowRight,
     RotateCcw,
-    Sparkles,
     FileText,
-    FileJson
+    FileJson,
+    Download,
+    Code2,
+    BookOpen
 } from 'lucide-react';
-import { ReadinessReport } from '../types';
+import html2canvas from 'html2canvas';
+import { ReadinessReport, BlindProblem } from '../types';
 
 interface ReadinessReportComponentProps {
     report: ReadinessReport;
     problemTitle: string;
+    problem?: BlindProblem;
     onContinueToTeach: () => void;
     onTryAgain: () => void;
     rawTranscript?: string;
@@ -35,23 +38,42 @@ interface ReadinessReportComponentProps {
 const ReadinessReportComponent: React.FC<ReadinessReportComponentProps> = ({
     report,
     problemTitle,
+    problem,
     onContinueToTeach,
     onTryAgain,
     rawTranscript,
     refinedTranscript
 }) => {
-    const { checklist, readinessScore, isReadyToTeach, missingElements, strengthElements, suggestion } = report;
+    const { checklist, readinessScore, isReadyToTeach } = report;
+    const reportRef = useRef<HTMLDivElement>(null);
 
-    // Download helpers for debugging
+    // Download handlers
+    const downloadReportAsImage = async () => {
+        if (!reportRef.current) return;
+        try {
+            const canvas = await html2canvas(reportRef.current, {
+                backgroundColor: '#FAF9F6',
+                scale: 2,
+                useCORS: true
+            });
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = `readiness-report-${problemTitle.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.png`;
+            link.click();
+        } catch (e) {
+            console.error('Failed to export report:', e);
+        }
+    };
+
     const downloadTranscript = () => {
         const content = `=== READINESS EVALUATION TRANSCRIPT ===
 Problem: ${problemTitle}
 Date: ${new Date().toISOString()}
 
-=== RAW TRANSCRIPT (from speech recognition) ===
+=== RAW TRANSCRIPT ===
 ${rawTranscript || '(not available)'}
 
-=== REFINED TRANSCRIPT (sent to AI for evaluation) ===
+=== REFINED TRANSCRIPT ===
 ${refinedTranscript || '(not available)'}
 `;
         const blob = new Blob([content], { type: 'text/plain' });
@@ -79,261 +101,260 @@ ${refinedTranscript || '(not available)'}
         URL.revokeObjectURL(url);
     };
 
-    // Get quality icon and color
+    // Get quality indicator
     const getQualityIndicator = (quality: string, present: boolean) => {
         if (!present || quality === 'missing') {
-            return { icon: <XCircle size={16} />, color: 'text-red-400', bg: 'bg-red-500/10' };
+            return { icon: <XCircle size={14} />, color: 'text-red-500', status: 'missing', points: 0 };
         }
         if (quality === 'vague' || quality === 'hand-wavy' || quality === 'abstract') {
-            return { icon: <AlertTriangle size={16} />, color: 'text-yellow-400', bg: 'bg-yellow-500/10' };
+            return { icon: <AlertTriangle size={14} />, color: 'text-amber-500', status: 'partial', points: 10 };
         }
-        return { icon: <CheckCircle2 size={16} />, color: 'text-green-400', bg: 'bg-green-500/10' };
+        return { icon: <CheckCircle2 size={14} />, color: 'text-green-600', status: 'good', points: 20 };
     };
 
-    // Checklist items configuration
-    const checklistItems = [
-        {
-            key: 'coreInsight',
-            label: 'Core Insight',
-            icon: <Lightbulb size={18} />,
+    // Combined analysis items with scores (5 × 20 = 100)
+    const analysisItems = [
+        { 
+            key: 'coreInsight', 
+            label: 'Core Insight', 
+            icon: <Lightbulb size={14} />, 
             data: checklist.coreInsight,
-            description: 'One-sentence summary of the key idea'
+            quality: checklist.coreInsight.quality,
+            present: checklist.coreInsight.present
         },
-        {
-            key: 'stateDefinition',
-            label: 'State Definition',
-            icon: <Database size={18} />,
+        { 
+            key: 'stateDefinition', 
+            label: 'State Definition', 
+            icon: <Database size={14} />, 
             data: checklist.stateDefinition,
-            description: 'What your data structure stores'
+            quality: checklist.stateDefinition.quality,
+            present: checklist.stateDefinition.present
         },
-        {
-            key: 'exampleWalkthrough',
-            label: 'Example Walkthrough',
-            icon: <Route size={18} />,
+        { 
+            key: 'exampleWalkthrough', 
+            label: 'Example Walkthrough', 
+            icon: <Route size={14} />, 
             data: checklist.exampleWalkthrough,
-            description: 'Traced through a concrete example'
+            quality: checklist.exampleWalkthrough.quality,
+            present: checklist.exampleWalkthrough.present
         },
-        {
-            key: 'edgeCases',
-            label: 'Edge Cases',
-            icon: <Shield size={18} />,
-            data: {
-                present: checklist.edgeCases.mentioned.length > 0,
-                quality: checklist.edgeCases.missing.length === 0 ? 'clear' : 
-                         checklist.edgeCases.mentioned.length > 0 ? 'vague' : 'missing',
-                feedback: checklist.edgeCases.feedback
-            },
-            description: 'Boundary conditions covered'
+        { 
+            key: 'edgeCases', 
+            label: 'Edge Cases', 
+            icon: <Shield size={14} />, 
+            data: { present: checklist.edgeCases.mentioned.length > 0, quality: checklist.edgeCases.missing.length === 0 ? 'clear' : checklist.edgeCases.mentioned.length > 0 ? 'vague' : 'missing', feedback: checklist.edgeCases.feedback },
+            quality: checklist.edgeCases.missing.length === 0 ? 'clear' : checklist.edgeCases.mentioned.length > 0 ? 'vague' : 'missing',
+            present: checklist.edgeCases.mentioned.length > 0
         },
-        {
-            key: 'complexity',
-            label: 'Complexity Analysis',
-            icon: <Clock size={18} />,
-            data: {
-                present: checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned,
-                quality: (checklist.complexity.timeCorrect && checklist.complexity.spaceCorrect) ? 'clear' :
-                         (checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned) ? 'vague' : 'missing',
-                feedback: checklist.complexity.feedback
-            },
-            description: 'Time and space complexity'
+        { 
+            key: 'complexity', 
+            label: 'Complexity', 
+            icon: <Code2 size={14} />, 
+            data: { present: checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned, quality: (checklist.complexity.timeCorrect && checklist.complexity.spaceCorrect) ? 'clear' : (checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned) ? 'vague' : 'missing', feedback: checklist.complexity.feedback },
+            quality: (checklist.complexity.timeCorrect && checklist.complexity.spaceCorrect) ? 'clear' : (checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned) ? 'vague' : 'missing',
+            present: checklist.complexity.timeMentioned || checklist.complexity.spaceMentioned
         }
-    ];
+    ].map(item => ({
+        ...item,
+        ...getQualityIndicator(item.quality, item.present),
+        maxPoints: 20
+    }));
+    
+    const totalPoints = analysisItems.reduce((sum, item) => sum + item.points, 0);
+
+    // Format Python code
+    const formatCode = (code: string) => {
+        if (!code) return '';
+        return code.replace(/\\n/g, '\n').replace(/\\t/g, '    ').trim();
+    };
 
     return (
-        <div className="space-y-6">
-            {/* Score Header */}
-            <div className={`rounded-2xl p-6 border ${
-                isReadyToTeach 
-                    ? 'bg-green-500/10 border-green-500/30' 
-                    : 'bg-yellow-500/10 border-yellow-500/30'
-            }`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 className="text-lg font-serif font-bold text-charcoal">
-                            Readiness to Teach: {problemTitle}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                            {isReadyToTeach 
-                                ? "You've formed a teachable mental model!" 
-                                : "Almost there — fill in the gaps below"}
-                        </p>
-                    </div>
-                    <div className={`text-4xl font-bold font-mono ${
-                        isReadyToTeach ? 'text-green-600' : 'text-yellow-600'
-                    }`}>
-                        {readinessScore}
-                    </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                        className={`h-full transition-all duration-700 ${
-                            isReadyToTeach ? 'bg-green-500' : 'bg-yellow-500'
-                        }`}
-                        style={{ width: `${readinessScore}%` }}
-                    />
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-gray-400">
-                    <span>Not Ready</span>
-                    <span className="text-gray-500 font-medium">70 = Ready to Teach</span>
-                    <span>Expert</span>
-                </div>
+        <div className="space-y-4">
+            {/* Export Buttons */}
+            <div className="flex justify-end gap-2 flex-wrap">
+                <button onClick={downloadTranscript} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 transition-all">
+                    <FileText size={12} /> Transcript
+                </button>
+                <button onClick={downloadEvaluation} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 transition-all">
+                    <FileJson size={12} /> JSON
+                </button>
+                <button onClick={downloadReportAsImage} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-charcoal text-xs font-medium hover:bg-gray-50 shadow-sm transition-all">
+                    <Download size={12} /> Export Image
+                </button>
             </div>
 
-            {/* Checklist Grid */}
-            <div className="grid gap-3">
-                {checklistItems.map(item => {
-                    const { icon, color, bg } = getQualityIndicator(item.data.quality, item.data.present);
-                    const isEdgeCases = item.key === 'edgeCases';
+            {/* Report Content */}
+            <div ref={reportRef} className="bg-cream p-4 rounded-2xl space-y-4">
+                {/* Score Header */}
+                <div className={`rounded-xl p-4 border ${isReadyToTeach ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-base font-serif font-bold text-charcoal">{problemTitle}</h3>
+                            <p className="text-xs text-gray-500">{isReadyToTeach ? "Ready to teach!" : "Almost there — review the model answer"}</p>
+                        </div>
+                        <div className={`text-3xl font-bold font-mono ${isReadyToTeach ? 'text-green-600' : 'text-amber-600'}`}>
+                            {readinessScore}
+                        </div>
+                    </div>
+                    <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden mt-3">
+                        <div className={`h-full transition-all duration-700 ${isReadyToTeach ? 'bg-green-500' : 'bg-amber-500'}`} style={{ width: `${readinessScore}%` }} />
+                    </div>
+                </div>
+
+                {/* Your Explanation with Inline Scores - 2x2 Grid + Full-width Edge Cases */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                        <h4 className="text-xs font-bold text-charcoal uppercase tracking-widest flex items-center gap-1.5">
+                            <BookOpen size={12} /> Your Explanation
+                        </h4>
+                        <span className="text-xs text-gray-400">{totalPoints} / 100</span>
+                    </div>
                     
-                    return (
-                        <div 
-                            key={item.key}
-                            className={`rounded-xl p-4 border border-gray-200 bg-white ${bg}`}
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${bg} ${color}`}>
-                                    {item.icon}
+                    {/* 2x2 Grid for Core Insight, State Definition, Example Walkthrough, Complexity */}
+                    <div className="grid grid-cols-2 divide-x divide-y divide-gray-100">
+                        {analysisItems.filter(item => item.key !== 'edgeCases').map(item => (
+                            <div key={item.key} className="p-3">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={item.color}>{item.icon}</span>
+                                    <span className="text-xs font-semibold text-charcoal flex-1">{item.label}</span>
+                                    <span className={`text-[10px] font-bold ${item.color}`}>{item.points}/{item.maxPoints}</span>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-bold text-charcoal">{item.label}</span>
-                                        <span className={color}>{icon}</span>
-                                    </div>
-                                    
-                                    {/* Special detailed view for Edge Cases */}
-                                    {isEdgeCases && (
-                                        <div className="space-y-2 mb-2">
-                                            {checklist.edgeCases.mentioned.length > 0 && (
-                                                <div className="text-xs">
-                                                    <span className="font-medium text-green-700">You mentioned: </span>
-                                                    <span className="text-gray-600">
-                                                        {checklist.edgeCases.mentioned.map((ec, i) => (
-                                                            <span key={i} className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-1.5 py-0.5 rounded mr-1 mb-1">
-                                                                <CheckCircle2 size={10} />
-                                                                {ec}
-                                                            </span>
-                                                        ))}
-                                                    </span>
-                                                </div>
-                                            )}
-                                            {checklist.edgeCases.missing.length > 0 && (
-                                                <div className="text-xs">
-                                                    <span className="font-medium text-orange-700">Not covered: </span>
-                                                    <span className="text-gray-600">
-                                                        {checklist.edgeCases.missing.map((ec, i) => (
-                                                            <span key={i} className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded mr-1 mb-1">
-                                                                <XCircle size={10} />
-                                                                {ec}
-                                                            </span>
-                                                        ))}
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    <p className="text-sm text-gray-600 leading-relaxed">
-                                        {item.data.feedback}
-                                    </p>
+                                <p className="text-[11px] text-gray-600 leading-relaxed">{item.data.feedback}</p>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    {/* Edge Cases - Full Width */}
+                    {(() => {
+                        const edgeCasesItem = analysisItems.find(item => item.key === 'edgeCases')!;
+                        return (
+                            <div className="p-3 border-t border-gray-100">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <span className={edgeCasesItem.color}>{edgeCasesItem.icon}</span>
+                                    <span className="text-xs font-semibold text-charcoal flex-1">Edge Cases</span>
+                                    <span className={`text-[10px] font-bold ${edgeCasesItem.color}`}>{edgeCasesItem.points}/{edgeCasesItem.maxPoints}</span>
+                                </div>
+                                <p className="text-[11px] text-gray-600 leading-relaxed mb-2">{edgeCasesItem.data.feedback}</p>
+                                <div className="flex flex-wrap gap-1">
+                                    {checklist.edgeCases.mentioned.map((ec, i) => (
+                                        <span key={`m-${i}`} className="inline-flex items-center gap-0.5 bg-green-50 text-green-700 border border-green-200 px-1.5 py-0.5 rounded text-[10px]">
+                                            <CheckCircle2 size={8} /> {ec}
+                                        </span>
+                                    ))}
+                                    {checklist.edgeCases.missing.map((ec, i) => (
+                                        <span key={`x-${i}`} className="inline-flex items-center gap-0.5 bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded text-[10px]">
+                                            <XCircle size={8} /> {ec}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
+                        );
+                    })()}
+                </div>
+
+                {/* Section 2: Model Answer (Dark theme) */}
+                {problem ? (
+                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] overflow-hidden">
+                        <div className="px-4 py-2 border-b border-[#333] bg-[#222]">
+                            <h4 className="text-xs font-bold text-gold uppercase tracking-widest flex items-center gap-1.5">
+                                <Lightbulb size={12} /> Model Answer
+                            </h4>
                         </div>
-                    );
-                })}
-            </div>
+                        
+                        {/* The Right Explanation */}
+                        <div className="p-4 border-b border-[#333]">
+                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Key Insight</h5>
+                            <p className="text-sm text-gray-200 leading-relaxed">{problem.keyIdea}</p>
+                            {problem.steps && problem.steps.length > 0 && (
+                                <ol className="text-xs text-gray-400 mt-3 space-y-1 list-decimal list-inside">
+                                    {problem.steps.map((step, idx) => (
+                                        <li key={idx}>{step}</li>
+                                    ))}
+                                </ol>
+                            )}
+                        </div>
 
-            {/* Strengths */}
-            {strengthElements.length > 0 && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-                    <h4 className="font-bold text-green-800 flex items-center gap-2 mb-2">
-                        <Sparkles size={16} />
-                        What You Explained Well
-                    </h4>
-                    <ul className="space-y-1">
-                        {strengthElements.map((strength, idx) => (
-                            <li key={idx} className="text-sm text-green-700 flex items-start gap-2">
-                                <CheckCircle2 size={14} className="mt-0.5 shrink-0" />
-                                {strength}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+                        {/* Complexity */}
+                        <div className="p-4 border-b border-[#333] bg-[#181818]">
+                            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Complexity</h5>
+                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                <div className="bg-[#222] rounded-lg p-3 border border-[#333]">
+                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Time</span>
+                                    <p className="text-lg font-mono font-bold text-white">{problem.timeComplexity}</p>
+                                </div>
+                                <div className="bg-[#222] rounded-lg p-3 border border-[#333]">
+                                    <span className="text-[10px] text-gray-500 uppercase tracking-wider">Space</span>
+                                    <p className="text-lg font-mono font-bold text-white">{problem.spaceComplexity}</p>
+                                </div>
+                            </div>
+                            {/* Complexity Explanation */}
+                            {checklist.complexity.correctExplanation && (
+                                <div className="pt-3 border-t border-[#333]">
+                                    <p className="text-xs text-gray-400 leading-relaxed">
+                                        <span className="text-gold font-medium">Why? </span>
+                                        {checklist.complexity.correctExplanation}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
 
-            {/* Missing Elements */}
-            {missingElements.length > 0 && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                    <h4 className="font-bold text-yellow-800 flex items-center gap-2 mb-2">
-                        <AlertTriangle size={16} />
-                        What's Still Missing
-                    </h4>
-                    <ul className="space-y-1">
-                        {missingElements.map((missing, idx) => (
-                            <li key={idx} className="text-sm text-yellow-700 flex items-start gap-2">
-                                <XCircle size={14} className="mt-0.5 shrink-0" />
-                                {missing}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
+                        {/* Example Walkthrough */}
+                        {checklist.exampleWalkthrough.modelExample && (
+                            <div className="p-4">
+                                <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Example Walkthrough</h5>
+                                <div className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">
+                                    {checklist.exampleWalkthrough.modelExample}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="bg-[#1a1a1a] rounded-xl border border-[#333] p-4">
+                        <p className="text-sm text-gray-400 text-center">Model answer not available.</p>
+                    </div>
+                )}
 
-            {/* Suggestion */}
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-2">
-                    <Lightbulb size={16} />
-                    Before You Teach...
-                </h4>
-                <p className="text-sm text-blue-700">{suggestion}</p>
-            </div>
-
-            {/* Debug Download Buttons */}
-            <div className="flex gap-2 pt-2">
-                <button
-                    onClick={downloadTranscript}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 hover:border-gray-300 transition-all"
-                    title="Download transcript for debugging"
-                >
-                    <FileText size={14} />
-                    Download Transcript
-                </button>
-                <button
-                    onClick={downloadEvaluation}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-gray-500 text-xs font-medium hover:bg-gray-50 hover:border-gray-300 transition-all"
-                    title="Download evaluation JSON for debugging"
-                >
-                    <FileJson size={14} />
-                    Download Evaluation
-                </button>
+                {/* Full-width Python Code at Bottom */}
+                {problem?.skeleton && (
+                    <div className="bg-[#0d0d0d] rounded-xl border border-[#333] overflow-hidden">
+                        <div className="px-4 py-2 border-b border-[#333] flex items-center gap-2 bg-[#1a1a1a]">
+                            <Code2 size={14} className="text-gold" />
+                            <span className="text-xs font-bold text-gold uppercase tracking-wider">Python Solution</span>
+                        </div>
+                        <pre className="p-4 overflow-x-auto text-sm leading-relaxed">
+                            <code className="text-gray-300 font-mono whitespace-pre">
+                                {formatCode(problem.skeleton)}
+                            </code>
+                        </pre>
+                    </div>
+                )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
                 <button
                     onClick={onTryAgain}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl border-2 border-gray-200 text-gray-600 font-bold uppercase tracking-wider text-sm hover:border-gray-400 hover:bg-gray-50 transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-bold uppercase tracking-wider text-xs hover:border-gray-400 hover:bg-gray-50 transition-all"
                 >
-                    <RotateCcw size={18} />
+                    <RotateCcw size={16} />
                     Explain Again
                 </button>
                 <button
                     onClick={onContinueToTeach}
-                    className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold uppercase tracking-wider text-sm transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition-all ${
                         isReadyToTeach
                             ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
-                            : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                            : 'bg-amber-500 text-white hover:bg-amber-600'
                     }`}
                 >
                     Continue to Teach
-                    <ArrowRight size={18} />
+                    <ArrowRight size={16} />
                 </button>
             </div>
 
             {!isReadyToTeach && (
-                <p className="text-center text-xs text-gray-400 italic">
-                    You can still teach, but filling the gaps first will make it more effective
+                <p className="text-center text-[10px] text-gray-400 italic">
+                    Review the model answer, then try explaining again or continue to teach
                 </p>
             )}
         </div>

@@ -7,7 +7,7 @@
  * 3. Dean (Teaching Evaluator) - Evaluates teaching quality after Teach mode
  */
 
-import { BlindProblem, TeachingTurn, JuniorState, TeachingSession, ReadinessReport } from '../types';
+import { BlindProblem, TeachingTurn, JuniorState, TeachingSession } from '../types';
 
 // ============================================================
 // STRUCTURE CHECKER (Pass 1 - Readiness to Teach Evaluator)
@@ -124,6 +124,18 @@ Check for each of the 5 required elements:
 
 IMPORTANT for Edge Cases: The user speaks naturally, not in labels. If they said "what about an empty string" or "if it's empty", that counts as mentioning the "Empty string" edge case. Be generous in semantic matching.
 
+CRITICAL for missingElements: For EVERY missing or incomplete element, you MUST provide the CORRECT ANSWER showing exactly what they should have said.
+
+FEEDBACK STYLE - BE CONCISE AND HUMAN:
+- NO filler phrases like "This is important", "This is critical", "This helps the listener"
+- NO generic advice like "Consider adding...", "It would be helpful to..."
+- DO: State what they said (if anything), then what's missing or wrong
+- DO: Be direct and specific - max 1-2 sentences
+- GOOD: "You mentioned O(n) time but missed space. Space is O(n) for the hash map."
+- GOOD: "No complexity mentioned. Time is O(n), space is O(1)."
+- BAD: "You did not mention complexity. This is a critical part of a complete explanation."
+- BAD: "Consider walking through an example to help illustrate the algorithm."
+
 Return JSON:
 {
   "readinessScore": 0-100,
@@ -132,34 +144,42 @@ Return JSON:
     "coreInsight": {
       "present": true/false,
       "quality": "clear" | "vague" | "missing",
-      "feedback": "specific feedback about their core insight"
+      "feedback": "1-2 sentences: what they said vs. the precise insight needed"
     },
     "stateDefinition": {
       "present": true/false,
       "quality": "precise" | "hand-wavy" | "missing",
-      "feedback": "specific feedback about state/invariant definition"
+      "feedback": "1-2 sentences: what state/invariant they defined vs. what's precise"
     },
     "exampleWalkthrough": {
       "present": true/false,
       "quality": "concrete" | "abstract" | "missing",
-      "feedback": "specific feedback about their example"
+      "feedback": "1-2 sentences: did they trace values? What example would work?",
+      "modelExample": "A model example walkthrough showing how to trace through the algorithm step-by-step. Use a small concrete example (e.g., for arrays use [1,2,3], for strings use 'abc'). Show each step: what the algorithm does, what values change, and why. Format as numbered steps. Example: '1. Start with nums = [2,7,11,15], target = 9\\n2. Check index 0: value 2, need 9-2=7. Not in map yet. Store {2: 0}\\n3. Check index 1: value 7, need 9-7=2. Found 2 in map at index 0!\\n4. Return [0, 1]'"
     },
     "edgeCases": {
-      "mentioned": ["quote user's actual words for each edge case they mentioned, e.g., 'what if empty string'"],
-      "missing": ["only edge cases from the Expected list that were NOT mentioned in any form"],
-      "feedback": "specific feedback - acknowledge what they mentioned and what's still needed"
+      "mentioned": ["quote user's actual words for each edge case they mentioned"],
+      "missing": ["only edge cases from the Expected list that were NOT mentioned"],
+      "feedback": "1 sentence: acknowledge what they got, state what's missing"
     },
     "complexity": {
       "timeMentioned": true/false,
       "timeCorrect": true/false,
       "spaceMentioned": true/false,
       "spaceCorrect": true/false,
-      "feedback": "specific feedback about complexity analysis"
+      "feedback": "1 sentence: what they said vs. correct answer. E.g. 'Said O(n²), but it's O(n log n) due to sorting.'",
+      "expectedTime": "The correct time complexity (e.g., O(n log n))",
+      "expectedSpace": "The correct space complexity (e.g., O(1))",
+      "correctExplanation": "Brief: 'Time O(n log n) from sorting. Space O(1) - only tracking variables.'"
     }
   },
-  "missingElements": ["list of what they need to add before teaching"],
-  "strengthElements": ["list of what they explained well"],
-  "suggestion": "One specific thing to add or improve for teaching readiness"
+  "missingElements": [
+    {
+      "element": "What was missing",
+      "correctAnswer": "The correct way to explain it - be specific"
+    }
+  ],
+  "suggestion": "One concrete action to take next"
 }`;
     }
 };

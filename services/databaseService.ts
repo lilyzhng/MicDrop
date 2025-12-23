@@ -109,7 +109,7 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
 export const createSavedReport = async (
     userId: string,
     title: string,
-    type: 'coach' | 'walkie' | 'hot-take' | 'teach',
+    type: 'coach' | 'walkie' | 'hot-take' | 'teach' | 'readiness',
     report: PerformanceReport
 ): Promise<SavedReport | null> => {
     console.log('[DEBUG] createSavedReport called:', { userId, title, type, rating: report.rating });

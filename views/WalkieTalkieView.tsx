@@ -147,7 +147,7 @@ const getNeetCodeUrl = (title: string): string => {
 
 interface WalkieTalkieViewProps {
   onHome: (force: boolean) => void;
-  onSaveReport: (title: string, type: 'walkie' | 'teach', report: PerformanceReport) => void;
+  onSaveReport: (title: string, type: 'walkie' | 'teach' | 'readiness', report: PerformanceReport) => void;
   masteredIds: string[];
   onMastered: (id: string) => void;
   isSaved: (title: string, content: string) => boolean;
@@ -393,6 +393,20 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                   suggestion: 'Go back and explain the solution without using any hints. A strong teacher can explain the concept from memory.'
                 };
                 setReadinessReport(hintPenaltyReport);
+                
+                // Save hint penalty readiness report
+                const hintPenaltyPerformanceReport: PerformanceReport = {
+                  rating: hintPenaltyReport.readinessScore,
+                  summary: hintPenaltyReport.suggestion,
+                  suggestions: [],
+                  pronunciationFeedback: [],
+                  readinessReportData: hintPenaltyReport,
+                  readinessProblem: currentProblem,
+                  rawTranscript: rawTranscript,
+                  refinedTranscript: rawTranscript
+                };
+                onSaveReport(currentProblem.title, 'readiness', hintPenaltyPerformanceReport);
+                
                 setStep('readiness_reveal');
                 return;
               }
@@ -400,6 +414,21 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               // No hints used - proceed with AI evaluation (loading state already shown)
               const readiness = await evaluateReadinessToTeach(currentProblem, rawTranscript);
               setReadinessReport(readiness);
+              setExplainTranscript(rawTranscript);
+              
+              // Save readiness report to My Performance
+              const readinessPerformanceReport: PerformanceReport = {
+                rating: readiness.readinessScore,
+                summary: readiness.suggestion,
+                suggestions: [],
+                pronunciationFeedback: [],
+                readinessReportData: readiness,
+                readinessProblem: currentProblem,
+                rawTranscript: rawTranscript,
+                refinedTranscript: rawTranscript
+              };
+              onSaveReport(currentProblem.title, 'readiness', readinessPerformanceReport);
+              
               setStep('readiness_reveal');
             }
           } catch (e) {
@@ -1095,6 +1124,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             <ReadinessReportComponent
               report={readinessReport}
               problemTitle={currentProblem.title}
+              problem={currentProblem}
               onContinueToTeach={handleContinueToTeach}
               onTryAgain={handleTryExplainAgain}
               rawTranscript={rawTranscript}

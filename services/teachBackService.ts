@@ -75,9 +75,10 @@ export async function evaluateReadinessToTeach(
                                 properties: {
                                     present: { type: GeminiType.BOOLEAN },
                                     quality: { type: GeminiType.STRING },
-                                    feedback: { type: GeminiType.STRING }
+                                    feedback: { type: GeminiType.STRING },
+                                    modelExample: { type: GeminiType.STRING }
                                 },
-                                required: ['present', 'quality', 'feedback']
+                                required: ['present', 'quality', 'feedback', 'modelExample']
                             },
                             edgeCases: {
                                 type: GeminiType.OBJECT,
@@ -95,9 +96,10 @@ export async function evaluateReadinessToTeach(
                                     timeCorrect: { type: GeminiType.BOOLEAN },
                                     spaceMentioned: { type: GeminiType.BOOLEAN },
                                     spaceCorrect: { type: GeminiType.BOOLEAN },
-                                    feedback: { type: GeminiType.STRING }
+                                    feedback: { type: GeminiType.STRING },
+                                    correctExplanation: { type: GeminiType.STRING }
                                 },
-                                required: ['timeMentioned', 'timeCorrect', 'spaceMentioned', 'spaceCorrect', 'feedback']
+                                required: ['timeMentioned', 'timeCorrect', 'spaceMentioned', 'spaceCorrect', 'feedback', 'correctExplanation']
                             }
                         },
                         required: ['coreInsight', 'stateDefinition', 'exampleWalkthrough', 'edgeCases', 'complexity']

@@ -148,6 +148,11 @@ export interface PerformanceReport {
   teachingReportData?: TeachingReport;
   teachingSession?: TeachingSession;  // The full dialog between teacher and junior
   juniorSummary?: string;
+  // Readiness (Explain mode Phase 1) specific fields
+  readinessReportData?: ReadinessReport;
+  readinessProblem?: BlindProblem; // The problem data for model answer display
+  rawTranscript?: string;
+  refinedTranscript?: string;
 }
 
 export interface SavedItem {
@@ -174,7 +179,7 @@ export interface SavedReport {
     id: string;
     date: string;
     title: string; // Context string or Script name
-    type: 'coach' | 'walkie' | 'hot-take' | 'teach';
+    type: 'coach' | 'walkie' | 'hot-take' | 'teach' | 'readiness';
     rating: number;
     reportData: PerformanceReport;
 }
@@ -279,10 +284,11 @@ export interface ReadinessChecklist {
     quality: 'precise' | 'hand-wavy' | 'missing';
     feedback: string;
   };
-  exampleWalkthrough: {
+    exampleWalkthrough: {
     present: boolean;
     quality: 'concrete' | 'abstract' | 'missing';
     feedback: string;
+    modelExample?: string; // AI-generated example walkthrough showing how to trace through the algorithm
   };
   edgeCases: {
     mentioned: string[];
@@ -295,15 +301,23 @@ export interface ReadinessChecklist {
     spaceMentioned: boolean;
     spaceCorrect: boolean;
     feedback: string;
+    expectedTime?: string;  // The correct time complexity
+    expectedSpace?: string; // The correct space complexity
+    correctExplanation?: string; // How to correctly explain the complexity
   };
+}
+
+export interface MissingElement {
+  element: string;       // What was missing
+  correctAnswer: string; // The correct way to explain this element
 }
 
 export interface ReadinessReport {
   readinessScore: number;  // 0-100
   isReadyToTeach: boolean; // true if score >= 70
   checklist: ReadinessChecklist;
-  missingElements: string[];  // What's still needed before teaching
-  strengthElements: string[]; // What was explained well
+  missingElements: MissingElement[];  // What's still needed with correct answers
+  strengthElements?: string[]; // Deprecated - kept for backwards compatibility
   suggestion: string;  // One concrete thing to add/improve
 }
 

@@ -1,0 +1,25 @@
+Group,Questions,,,,,,
+Arrays & Hashing,1 Two Sum ,,,,,,
+Arrays & Hashing,"167 Two Sum II 
+",15. 3Sum,18. 4Sum,454. 4Sum II,560. Subarray Sum Equals K,,
+Two Pointers. ,167. Two Sum II ,15. 3Sum,16. 3Sum Closest,11. Container With Most Water,125. Valid Palindrome,,
+Dynamic Programming,"1143. Longest Common Subsequence
+Advanced Algorithm 20  ","5. Longest Palindromic Substring
+Advanced Algorithm 21 ",,,,,
+Recursion,AD 8 - 1 branch factorial,AD 9 - Fibonacci sequence ,70. Climbing Stairs ,206. Reverse Linked List ⭐,21. Merge Two Sorted Lists ,,
+,143. Reorder List ,198. House Robber ,213. House Robber II,647. Palindromic Substrings ,,,
+Dynamic Programming,70. Climbing Stairs ,746. Min Cost Climbing Stairs (nt 150),198. House Robber,213. House Robber II,647. Palindromic Substrings,,
+"Sliding Window
+Prefix Sum",121. Best Time to Buy And Sell Stock,3. Longest Substring Without Repeating Characters,424. Longest Repeating Character Replacement,76. Minimum Window Substring,567. Permutation in String (lc 150),,
+Linked List,206. Reverse Linked List,21. Merge Two Sorted Lists,141. Linked List Cycle,143. Reorder Linked List,19. Remove Nth Node From End of List,,
+Tree,226. Invert Binary Tree,104. Maximum Depth of Binary Tree,100. Same Tree,572. Subtree of Another Tree,235. Lowest Common Ancestor of a Binary Search,,
+Search/Backtracking (2+5),39. Combination Sum,79. Word Search,78. Subsets (150),90. Subsets II (150),,,
+Tries,208. Implement Trie Prefix Tree,211. Design Add And Search Words Data Structure,212. Word Search II,,,,
+Graph,200. Number of Islands,133. Clone Graph,417. Pacific Atlantic Water Flow,207. Course Schedule,261. Graph Valid Tree,323. Number of Connected Components In An Undirected Graph,
+1D Dynamic Programming,5. Longest Palindromic Substring,91. Decode Ways,322. Coin Change,152. Maximum Product Subarray,139. Word Break,300. Longest Increasing Subsequence,
+2D Dynamic Programming,62. Unique Paths,1143. Longest Common Subsequence,,,,,
+Greedy,53. Maximum Subarray,55. Jump Game,,,,,
+Interval,57. Insert Interval,56. Merge Intervals,435. Non Overlapping Intervals,252.Meeting Rooms,253. Meeting Rooms II,,
+Math and Geometry,48. Rotate Image,54. Spiral Matrix,73. Set Matrix Zeroes,,,,
+Bit Manipulation,191. Number of 1 Bits,338. Counting Bits,190. Reverse Bits,268. Missing Number,371. Sum of Two Integers,,
+Dynamic Programming (5+2+2),121. Best Time to Buy And Sell Stock,122. Best Time to Buy and Sell Stock II,123. Best Time to Buy and Sell Stock III,309. Best Time to Buy and Sell Stock with Cooldown,714. Best Time to Buy and Sell Stock with Transaction Fee,1137. N-th Tribonacci Number,188. Best Time to Buy and Sell Stock IV

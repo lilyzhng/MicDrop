@@ -19,6 +19,7 @@ export interface Database {
           pattern: string
           key_idea: string
           detailed_hint: string | null
+          definition: string | null
           skeleton: string
           time_complexity: string
           space_complexity: string
@@ -28,6 +29,7 @@ export interface Database {
           difficulty: 'easy' | 'medium' | 'hard'
           problem_group: string | null
           leetcode_number: number | null
+          mnemonic_image_url: string | null
           created_at: string
         }
         Insert: {
@@ -39,6 +41,7 @@ export interface Database {
           pattern: string
           key_idea: string
           detailed_hint?: string | null
+          definition?: string | null
           skeleton: string
           time_complexity: string
           space_complexity: string
@@ -48,6 +51,7 @@ export interface Database {
           difficulty: 'easy' | 'medium' | 'hard'
           problem_group?: string | null
           leetcode_number?: number | null
+          mnemonic_image_url?: string | null
           created_at?: string
         }
         Update: {
@@ -59,6 +63,7 @@ export interface Database {
           pattern?: string
           key_idea?: string
           detailed_hint?: string | null
+          definition?: string | null
           skeleton?: string
           time_complexity?: string
           space_complexity?: string
@@ -68,6 +73,7 @@ export interface Database {
           difficulty?: 'easy' | 'medium' | 'hard'
           problem_group?: string | null
           leetcode_number?: number | null
+          mnemonic_image_url?: string | null
           created_at?: string
         }
       }
@@ -120,7 +126,7 @@ export interface Database {
           id: string
           user_id: string
           title: string
-          type: 'coach' | 'walkie' | 'hot-take'
+          type: 'coach' | 'walkie' | 'hot-take' | 'teach'
           rating: number
           report_data: Json
           created_at: string
@@ -130,7 +136,7 @@ export interface Database {
           id?: string
           user_id: string
           title: string
-          type: 'coach' | 'walkie' | 'hot-take'
+          type: 'coach' | 'walkie' | 'hot-take' | 'teach'
           rating: number
           report_data: Json
           created_at?: string
@@ -140,7 +146,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
-          type?: 'coach' | 'walkie' | 'hot-take'
+          type?: 'coach' | 'walkie' | 'hot-take' | 'teach'
           rating?: number
           report_data?: Json
           created_at?: string

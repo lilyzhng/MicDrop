@@ -366,7 +366,7 @@ Step 1: Compare adjacent words to find ordering rules. If word1 = "abc" and word
 Step 2: Topological sort the graph. Use Kahn''s (BFS with in-degrees) or DFS. If there''s a cycle, return "" (no valid ordering).
 
 Edge case: If a longer word comes before its prefix (like ["abc", "ab"]), that''s invalid—return "".'
-WHERE title = 'Alien Dictionary (Premium)';
+WHERE title = 'Alien Dictionary';
 
 -- 33. Graph Valid Tree
 UPDATE public.blind_problems SET detailed_hint = 
@@ -377,7 +377,7 @@ If edges.length != n-1, immediately return false.
 Then check connectivity using Union-Find or DFS:
 - Union-Find: Process each edge. If both nodes are already in the same set, there''s a cycle. After all edges, check if there''s exactly one connected component.
 - DFS: Start from node 0, visit all reachable nodes. If all n nodes are visited and no back-edge is found, it''s a valid tree.'
-WHERE title = 'Graph Valid Tree (Premium)';
+WHERE title = 'Graph Valid Tree';
 
 -- 34. Number of Connected Components
 UPDATE public.blind_problems SET detailed_hint = 
@@ -388,7 +388,7 @@ For each edge, union the two nodes. Every successful union (nodes were in differ
 Alternatively, use DFS: Start DFS from each unvisited node, marking all reachable nodes as visited. The number of times you start a new DFS equals the number of components.
 
 Union-Find with path compression and union by rank gives nearly O(1) per operation.'
-WHERE title = 'Number of Connected Components (Premium)';
+WHERE title = 'Number of Connected Components in an Undirected Graph';
 
 -- ========================================
 -- CATEGORY: Intervals (5 problems)
@@ -435,7 +435,7 @@ Sort meetings by start time. Then check each consecutive pair: if the next meeti
 Simply: for each i, check if meetings[i].start < meetings[i-1].end.
 
 If any overlap exists, return false. If you get through all meetings, return true.'
-WHERE title = 'Meeting Rooms (Premium)';
+WHERE title = 'Meeting Rooms';
 
 -- 39. Meeting Rooms II
 UPDATE public.blind_problems SET detailed_hint = 
@@ -446,7 +446,7 @@ Two approaches:
 1. Min-Heap: Sort meetings by start time. Use a min-heap to track end times of ongoing meetings. For each meeting, remove all meetings that have ended (end <= current.start), then add current meeting''s end time. Track the max heap size.
 
 2. Sweep Line: Create events for all starts (+1) and ends (-1). Sort by time (end before start if same time). Sweep through, tracking the running count. Max count = min rooms needed.'
-WHERE title = 'Meeting Rooms II (Premium)';
+WHERE title = 'Meeting Rooms II';
 
 -- ========================================
 -- CATEGORY: Linked List (6 problems)
@@ -700,7 +700,7 @@ Example: ["abc", "de"] → "3#abc2#de"
 To decode: Read digits until you hit #, parse the length n, then read exactly n characters. Repeat.
 
 This works because you always know exactly how many characters belong to each string, regardless of their content.'
-WHERE title = 'Encode and Decode Strings (Premium)';
+WHERE title = 'Encode and Decode Strings';
 
 -- ========================================
 -- CATEGORY: Tree (11 problems)

@@ -1,17 +1,19 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Edit2, Check, X, Play, Award, Zap, Code2 } from 'lucide-react';
+import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Edit2, Check, X, Play, Award, Zap, Code2, GraduationCap } from 'lucide-react';
 import { SavedItem, SavedReport } from '../types';
 import PerformanceReportComponent from '../components/PerformanceReport';
+import TeachingReportComponent from '../components/TeachingReport';
 import { titleToSlug, findReportBySlug } from '../utils';
 
 // Report type configuration for display
-type ReportTypeFilter = 'all' | 'coach' | 'hot-take' | 'walkie';
+type ReportTypeFilter = 'all' | 'coach' | 'hot-take' | 'walkie' | 'teach';
 const REPORT_TYPE_CONFIG: Record<Exclude<ReportTypeFilter, 'all'>, { label: string; title: string; color: string; icon: React.ReactNode }> = {
     'coach': { label: 'Interview', title: 'Interview Reports', color: 'gold', icon: <Award size={12} /> },
     'hot-take': { label: 'Tech Drill', title: 'Tech Drill Reports', color: 'purple-500', icon: <Zap size={12} /> },
-    'walkie': { label: 'LeetCode', title: 'LeetCode Reports', color: 'blue-500', icon: <Code2 size={12} /> }
+    'walkie': { label: 'LeetCode', title: 'LeetCode Reports', color: 'blue-500', icon: <Code2 size={12} /> },
+    'teach': { label: 'Teach', title: 'Teaching Reports', color: 'emerald-500', icon: <GraduationCap size={12} /> }
 };
 
 interface DatabaseViewProps {
@@ -57,7 +59,8 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         all: savedReports.length,
         coach: savedReports.filter(r => r.type === 'coach').length,
         'hot-take': savedReports.filter(r => r.type === 'hot-take').length,
-        walkie: savedReports.filter(r => r.type === 'walkie').length
+        walkie: savedReports.filter(r => r.type === 'walkie').length,
+        teach: savedReports.filter(r => r.type === 'teach').length
     };
 
     const startEditing = (report: SavedReport) => {
@@ -90,6 +93,11 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
 
     // If Viewing a specific report
     if (selectedReport) {
+        // Check if this is a teaching report with full data
+        const isTeachReport = selectedReport.type === 'teach';
+        const teachingData = selectedReport.reportData.teachingReportData;
+        const teachingSession = selectedReport.reportData.teachingSession;
+        
         return (
             <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
                 <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
@@ -101,14 +109,28 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 </div>
                 <div className="flex-1 overflow-y-auto p-8">
                      <div className="max-w-4xl mx-auto pb-20">
-                         <PerformanceReportComponent 
-                            report={selectedReport.reportData}
-                            reportType={selectedReport.type as 'coach' | 'walkie' | 'hot-take'}
-                            context={selectedReport.title}
-                            isSaved={isSaved} 
-                            onToggleSave={onToggleSave} 
-                            onDone={() => navigate('/database')} 
-                         />
+                         {isTeachReport && teachingData ? (
+                             <TeachingReportComponent 
+                                report={teachingData}
+                                juniorSummary={selectedReport.reportData.juniorSummary}
+                                problemTitle={selectedReport.title}
+                                onContinue={() => navigate('/database')}
+                                onTryAgain={() => navigate('/walkie-talkie', { 
+                                    state: { teachAgainProblem: selectedReport.title } 
+                                })}
+                                isLastProblem={true}
+                                teachingSession={teachingSession}
+                             />
+                         ) : (
+                             <PerformanceReportComponent 
+                                report={selectedReport.reportData}
+                                reportType={selectedReport.type as 'coach' | 'walkie' | 'hot-take'}
+                                context={selectedReport.title}
+                                isSaved={isSaved} 
+                                onToggleSave={onToggleSave} 
+                                onDone={() => navigate('/database')} 
+                             />
+                         )}
                      </div>
                 </div>
             </div>
@@ -180,6 +202,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                  >
                                      <Code2 size={12} /> LeetCode ({reportCounts.walkie})
                                  </button>
+                                 <button
+                                     onClick={() => setReportTypeFilter('teach')}
+                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'teach' ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-emerald-300'}`}
+                                 >
+                                     <GraduationCap size={12} /> Teach ({reportCounts.teach})
+                                 </button>
                              </div>
 
                              {filteredReports.length === 0 ? (
@@ -194,6 +222,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                         {reportTypeFilter === 'coach' && 'Complete an interview analysis in The Coach to see reports here.'}
                                         {reportTypeFilter === 'hot-take' && 'Complete a Hot Take drill session to see reports here.'}
                                         {reportTypeFilter === 'walkie' && 'Practice problems in WalkieTalkie to see reports here.'}
+                                        {reportTypeFilter === 'teach' && 'Complete a teaching session in Teach mode to see reports here.'}
                                         {reportTypeFilter === 'all' && 'Your performance reports from all features will appear here.'}
                                     </p>
                                 </div>
@@ -202,15 +231,17 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                      {filteredReports.map(report => {
                                          const isEditing = editingReportId === report.id;
                                          const typeConfig = REPORT_TYPE_CONFIG[report.type as keyof typeof REPORT_TYPE_CONFIG];
-                                         const badgeColors = {
+                                         const badgeColors: Record<string, string> = {
                                              'coach': 'bg-gold/10 text-gold',
                                              'hot-take': 'bg-purple-500/10 text-purple-600',
-                                             'walkie': 'bg-blue-500/10 text-blue-600'
+                                             'walkie': 'bg-blue-500/10 text-blue-600',
+                                             'teach': 'bg-emerald-500/10 text-emerald-600'
                                          };
-                                         const ringColors = {
+                                         const ringColors: Record<string, string> = {
                                              'coach': '#C7A965',
                                              'hot-take': '#a855f7',
-                                             'walkie': '#3b82f6'
+                                             'walkie': '#3b82f6',
+                                             'teach': '#10b981'
                                          };
                                          return (
                                          <div key={report.id} className="bg-white rounded-xl p-6 shadow-sm border border-[#EBE8E0] hover:shadow-md transition-shadow flex items-center gap-6 group">

@@ -107,9 +107,9 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
 };
 
 export const createSavedReport = async (
-    userId: string, 
-    title: string, 
-    type: 'coach' | 'walkie' | 'hot-take', 
+    userId: string,
+    title: string,
+    type: 'coach' | 'walkie' | 'hot-take' | 'teach',
     report: PerformanceReport
 ): Promise<SavedReport | null> => {
     console.log('[DEBUG] createSavedReport called:', { userId, title, type, rating: report.rating });
@@ -221,6 +221,24 @@ export const fetchBlindProblemsByTopics = async (
 };
 
 /**
+ * Fetch a single blind problem by title
+ */
+export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProblem | null> => {
+    const { data, error } = await supabase
+        .from('blind_problems')
+        .select('*')
+        .eq('title', title)
+        .single();
+
+    if (error) {
+        console.error('Error fetching blind problem by title:', error);
+        return null;
+    }
+
+    return data ? mapDbProblemToBlindProblem(data) : null;
+};
+
+/**
  * Fetch all blind problems (for stats/admin purposes)
  */
 export const fetchAllBlindProblems = async (): Promise<BlindProblem[]> => {
@@ -265,6 +283,7 @@ const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
     pattern: row.pattern,
     keyIdea: row.key_idea,
     detailedHint: row.detailed_hint || undefined,
+    definition: row.definition || undefined,
     skeleton: row.skeleton,
     timeComplexity: row.time_complexity,
     spaceComplexity: row.space_complexity,
@@ -273,7 +292,8 @@ const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
     topics: row.topics as string[],
     difficulty: row.difficulty as 'easy' | 'medium' | 'hard',
     problemGroup: row.problem_group || undefined,
-    leetcodeNumber: row.leetcode_number || undefined
+    leetcodeNumber: row.leetcode_number || undefined,
+    mnemonicImageUrl: row.mnemonic_image_url || undefined
 });
 
 // ========== PROGRESSIVE QUEUE BUILDING ==========

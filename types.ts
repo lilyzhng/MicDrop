@@ -144,6 +144,10 @@ export interface PerformanceReport {
     round1: HotTakeRoundAnalysis;
     round2: HotTakeRoundAnalysis;
   };
+  // Teaching mode specific fields
+  teachingReportData?: TeachingReport;
+  teachingSession?: TeachingSession;  // The full dialog between teacher and junior
+  juniorSummary?: string;
 }
 
 export interface SavedItem {
@@ -170,7 +174,7 @@ export interface SavedReport {
     id: string;
     date: string;
     title: string; // Context string or Script name
-    type: 'coach' | 'walkie' | 'hot-take';
+    type: 'coach' | 'walkie' | 'hot-take' | 'teach';
     rating: number;
     reportData: PerformanceReport;
 }
@@ -193,6 +197,7 @@ export interface BlindProblem {
   pattern: string;
   keyIdea: string;
   detailedHint?: string; // More thorough walkthrough of problem-solving approach
+  definition?: string; // Data structure/concept definitions (shown first before hints)
   skeleton: string;
   timeComplexity: string;
   spaceComplexity: string;
@@ -202,4 +207,108 @@ export interface BlindProblem {
   difficulty: 'easy' | 'medium' | 'hard';
   problemGroup?: string; // Learning group/pattern (e.g., 'arrays_hashing', 'two_pointers', 'dp_1d')
   leetcodeNumber?: number;
+  mnemonicImageUrl?: string; // Visual mnemonic image URL from Supabase Storage
+}
+
+// --- Teach-Back Mode Types ---
+
+export interface JuniorState {
+  currentUnderstanding: string[];  // What junior believes they understand
+  confusionPoints: string[];       // Active confusion points
+  likelyMisimplementations: string[]; // What they'd get wrong if coding now
+  readyToSummarize: boolean;
+}
+
+export interface TeachingTurn {
+  speaker: 'teacher' | 'junior';
+  content: string;
+  rawContent?: string; // Original unrefined transcript (for debugging)
+  timestamp: number;
+}
+
+export interface TeachingSession {
+  problemId: string;
+  turns: TeachingTurn[];
+  juniorState: JuniorState;
+  juniorSummary?: string;  // Final recap from junior
+}
+
+export interface TeachingReportBreakdown {
+  clarity: number;        // 0-10: was core insight stated clearly? (brief but precise is good)
+  correctness: number;    // 0-10: taught algorithm is correct
+  completeness: number;   // 0-10: by end of conversation, intuition + steps + edge cases + complexity covered
+  studentMastery: number; // 0-10: did the junior end able to summarize + implement?
+  scaffolding: number;    // 0-10: did teacher guide discovery well through Q&A?
+}
+
+export interface FactualError {
+  whatTeacherSaid: string;   // Quote the incorrect statement
+  whatIsCorrect: string;      // The correct explanation
+  whyItMatters: string;       // How this caused student confusion
+}
+
+export interface DialogueAnnotation {
+  turnIndex: number;           // Which turn (0-indexed)
+  speaker: 'teacher' | 'junior';
+  annotation: string;          // Why student asked this / what's wrong with teacher's response
+  issueType?: 'factual_error' | 'incomplete' | 'unclear' | 'hand_wavy' | 'good' | 'good_scaffolding' | 'discovery_question' | 'confusion_question';
+}
+
+export interface TeachingReport {
+  teachingScore: number;  // 0-100
+  breakdown: TeachingReportBreakdown;
+  factualErrors: FactualError[];  // List of incorrect statements made by teacher
+  dialogueAnnotations: DialogueAnnotation[];  // Per-turn analysis for visual feedback
+  evidenceNotes: string[];   // Cite specific moments from dialogue
+  topGaps: string[];         // Max 3 gaps that prevented understanding
+  concreteImprovement: string; // One specific behavior change for next time
+  studentOutcome: 'can_implement' | 'conceptual_only' | 'still_confused';
+  juniorSummaryCorrect: boolean;
+}
+
+// --- Explain Mode (Pass 1 - Readiness to Teach) Types ---
+
+export interface ReadinessChecklist {
+  coreInsight: {
+    present: boolean;
+    quality: 'clear' | 'vague' | 'missing';
+    feedback: string;
+  };
+  stateDefinition: {
+    present: boolean;
+    quality: 'precise' | 'hand-wavy' | 'missing';
+    feedback: string;
+  };
+  exampleWalkthrough: {
+    present: boolean;
+    quality: 'concrete' | 'abstract' | 'missing';
+    feedback: string;
+  };
+  edgeCases: {
+    mentioned: string[];
+    missing: string[];
+    feedback: string;
+  };
+  complexity: {
+    timeMentioned: boolean;
+    timeCorrect: boolean;
+    spaceMentioned: boolean;
+    spaceCorrect: boolean;
+    feedback: string;
+  };
+}
+
+export interface ReadinessReport {
+  readinessScore: number;  // 0-100
+  isReadyToTeach: boolean; // true if score >= 70
+  checklist: ReadinessChecklist;
+  missingElements: string[];  // What's still needed before teaching
+  strengthElements: string[]; // What was explained well
+  suggestion: string;  // One concrete thing to add/improve
+}
+
+export interface ExplainSession {
+  problemId: string;
+  transcript: string;
+  readinessReport?: ReadinessReport;
 }

@@ -1,13 +1,31 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf } from 'lucide-react';
-import { BlindProblem, PerformanceReport, SavedItem } from '../types';
+import { useLocation } from 'react-router-dom';
+import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf, GraduationCap, MessageCircle, Volume2, VolumeX, Send, Layers, ExternalLink } from 'lucide-react';
+import { BlindProblem, PerformanceReport, SavedItem, TeachingSession, TeachingTurn, JuniorState, TeachingReport, ReadinessReport } from '../types';
 import { analyzeWalkieSession, refineTranscript } from '../services/analysisService';
-import { buildProblemQueue } from '../services/databaseService';
+import { buildProblemQueue, fetchBlindProblemByTitle } from '../services/databaseService';
+import { 
+  getInitialJuniorState, 
+  getJuniorResponse, 
+  getJuniorSummary, 
+  evaluateTeaching,
+  speakJuniorResponse,
+  stopSpeaking,
+  createTeachingSession,
+  addTurn,
+  updateJuniorState,
+  setJuniorSummary,
+  evaluateReadinessToTeach
+} from '../services/teachBackService';
 import PerformanceReportComponent from '../components/PerformanceReport';
+import TeachingReportComponent from '../components/TeachingReport';
+import ReadinessReportComponent from '../components/ReadinessReport';
 
 // Difficulty mode types
 type DifficultyMode = 'warmup' | 'standard' | 'challenge';
+// Session mode types - Paired (default) combines Explain → Teach on same problem
+type SessionMode = 'paired' | 'explain' | 'teach';
 
 const DIFFICULTY_MAP: Record<DifficultyMode, ('easy' | 'medium' | 'hard')[]> = {
   warmup: ['easy'],
@@ -15,9 +33,121 @@ const DIFFICULTY_MAP: Record<DifficultyMode, ('easy' | 'medium' | 'hard')[]> = {
   challenge: ['easy', 'medium', 'hard']
 };
 
+// NeetCode video solution URLs mapped by problem title
+const NEETCODE_VIDEO_URLS: Record<string, string> = {
+  'Two Sum': 'https://youtu.be/KLlXCFG5TnA',
+  'Best Time to Buy and Sell Stock': 'https://youtu.be/1pkOgXD63yU',
+  'Contains Duplicate': 'https://youtu.be/3OamzN90kPg',
+  'Product of Array Except Self': 'https://youtu.be/bNvIQI2wAjk',
+  'Maximum Subarray': 'https://youtu.be/5WZl3MMT0Eg',
+  'Maximum Product Subarray': 'https://youtu.be/lXVy6YWFcRM',
+  'Find Minimum in Rotated Sorted Array': 'https://youtu.be/nIVW4P8b1VA',
+  'Search in Rotated Sorted Array': 'https://youtu.be/U8XENwh8Oy8',
+  '3Sum': 'https://youtu.be/jzZsG8n2R9A',
+  'Container With Most Water': 'https://youtu.be/UuiTKBwPgAo',
+  'Sum of Two Integers': 'https://youtu.be/gVUrDV4tZfY',
+  'Number of 1 Bits': 'https://youtu.be/5Km3utixwZs',
+  'Counting Bits': 'https://youtu.be/RyBM56RIWrM',
+  'Missing Number': 'https://youtu.be/WnPLSRLSANE',
+  'Reverse Bits': 'https://youtu.be/UcoN6UjAI64',
+  'Climbing Stairs': 'https://youtu.be/Y0lT9Fck7qI',
+  'Coin Change': 'https://youtu.be/H9bfqozjoqs',
+  'Longest Increasing Subsequence': 'https://youtu.be/cjWnW0hdF1Y',
+  'Longest Common Subsequence': 'https://youtu.be/Ua0GhsJSlWM',
+  'Word Break': 'https://youtu.be/Sx9NNgInc3A',
+  'Word Break Problem': 'https://youtu.be/Sx9NNgInc3A',
+  'Combination Sum': 'https://youtu.be/GBKI9VSKdGg',
+  'House Robber': 'https://youtu.be/73r3KWiEvyk',
+  'House Robber II': 'https://youtu.be/rWAJCfYYOvM',
+  'Decode Ways': 'https://youtu.be/6aEyTjOwlJU',
+  'Unique Paths': 'https://youtu.be/IlEsdxuD4lY',
+  'Jump Game': 'https://youtu.be/Yan0cv2cLy8',
+  'Clone Graph': 'https://youtu.be/mQeF6bN8hMk',
+  'Course Schedule': 'https://youtu.be/EgI5nU9etnU',
+  'Pacific Atlantic Water Flow': 'https://youtu.be/s-VkcjHqkGI',
+  'Number of Islands': 'https://youtu.be/pV2kpPD66nE',
+  'Longest Consecutive Sequence': 'https://youtu.be/P6RZZMu_maU',
+  'Alien Dictionary': 'https://youtu.be/6kTZYvNNyps',
+  'Graph Valid Tree': 'https://youtu.be/bXsUuownnoQ',
+  'Number of Connected Components in an Undirected Graph': 'https://youtu.be/8f1XPm4WOUc',
+  'Insert Interval': 'https://youtu.be/A8NUOmlwOlM',
+  'Merge Intervals': 'https://youtu.be/44H3cEC2fFM',
+  'Non-overlapping Intervals': 'https://youtu.be/nONCGxWoUfM',
+  'Meeting Rooms': 'https://youtu.be/PaJxqZVPhbg',
+  'Meeting Rooms II': 'https://youtu.be/FdzJmTCVyJU',
+  'Reverse Linked List': 'https://youtu.be/G0_I-ZF0S38',
+  'Reverse a Linked List': 'https://youtu.be/G0_I-ZF0S38',
+  'Linked List Cycle': 'https://youtu.be/gBTe7lFR3vc',
+  'Detect Cycle in a Linked List': 'https://youtu.be/gBTe7lFR3vc',
+  'Merge Two Sorted Lists': 'https://youtu.be/XIdigk956u0',
+  'Merge K Sorted Lists': 'https://youtu.be/q5a5OiGbT6Q',
+  'Remove Nth Node From End of List': 'https://youtu.be/XVuQxVej6y8',
+  'Remove Nth Node From End Of List': 'https://youtu.be/XVuQxVej6y8',
+  'Reorder List': 'https://youtu.be/S5bfdUTrKLM',
+  'Set Matrix Zeroes': 'https://youtu.be/T41rL0L3Pnw',
+  'Spiral Matrix': 'https://youtu.be/BJnMZNwUk1M',
+  'Rotate Image': 'https://youtu.be/fMSJSS7eO1w',
+  'Word Search': 'https://youtu.be/pfiQ_PS1g8E',
+  'Longest Substring Without Repeating Characters': 'https://youtu.be/wiGpQwVHdE0',
+  'Longest Repeating Character Replacement': 'https://youtu.be/gqXU1UyA8pk',
+  'Minimum Window Substring': 'https://youtu.be/jSto0O4AJbM',
+  'Valid Anagram': 'https://youtu.be/9UtInBqnCgA',
+  'Group Anagrams': 'https://youtu.be/vzdNOK2oB2E',
+  'Valid Parentheses': 'https://youtu.be/WTzjTskDFMg',
+  'Valid Palindrome': 'https://youtu.be/jJXJ16kPFWg',
+  'Longest Palindromic Substring': 'https://youtu.be/XYQecbcd6_c',
+  'Palindromic Substrings': 'https://youtu.be/4RACzI5-du8',
+  'Encode and Decode Strings': 'https://youtu.be/B1k_sxOSgv8',
+  'Maximum Depth of Binary Tree': 'https://youtu.be/hTM3phVI6YQ',
+  'Same Tree': 'https://youtu.be/vRbbcKXCxOw',
+  'Invert Binary Tree': 'https://youtu.be/OnSn2XEQ4MY',
+  'Invert/Flip Binary Tree': 'https://youtu.be/OnSn2XEQ4MY',
+  'Binary Tree Maximum Path Sum': 'https://youtu.be/Hr5cWUld4vU',
+  'Binary Tree Level Order Traversal': 'https://youtu.be/6ZnyEApgFYg',
+  'Serialize and Deserialize Binary Tree': 'https://youtu.be/u4JAi2JJhI8',
+  'Subtree of Another Tree': 'https://youtu.be/E36O5SWp-LE',
+  'Construct Binary Tree from Preorder and Inorder Traversal': 'https://youtu.be/ihj4IQGZ2zc',
+  'Validate Binary Search Tree': 'https://youtu.be/s6ATEkipzow',
+  'Kth Smallest Element in a BST': 'https://youtu.be/5LUXSvjmGCw',
+  'Lowest Common Ancestor of a Binary Search Tree': 'https://youtu.be/gs2LMfuOR9k',
+  'Lowest Common Ancestor of BST': 'https://youtu.be/gs2LMfuOR9k',
+  'Implement Trie (Prefix Tree)': 'https://youtu.be/oobqoCJlHA0',
+  'Implement Trie': 'https://youtu.be/oobqoCJlHA0',
+  'Design Add and Search Words Data Structure': 'https://youtu.be/BTf05gs_8iU',
+  'Add and Search Word': 'https://youtu.be/BTf05gs_8iU',
+  'Word Search II': 'https://youtu.be/asbcE9mZz_U',
+  'Top K Frequent Elements': 'https://youtu.be/YPTqKIgVk-k',
+  'Find Median from Data Stream': 'https://youtu.be/itmhHWaHupI',
+};
+
+// Get NeetCode video URL - uses mapping first, falls back to generated URL
+const getNeetCodeUrl = (title: string): string => {
+  // Check direct match first
+  if (NEETCODE_VIDEO_URLS[title]) {
+    return NEETCODE_VIDEO_URLS[title];
+  }
+  
+  // Try normalized match (case-insensitive)
+  const normalizedTitle = title.toLowerCase().trim();
+  for (const [key, url] of Object.entries(NEETCODE_VIDEO_URLS)) {
+    if (key.toLowerCase().trim() === normalizedTitle) {
+      return url;
+    }
+  }
+  
+  // Fallback to generated URL
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+  return `https://neetcode.io/problems/${slug}`;
+};
+
 interface WalkieTalkieViewProps {
   onHome: (force: boolean) => void;
-  onSaveReport: (title: string, type: 'walkie', report: PerformanceReport) => void;
+  onSaveReport: (title: string, type: 'walkie' | 'teach', report: PerformanceReport) => void;
   masteredIds: string[];
   onMastered: (id: string) => void;
   isSaved: (title: string, content: string) => boolean;
@@ -53,10 +183,24 @@ const POWER_SPOTS = [
 ];
 
 const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave }) => {
-  const [step, setStep] = useState<'locations' | 'curating' | 'problem' | 'recording' | 'analyzing' | 'reveal'>('locations');
+  // Get navigation state for "Teach Again" functionality
+  const location = useLocation();
+  const teachAgainProblem = (location.state as { teachAgainProblem?: string } | null)?.teachAgainProblem;
+
+  // Step types now include paired repetition flow steps
+  type StepType = 'locations' | 'curating' | 'problem' | 'recording' | 'analyzing' | 'reveal'
+    // Paired flow: Explain → Readiness → Teach
+    | 'readiness_evaluating' | 'readiness_reveal'
+    // Teaching mode steps
+    | 'teaching' | 'junior_thinking' | 'junior_question' | 'junior_summarizing' | 'dean_evaluating' | 'teaching_reveal';
+  
+  const [step, setStep] = useState<StepType>('locations');
   const [analysisPhase, setAnalysisPhase] = useState<'refining' | 'evaluating'>('refining');
   const [selectedSpot, setSelectedSpot] = useState<typeof POWER_SPOTS[0] | null>(null);
   const [showStats, setShowStats] = useState(false);
+  
+  // Session Mode State - Paired (Explain → Teach) is the default for best learning
+  const [sessionMode, setSessionMode] = useState<SessionMode>('paired');
   
   // Difficulty Mode State
   const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('standard');
@@ -72,13 +216,25 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     return Number(localStorage.getItem('micdrop_total_conquered') || 0);
   });
 
-  // Analysis State
+  // Analysis State (Explain mode)
   const [transcript, setTranscript] = useState("");
   const [rawTranscript, setRawTranscript] = useState("");
   const [aiReport, setAiReport] = useState<PerformanceReport | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [revealHintIdx, setRevealHintIdx] = useState(0);
   const [usedHints, setUsedHints] = useState(false); // Track if user requested any hints
+
+  // Teaching Mode State
+  const [teachingSession, setTeachingSession] = useState<TeachingSession | null>(null);
+  const [juniorQuestion, setJuniorQuestion] = useState<string>("");
+  const [teachingReport, setTeachingReport] = useState<TeachingReport | null>(null);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [isTeachingRecording, setIsTeachingRecording] = useState(false);
+  const [teachingRawTranscript, setTeachingRawTranscript] = useState("");
+
+  // Paired Flow State - Readiness to Teach (Pass 1)
+  const [readinessReport, setReadinessReport] = useState<ReadinessReport | null>(null);
+  const [explainTranscript, setExplainTranscript] = useState<string>("");
 
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -102,6 +258,49 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
     };
   }, []);
+
+  // Handle "Teach Again" navigation from saved reports
+  useEffect(() => {
+    if (!teachAgainProblem) return;
+
+    const loadProblemAndStartTeaching = async () => {
+      setStep('curating');
+      
+      const problem = await fetchBlindProblemByTitle(teachAgainProblem);
+      
+      if (problem) {
+        // Set up the problem queue with just this one problem
+        setProblemQueue([problem]);
+        setCurrentQueueIdx(0);
+        setSessionMode('teach'); // Go directly to teach mode
+        
+        // Initialize teaching session
+        const session = createTeachingSession(problem.id);
+        setTeachingSession(session);
+        
+        // Reset other state
+        setReadinessReport(null);
+        setExplainTranscript("");
+        setTeachingReport(null);
+        setTeachingRawTranscript("");
+        setJuniorQuestion("");
+        setRevealHintIdx(0);
+        setUsedHints(false);
+        
+        // Start teaching
+        setStep('teaching');
+      } else {
+        // Problem not found, go back to locations
+        console.error('Could not find problem:', teachAgainProblem);
+        setStep('locations');
+      }
+      
+      // Clear the navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    };
+
+    loadProblemAndStartTeaching();
+  }, [teachAgainProblem]);
 
   const handleStartRecording = async () => {
     setTranscript("");
@@ -138,6 +337,79 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     if (recognitionRef.current) recognitionRef.current.stop();
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.onstop = async () => {
+        // For paired mode, evaluate readiness to teach first
+        if (sessionMode === 'paired') {
+          // Show loading state immediately while processing
+          setStep('readiness_evaluating');
+          
+          try {
+            if (currentProblem) {
+              // Skip refinement - send raw transcript directly to preserve all content
+              // The evaluation prompt handles transcription errors gracefully
+              setExplainTranscript(rawTranscript);
+              setTranscript(rawTranscript);
+              
+              // HINT PENALTY: If user used hints, they are automatically "not ready"
+              // A teacher should be able to explain the solution without referring to hints
+              if (usedHints) {
+                const hintPenaltyReport: ReadinessReport = {
+                  readinessScore: 40,
+                  isReadyToTeach: false,
+                  checklist: {
+                    coreInsight: {
+                      present: false,
+                      quality: 'vague',
+                      feedback: 'You used hints during this section. Try to internalize the core insight before teaching.'
+                    },
+                    stateDefinition: {
+                      present: false,
+                      quality: 'hand-wavy',
+                      feedback: 'Hints were referenced. Practice explaining the state definition from memory.'
+                    },
+                    exampleWalkthrough: {
+                      present: false,
+                      quality: 'abstract',
+                      feedback: 'Work through examples without hints to build confidence.'
+                    },
+                    edgeCases: {
+                      mentioned: [],
+                      missing: ['All edge cases - hints were used'],
+                      feedback: 'Review edge cases without hints to solidify understanding.'
+                    },
+                    complexity: {
+                      timeMentioned: false,
+                      timeCorrect: false,
+                      spaceMentioned: false,
+                      spaceCorrect: false,
+                      feedback: 'Practice complexity analysis without referring to hints.'
+                    }
+                  },
+                  missingElements: [
+                    'You used hints during this explanation',
+                    'Teachers should explain without external references',
+                    'Try again without revealing any hints'
+                  ],
+                  strengthElements: [],
+                  suggestion: 'Go back and explain the solution without using any hints. A strong teacher can explain the concept from memory.'
+                };
+                setReadinessReport(hintPenaltyReport);
+                setStep('readiness_reveal');
+                return;
+              }
+              
+              // No hints used - proceed with AI evaluation (loading state already shown)
+              const readiness = await evaluateReadinessToTeach(currentProblem, rawTranscript);
+              setReadinessReport(readiness);
+              setStep('readiness_reveal');
+            }
+          } catch (e) {
+            console.error("Readiness evaluation failed", e);
+            setStep('problem');
+          }
+          return;
+        }
+        
+        // Standard explain mode - full analysis
         setStep('analyzing');
         setAnalysisPhase('refining');
         
@@ -242,11 +514,275 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         
         setCurrentQueueIdx(0);
         setSessionScore(0);
-        setStep('problem');
+        
+        // Reset state for new session
+        setReadinessReport(null);
+        setExplainTranscript("");
+        setTeachingSession(null);
+        setTeachingReport(null);
+        setRevealHintIdx(0);
+        setUsedHints(false);
+        setTranscript("");
+        setRawTranscript("");
+        
+        // Initialize based on session mode
+        if (sessionMode === 'teach') {
+            // Direct teach mode - skip explain step
+            const firstProblem = problems.length > 0 ? problems[0] : null;
+            if (firstProblem) {
+                setTeachingSession(createTeachingSession(firstProblem.id));
+                setJuniorQuestion("");
+                setTeachingRawTranscript("");
+            }
+            setStep('teaching');
+        } else {
+            // Paired mode or Explain mode - start with problem/explain step
+            setStep('problem');
+        }
     } catch (e) {
         console.error("Curating failed", e);
         setStep('locations');
     }
+  };
+
+  // Handler for continuing from readiness reveal to teaching (paired mode)
+  const handleContinueToTeach = () => {
+    if (!currentProblem) return;
+    
+    // Initialize teaching session for the SAME problem
+    setTeachingSession(createTeachingSession(currentProblem.id));
+    setJuniorQuestion("");
+    setTeachingReport(null);
+    setTeachingRawTranscript("");
+    setStep('teaching');
+  };
+
+  // Handler for trying again (re-explain before teaching)
+  const handleTryExplainAgain = () => {
+    setReadinessReport(null);
+    setExplainTranscript("");
+    setRawTranscript("");
+    setTranscript("");
+    // Reset hints - user should try without hints this time
+    setRevealHintIdx(0);
+    setUsedHints(false);
+    setStep('problem');
+  };
+
+  // Teaching Mode Handlers
+  const handleStartTeachingRecording = async () => {
+    setTeachingRawTranscript("");
+    setIsTeachingRecording(true);
+    stopSpeaking(); // Stop any TTS in progress
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.onresult = (event: any) => {
+        let current = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) current += event.results[i][0].transcript;
+        }
+        if (current) setTeachingRawTranscript(prev => prev + " " + current);
+      };
+      recognitionRef.current.start();
+    }
+  };
+
+  const handleStopTeachingRecording = async () => {
+    setIsTeachingRecording(false);
+    if (recognitionRef.current) recognitionRef.current.stop();
+    
+    if (!teachingRawTranscript.trim() || !currentProblem || !teachingSession) return;
+    
+    setStep('junior_thinking');
+    
+    try {
+      // Skip refinement - send raw transcript directly to preserve ALL content
+      // The Junior Engineer prompt handles transcription errors gracefully
+      // This prevents the AI refiner from accidentally removing example traces
+      const updatedSession = addTurn(teachingSession, 'teacher', teachingRawTranscript, teachingRawTranscript);
+      setTeachingSession(updatedSession);
+      
+      // Get junior's response
+      const { response, newState, isComplete } = await getJuniorResponse(
+        currentProblem,
+        updatedSession.turns,
+        updatedSession.juniorState
+      );
+      
+      // Add junior's response to session
+      const sessionWithJunior = addTurn(
+        updateJuniorState(updatedSession, newState),
+        'junior',
+        response
+      );
+      setTeachingSession(sessionWithJunior);
+      setJuniorQuestion(response);
+      
+      if (isComplete || newState.readyToSummarize) {
+        // Junior is ready to summarize
+        setStep('junior_summarizing');
+        const summary = await getJuniorSummary(currentProblem, sessionWithJunior.turns);
+        const finalSession = setJuniorSummary(sessionWithJunior, summary);
+        setTeachingSession(finalSession);
+        
+        // Now have Dean evaluate
+        setStep('dean_evaluating');
+        const report = await evaluateTeaching(currentProblem, finalSession);
+        setTeachingReport(report);
+        
+        // Save the teaching report as a PerformanceReport-compatible format
+        // Include full teaching report data for proper viewing later
+        const performanceReport: PerformanceReport = {
+          rating: report.teachingScore,
+          summary: `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
+          suggestions: report.topGaps,
+          pronunciationFeedback: [],
+          detailedFeedback: report.evidenceNotes.map((note, idx) => ({
+            category: 'Teaching',
+            issue: note,
+            instance: '',
+            rewrite: idx === 0 ? report.concreteImprovement : '',
+            explanation: ''
+          })),
+          teachingReportData: report,
+          teachingSession: updatedSession,  // Include the full dialog
+          juniorSummary: finalSession.juniorSummary
+        };
+        onSaveReport(currentProblem.title, 'teach', performanceReport);
+        
+        // Mark as mastered if student can implement AND teaching score >= 75
+        // This ensures both good outcome AND quality teaching
+        if (report.studentOutcome === 'can_implement' && report.teachingScore >= 75) {
+          onMastered(currentProblem.title);
+          setSessionScore(prev => prev + 1);
+          setDailyCleared(prev => prev + 1);
+          setTotalConquered(prev => {
+            const newVal = prev + 1;
+            localStorage.setItem('micdrop_total_conquered', String(newVal));
+            return newVal;
+          });
+        }
+        
+        setStep('teaching_reveal');
+      } else {
+        // Continue teaching
+        setStep('junior_question');
+        
+        // Optionally speak the question
+        if (ttsEnabled) {
+          speakJuniorResponse(response);
+        }
+      }
+    } catch (e) {
+      console.error("Teaching response failed", e);
+      setStep('teaching');
+    }
+    
+    setTeachingRawTranscript("");
+  };
+
+  const handleEndTeachingSession = async () => {
+    if (!currentProblem || !teachingSession) return;
+    
+    setStep('junior_summarizing');
+    
+    try {
+      // Generate junior's summary even if not "ready"
+      const summary = await getJuniorSummary(currentProblem, teachingSession.turns);
+      const finalSession = setJuniorSummary(teachingSession, summary);
+      setTeachingSession(finalSession);
+      
+      // Have Dean evaluate
+      setStep('dean_evaluating');
+      const report = await evaluateTeaching(currentProblem, finalSession);
+      setTeachingReport(report);
+      
+      // Save the teaching report as a PerformanceReport-compatible format
+      // Include full teaching report data for proper viewing later
+      const performanceReport: PerformanceReport = {
+        rating: report.teachingScore,
+        summary: `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
+        suggestions: report.topGaps,
+        pronunciationFeedback: [],
+        detailedFeedback: report.evidenceNotes.map((note, idx) => ({
+          category: 'Teaching',
+          issue: note,
+          instance: '',
+          rewrite: idx === 0 ? report.concreteImprovement : '',
+          explanation: ''
+        })),
+        teachingReportData: report,
+        teachingSession: finalSession,  // Include the full dialog
+        juniorSummary: finalSession.juniorSummary
+      };
+      onSaveReport(currentProblem.title, 'teach', performanceReport);
+      
+      // Mark as mastered if student can implement AND teaching score >= 75
+      // This ensures both good outcome AND quality teaching
+      if (report.studentOutcome === 'can_implement' && report.teachingScore >= 75) {
+        onMastered(currentProblem.title);
+        setSessionScore(prev => prev + 1);
+        setDailyCleared(prev => prev + 1);
+        setTotalConquered(prev => {
+          const newVal = prev + 1;
+          localStorage.setItem('micdrop_total_conquered', String(newVal));
+          return newVal;
+        });
+      }
+      
+      setStep('teaching_reveal');
+    } catch (e) {
+      console.error("End teaching session failed", e);
+      setStep('locations');
+    }
+  };
+
+  const handleTeachingContinue = () => {
+    // Move to next problem or back to locations
+    if (currentQueueIdx < problemQueue.length - 1) {
+      const nextIdx = currentQueueIdx + 1;
+      setCurrentQueueIdx(nextIdx);
+      
+      // Reset state for next problem
+      setReadinessReport(null);
+      setExplainTranscript("");
+      setTeachingSession(null);
+      setTeachingReport(null);
+      setTeachingRawTranscript("");
+      setJuniorQuestion("");
+      setRevealHintIdx(0);
+      setUsedHints(false);
+      setTranscript("");
+      setRawTranscript("");
+      
+      if (sessionMode === 'paired') {
+        // Paired mode: go back to explain step for next problem
+        setStep('problem');
+      } else {
+        // Direct teach mode: go straight to teaching
+        const nextProblem = problemQueue[nextIdx];
+        setTeachingSession(createTeachingSession(nextProblem.id));
+        setStep('teaching');
+      }
+    } else {
+      setStep('locations');
+    }
+  };
+
+  // Handler for trying teaching again (re-teach the same problem)
+  const handleTryTeachAgain = () => {
+    if (!currentProblem) return;
+    
+    // Reset teaching session state for a fresh attempt
+    setTeachingSession(createTeachingSession(currentProblem.id));
+    setTeachingReport(null);
+    setTeachingRawTranscript("");
+    setJuniorQuestion("");
+    setStep('teaching');
   };
 
   const getSpotIcon = (icon: string) => {
@@ -276,6 +812,32 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             </div>
           </div>
 
+          {/* Mode Toggle Button - Cycles through paired → explain → teach */}
+          <button 
+            onClick={() => {
+              const modes: SessionMode[] = ['paired', 'explain', 'teach'];
+              const currentIdx = modes.indexOf(sessionMode);
+              const nextIdx = (currentIdx + 1) % modes.length;
+              setSessionMode(modes[nextIdx]);
+            }}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 ${
+              sessionMode === 'paired'
+                ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
+                : sessionMode === 'teach'
+                ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                : 'bg-gold/20 border-gold/40 text-gold'
+            }`}
+            title={sessionMode === 'paired' ? 'Paired: Explain → Teach same problem' : sessionMode === 'teach' ? 'Teach only mode' : 'Explain only mode'}
+          >
+            {sessionMode === 'paired' ? (
+              <><Layers size={12} className="sm:w-3.5 sm:h-3.5" /><span>Paired</span></>
+            ) : sessionMode === 'teach' ? (
+              <><GraduationCap size={12} className="sm:w-3.5 sm:h-3.5" /><span>Teach</span></>
+            ) : (
+              <><Mic size={12} className="sm:w-3.5 sm:h-3.5" /><span>Explain</span></>
+            )}
+          </button>
+
           <button 
             onClick={() => setShowStats(true)}
             className="w-9 h-9 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-gold/10 border border-gold/20 text-gold hover:bg-gold/20 transition-all shadow-[0_0_20px_rgba(199,169,101,0.1)] shrink-0"
@@ -287,7 +849,13 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 pb-32 sm:pb-40 max-w-2xl mx-auto w-full">
           <div className="text-center mb-2 sm:mb-4">
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-white mb-1 sm:mb-2">Power Spots</h2>
-              <p className="text-gray-500 text-xs sm:text-sm italic px-4">Clear 5 problems at any spot to complete your ritual.</p>
+              <p className="text-gray-500 text-xs sm:text-sm italic px-4">
+                {sessionMode === 'paired' 
+                  ? 'Best for learning: Explain first → then teach the same problem.' 
+                  : sessionMode === 'teach' 
+                  ? 'Teach a junior engineer who asks questions until they understand.' 
+                  : 'Explain your solution and AI evaluates correctness.'}
+              </p>
           </div>
 
           {/* Difficulty Mode Selector */}
@@ -480,6 +1048,64 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     );
   }
 
+  // Readiness evaluation loading screen (paired mode)
+  if (step === 'readiness_evaluating') {
+    return (
+      <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-300 mb-6 sm:mb-8 animate-pulse border border-blue-500/20">
+          <Layers size={32} className="sm:w-12 sm:h-12" />
+        </div>
+        <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">
+            Checking Readiness to Teach
+        </h2>
+        <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+          Evaluating your mental model: core insight, state definitions, examples, edge cases, complexity...
+        </p>
+        <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-blue-400/40" />
+      </div>
+    );
+  }
+
+  // Readiness reveal screen (paired mode - Pass 1 complete)
+  if (step === 'readiness_reveal' && readinessReport && currentProblem) {
+    return (
+      <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <div className="p-4 sm:p-6 md:p-8 pr-14 sm:pr-20 md:pr-24 flex items-center justify-between shrink-0 bg-white border-b border-[#E6E6E6]">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => onHome(true)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-charcoal text-white flex items-center justify-center border border-white/10 shrink-0 hover:bg-black transition-colors">
+              <Home size={20} className="sm:w-6 sm:h-6" />
+            </button>
+            <div>
+              <h2 className="text-base sm:text-xl font-serif font-bold text-charcoal">Pass 1 Complete</h2>
+              <p className="text-[8px] sm:text-[10px] font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1">
+                <Layers size={10} /> Paired Learning Flow
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+              {currentQueueIdx + 1}/5
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 sm:pb-32">
+          <div className="max-w-2xl mx-auto">
+            <ReadinessReportComponent
+              report={readinessReport}
+              problemTitle={currentProblem.title}
+              onContinueToTeach={handleContinueToTeach}
+              onTryAgain={handleTryExplainAgain}
+              rawTranscript={rawTranscript}
+              refinedTranscript={explainTranscript}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === 'problem' || step === 'recording') {
     return (
       <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
@@ -487,6 +1113,12 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         <div className="p-3 sm:p-6 md:p-8 pr-14 sm:pr-20 md:pr-24 flex items-center justify-between shrink-0 bg-black/20 border-b border-white/5 gap-2">
           <button onClick={() => setStep('locations')} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/5 rounded-full border border-white/10 hover:bg-white/10 transition-colors shrink-0"><ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" /></button>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+             {/* Show Pass 1 indicator for paired mode */}
+             {sessionMode === 'paired' && (
+               <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-blue-500/30 text-[8px] sm:text-[10px] font-bold text-blue-300 bg-blue-500/10 uppercase tracking-wider">
+                 <Layers size={10} className="inline mr-1" /> Pass 1 • Explain
+               </div>
+             )}
              <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-gold/30 text-[8px] sm:text-[10px] font-bold text-gold bg-gold/5 uppercase tracking-wider sm:tracking-widest truncate max-w-[120px] sm:max-w-none">
                 {selectedSpot?.name}
              </div>
@@ -496,36 +1128,85 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           </div>
         </div>
 
-        {/* Problem Content - Mobile responsive */}
+        {/* Problem Content - Mobile vertical, Desktop side-by-side */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-4">
-          <div className="max-w-2xl mx-auto pb-32 sm:pb-40">
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-6 sm:mb-10 leading-tight">{currentProblem?.title}</h2>
-            <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10 mb-6 sm:mb-10">
-              <div className="flex items-center gap-2 mb-4 sm:mb-6">
-                 <BookOpen size={16} className="sm:w-5 sm:h-5 text-gold" />
-                 <span className="text-[10px] sm:text-xs font-bold text-gold uppercase tracking-widest">Problem Statement</span>
+          <div className="max-w-6xl mx-auto pb-32 sm:pb-40">
+            {/* Problem Title with LeetCode Number - Always on top */}
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
+              {currentProblem?.leetcodeNumber && (
+                <span className="text-gold">#{currentProblem.leetcodeNumber}. </span>
+              )}
+              {currentProblem?.title}
+            </h2>
+            
+            {/* Desktop: Side-by-side layout with equal heights | Mobile: Vertical layout */}
+            <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-stretch">
+              {/* Left Column: Problem Statement */}
+              <div className="flex-1 lg:max-w-[55%] order-first lg:order-first mb-6 lg:mb-0">
+                <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10 h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                     <div className="flex items-center gap-2">
+                       <BookOpen size={16} className="sm:w-5 sm:h-5 text-gold" />
+                       <span className="text-[10px] sm:text-xs font-bold text-gold uppercase tracking-widest">Problem Statement</span>
+                     </div>
+                     {currentProblem?.title && (
+                       <a 
+                         href={getNeetCodeUrl(currentProblem.title)} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
+                         title="Watch NeetCode video solution"
+                       >
+                         <ExternalLink size={10} className="sm:w-3 sm:h-3" />
+                         <span>NeetCode Video</span>
+                       </a>
+                     )}
+                  </div>
+                  <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8 flex-grow">{currentProblem?.prompt}</p>
+                  {currentProblem?.example && (
+                    <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
+                  )}
+                </div>
               </div>
-              <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-10">{currentProblem?.prompt}</p>
-              {currentProblem?.example && (
-                <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
+              
+              {/* Right Column: Visual Mnemonic Image - Matches problem height on desktop */}
+              {currentProblem?.mnemonicImageUrl && (
+                <div className="lg:flex-1 lg:max-w-[45%] order-2 lg:order-last mb-6 lg:mb-0">
+                  <div className="rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white/5 h-full">
+                    <img 
+                      src={currentProblem.mnemonicImageUrl} 
+                      alt={`Visual mnemonic for ${currentProblem.title}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
               )}
             </div>
-            {revealHintIdx < 4 && (
-              <button 
-                onClick={() => {
-                  setRevealHintIdx(p => Math.min(p + 1, 4));
-                  setUsedHints(true); // Mark that hints were used - prevents 'Mastered' status
-                }} 
-                className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] border border-gold/40 px-5 sm:px-8 py-3 sm:py-4 rounded-full hover:bg-gold/10 transition-all flex items-center gap-2 sm:gap-3 mx-auto"
-              >
-                {revealHintIdx === 0 ? 'Need a Hint?' : 'Need More Hints?'} <Sparkles size={12} className="sm:w-3.5 sm:h-3.5" />
-              </button>
+            
+            {/* Need a Hint Button - Centered below the two columns */}
+            {revealHintIdx < 5 && (
+              <div className="flex justify-center mt-8 sm:mt-10">
+                <button 
+                  onClick={() => {
+                    setRevealHintIdx(p => Math.min(p + 1, 5));
+                    setUsedHints(true); // Mark that hints were used - prevents 'Mastered' status
+                  }} 
+                  className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] border border-gold/40 px-5 sm:px-8 py-3 sm:py-4 rounded-full hover:bg-gold/10 transition-all flex items-center gap-2 sm:gap-3"
+                >
+                  {revealHintIdx === 0 ? 'Need a Hint?' : 'Need More Hints?'} <Sparkles size={12} className="sm:w-3.5 sm:h-3.5" />
+                </button>
+              </div>
             )}
-            <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-10">
-              {revealHintIdx >= 1 && <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gold tracking-widest mb-2 sm:mb-3 block opacity-60">Pattern</span><p className="text-lg sm:text-2xl font-serif font-semibold">{currentProblem?.pattern}</p></div>}
-              {revealHintIdx >= 2 && <div className="p-5 sm:p-8 bg-white/5 border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-2 sm:mb-3 block">Key Idea</span><p className="text-base sm:text-xl italic font-light">"{currentProblem?.keyIdea}"</p></div>}
-              {revealHintIdx >= 3 && currentProblem?.detailedHint && <div className="p-5 sm:p-8 bg-blue-950/30 border border-blue-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-400 tracking-widest mb-2 sm:mb-3 block">Approach Walkthrough</span><p className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">{currentProblem?.detailedHint}</p></div>}
-              {revealHintIdx >= 4 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton?.replace(/\\n/g, '\n')}</pre></div>}
+            
+            {/* Hints Section - Full width below */}
+            {/* Order: 1. Definition (data structure basics) → 2. Pattern → 3. Key Idea → 4. Detailed Hint → 5. Skeleton */}
+            <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-8">
+              {revealHintIdx >= 1 && currentProblem?.definition && <div className="p-5 sm:p-8 bg-emerald-950/30 border border-emerald-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-400 tracking-widest mb-2 sm:mb-3 block">📚 Definitions & Concepts</span><div className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none [&_strong]:text-emerald-300">{currentProblem?.definition?.split('**').map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part)}</div></div>}
+              {revealHintIdx >= 2 && <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gold tracking-widest mb-2 sm:mb-3 block opacity-60">Pattern</span><p className="text-lg sm:text-2xl font-serif font-semibold">{currentProblem?.pattern}</p></div>}
+              {revealHintIdx >= 3 && <div className="p-5 sm:p-8 bg-white/5 border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-2 sm:mb-3 block">Key Idea</span><p className="text-base sm:text-xl italic font-light">"{currentProblem?.keyIdea}"</p></div>}
+              {revealHintIdx >= 4 && currentProblem?.detailedHint && <div className="p-5 sm:p-8 bg-blue-950/30 border border-blue-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-400 tracking-widest mb-2 sm:mb-3 block">Approach Walkthrough</span><p className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">{currentProblem?.detailedHint}</p></div>}
+              {revealHintIdx >= 5 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton?.replace(/\\n/g, '\n')}</pre></div>}
             </div>
           </div>
         </div>
@@ -537,12 +1218,23 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           ) : (
             <div className="w-full max-w-2xl flex flex-col items-center">
               <div className={`w-full bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 mb-6 sm:mb-10 border border-white/10 min-h-[80px] sm:min-h-[120px] max-h-[30vh] sm:max-h-[40vh] overflow-y-auto text-gray-400 font-serif italic text-base sm:text-xl text-center ${!rawTranscript ? 'flex items-center justify-center' : 'block'}`}>
-                  {rawTranscript || "Verbalize your mental model..."}
+                  {rawTranscript || (sessionMode === 'paired' 
+                    ? "Form your mental model: insight, state, example, edges, complexity..." 
+                    : "Verbalize your mental model...")}
               </div>
               <button onClick={handleStopRecording} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95"><StopCircle size={28} className="sm:w-10 sm:h-10" /></button>
             </div>
           )}
-          <span className="mt-5 sm:mt-8 text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] sm:tracking-[0.4em]">{step === 'problem' ? 'Push to Explain' : 'Stop Recording'}</span>
+          <span className="mt-5 sm:mt-8 text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] sm:tracking-[0.4em]">
+            {step === 'problem' 
+              ? (sessionMode === 'paired' ? 'Start Explaining' : 'Push to Explain') 
+              : 'Stop Recording'}
+          </span>
+          {sessionMode === 'paired' && step === 'problem' && (
+            <p className="mt-3 text-[9px] text-gray-600 text-center max-w-sm">
+              Cover: core insight, state definition, example walkthrough, edge cases, and complexity
+            </p>
+          )}
         </div>
       </div>
     );
@@ -615,6 +1307,260 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                    onDone={() => onHome(true)}
                 />
             </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // TEACHING MODE UI
+  // ============================================================
+
+  // Teaching conversation screen
+  if (step === 'teaching' || step === 'junior_question') {
+    return (
+      <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <div className="p-3 sm:p-6 md:p-8 pr-14 sm:pr-20 md:pr-24 flex items-center justify-between shrink-0 bg-black/20 border-b border-white/5 gap-2">
+          <button onClick={() => setStep('locations')} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/5 rounded-full border border-white/10 hover:bg-white/10 transition-colors shrink-0">
+            <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
+          </button>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+            {/* Show Pass 2 indicator for paired mode, otherwise just Teach Mode */}
+            <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-purple-500/30 text-[8px] sm:text-[10px] font-bold text-purple-300 bg-purple-500/10 uppercase tracking-wider sm:tracking-widest">
+              <GraduationCap size={10} className="inline mr-1" /> 
+              {sessionMode === 'paired' ? 'Pass 2 • Teach' : 'Teach Mode'}
+            </div>
+            <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/10 text-[8px] sm:text-[10px] font-bold text-gray-400 bg-white/5 uppercase tracking-wider sm:tracking-widest whitespace-nowrap">
+              {currentQueueIdx + 1}/5
+            </div>
+          </div>
+        </div>
+
+        {/* Problem Title & Conversation */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-4">
+          <div className="max-w-6xl mx-auto pb-48 sm:pb-56">
+            {/* Problem Title with LeetCode Number - Always on top */}
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
+              {currentProblem?.leetcodeNumber && (
+                <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
+              )}
+              {currentProblem?.title}
+            </h2>
+            
+            {/* Desktop: Side-by-side layout with equal heights | Mobile: Vertical layout */}
+            <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-stretch mb-6">
+              {/* Left Column: Problem Statement */}
+              <div className="flex-1 lg:max-w-[55%] order-first lg:order-first mb-6 lg:mb-0">
+                <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10 h-full flex flex-col">
+                  <div className="flex items-center gap-2 mb-4 sm:mb-6">
+                    <BookOpen size={16} className="sm:w-5 sm:h-5 text-purple-300" />
+                    <span className="text-[10px] sm:text-xs font-bold text-purple-300 uppercase tracking-widest">Problem Statement</span>
+                  </div>
+                  <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8 flex-grow">{currentProblem?.prompt}</p>
+                  {currentProblem?.example && (
+                    <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Right Column: Visual Mnemonic Image - Matches problem height on desktop */}
+              {currentProblem?.mnemonicImageUrl && (
+                <div className="lg:flex-1 lg:max-w-[45%] order-2 lg:order-last mb-6 lg:mb-0">
+                  <div className="rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white/5 h-full">
+                    <img 
+                      src={currentProblem.mnemonicImageUrl} 
+                      alt={`Visual mnemonic for ${currentProblem.title}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Conversation History */}
+            <div className="space-y-4 max-w-2xl mx-auto">
+              {teachingSession?.turns.map((turn, idx) => (
+                <div 
+                  key={idx} 
+                  className={`flex ${turn.speaker === 'teacher' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div 
+                    className={`max-w-[85%] rounded-2xl p-4 ${
+                      turn.speaker === 'teacher' 
+                        ? 'bg-gold/20 border border-gold/30 text-white' 
+                        : 'bg-purple-500/20 border border-purple-500/30 text-purple-100'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
+                        {turn.speaker === 'teacher' ? 'You (Teaching)' : 'Junior Engineer'}
+                      </span>
+                      {turn.speaker === 'junior' && (
+                        <button 
+                          onClick={() => speakJuniorResponse(turn.content)}
+                          className="p-1 rounded hover:bg-white/10 transition-colors"
+                          title="Read aloud"
+                        >
+                          <Volume2 size={14} className="text-purple-300" />
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-sm sm:text-base leading-relaxed">{turn.content}</p>
+                  </div>
+                </div>
+              ))}
+
+              {/* Initial prompt if no conversation yet */}
+              {(!teachingSession?.turns.length || teachingSession.turns.length === 0) && (
+                <div className="text-center py-8">
+                  <MessageCircle size={32} className="mx-auto text-gray-600 mb-3" />
+                  <p className="text-gray-500 text-sm italic">Start teaching the junior engineer...</p>
+                  <p className="text-gray-600 text-xs mt-1">Explain the problem and your approach</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Recording Controls */}
+        <div className="p-4 sm:p-8 bg-gradient-to-t from-black via-black/95 to-transparent shrink-0">
+          <div className="max-w-2xl mx-auto">
+            {/* TTS Toggle */}
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <button 
+                onClick={() => setTtsEnabled(!ttsEnabled)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                  ttsEnabled 
+                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
+                    : 'bg-white/5 border border-white/10 text-gray-500'
+                }`}
+              >
+                {ttsEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
+                <span>Read Aloud</span>
+              </button>
+            </div>
+
+            {/* Recording UI */}
+            {isTeachingRecording ? (
+              <div className="flex flex-col items-center">
+                <div className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 mb-4 border border-white/10 min-h-[60px] max-h-[20vh] overflow-y-auto text-gray-400 font-serif italic text-sm text-center">
+                  {teachingRawTranscript || "Speaking..."}
+                </div>
+                <button 
+                  onClick={handleStopTeachingRecording} 
+                  className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95"
+                >
+                  <Send size={24} className="sm:w-8 sm:h-8" />
+                </button>
+                <span className="mt-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">Tap to Send</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handleStartTeachingRecording} 
+                    className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-charcoal border-4 border-purple-500/30 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group"
+                  >
+                    <Mic size={24} className="sm:w-8 sm:h-8 group-hover:text-purple-300 transition-colors" />
+                  </button>
+                  <button 
+                    onClick={handleEndTeachingSession}
+                    className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
+                  >
+                    End Session
+                  </button>
+                </div>
+                <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                  {step === 'junior_question' ? 'Continue Teaching' : 'Start Teaching'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Junior thinking/processing screen
+  if (step === 'junior_thinking') {
+    return (
+      <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-300 mb-6 sm:mb-8 animate-pulse border border-purple-500/20">
+          <MessageCircle size={32} className="sm:w-12 sm:h-12" />
+        </div>
+        <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">Junior is Thinking...</h2>
+        <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+          Processing what you taught and forming a question...
+        </p>
+        <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-purple-400/40" />
+      </div>
+    );
+  }
+
+  // Junior summarizing screen
+  if (step === 'junior_summarizing') {
+    return (
+      <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-300 mb-6 sm:mb-8 animate-pulse border border-purple-500/20">
+          <GraduationCap size={32} className="sm:w-12 sm:h-12" />
+        </div>
+        <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">Junior Summarizing...</h2>
+        <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+          The junior is restating what they learned in their own words...
+        </p>
+        <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-purple-400/40" />
+      </div>
+    );
+  }
+
+  // Dean evaluating screen
+  if (step === 'dean_evaluating') {
+    return (
+      <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gold/10 flex items-center justify-center text-gold mb-6 sm:mb-8 animate-pulse border border-gold/20">
+          <Award size={32} className="sm:w-12 sm:h-12" />
+        </div>
+        <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">The Dean is Evaluating...</h2>
+        <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+          Assessing your teaching effectiveness...
+        </p>
+        <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-gold/40" />
+      </div>
+    );
+  }
+
+  // Teaching reveal/report screen
+  if (step === 'teaching_reveal' && teachingReport && teachingSession) {
+    return (
+      <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <div className="p-4 sm:p-6 md:p-8 pr-14 sm:pr-20 md:pr-24 flex items-center justify-between shrink-0 bg-white border-b border-[#E6E6E6]">
+          <div className="flex items-center gap-3 sm:gap-6">
+            <button onClick={() => onHome(true)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-charcoal text-white flex items-center justify-center border border-white/10 shrink-0 hover:bg-black transition-colors">
+              <Home size={20} className="sm:w-6 sm:h-6" />
+            </button>
+            <div>
+              <h2 className="text-base sm:text-xl font-serif font-bold text-charcoal">{currentProblem?.title || 'Teaching Report'}</h2>
+              <p className="text-[8px] sm:text-[10px] font-bold text-purple-600 uppercase tracking-widest">Teaching Evaluation</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 sm:pb-32">
+          <div className="max-w-4xl mx-auto">
+            <TeachingReportComponent
+              report={teachingReport}
+              juniorSummary={teachingSession.juniorSummary}
+              problemTitle={currentProblem?.title || ''}
+              leetcodeNumber={currentProblem?.leetcodeNumber}
+              onContinue={handleTeachingContinue}
+              onTryAgain={handleTryTeachAgain}
+              isLastProblem={currentQueueIdx >= problemQueue.length - 1}
+              teachingSession={teachingSession}
+            />
+          </div>
         </div>
       </div>
     );

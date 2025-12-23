@@ -439,9 +439,18 @@ Guidelines:
 - Clean up grammar while preserving the speaker's intent and style
 - Keep the sentence structure natural
 
+CRITICAL - DO NOT DELETE CONTENT:
+- PRESERVE all example walkthroughs, even if garbled (e.g., "for example this extreme s" → "for example, this string s")
+- PRESERVE any step-by-step traces (e.g., "first we push open paren, then we see close paren...")
+- PRESERVE mentions of specific inputs like "()", "([{}])", empty string, etc.
+- If speech recognition garbled an example, try to RECONSTRUCT it, don't delete it
+- "erase through" likely means "iterate through"
+- "extreme" or "stream" likely means "string"
+- Never remove content just because it's unclear - make your best guess
+
 Raw transcript: "${rawTranscript}"
 
-Return only the refined transcript text.`
+Return only the refined transcript text. Preserve ALL content, especially examples.`
 };
 
 

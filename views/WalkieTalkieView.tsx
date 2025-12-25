@@ -166,10 +166,14 @@ interface WalkieTalkieViewProps {
   savedReports: SavedReport[];
 }
 
-// Helper to get date string in YYYY-MM-DD format
+// Helper to get date string in YYYY-MM-DD format (LOCAL timezone)
 const getDateString = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().split('T')[0];
+  // Use local timezone instead of UTC
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Helper to count questions solved per day from saved reports
@@ -228,28 +232,31 @@ const getDailyStats = (reports: SavedReport[], days: number = 7): DailyStats[] =
   return stats;
 };
 
-// 3 REAL WORLD LOCATIONS - Each will be assigned a random topic
+// 3 REAL WORLD LOCATIONS - Two with specific topics, one random (mystery)
 const POWER_SPOTS = [
   { 
     id: 'spot1', 
-    name: 'The Coffee Sanctuary', 
-    ritual: 'Deep Focus', 
-    icon: 'coffee', 
-    description: 'A warm brew and focused topic practice.'
+    name: 'The Mysterious Forest', 
+    ritual: 'Adventure', 
+    icon: 'forest', 
+    description: 'Venture into the unknown with mixed challenges.',
+    isRandom: true
   },
   { 
     id: 'spot2', 
-    name: 'The Logic Trail', 
-    ritual: 'Movement', 
-    icon: 'park', 
-    description: 'Walk and talk through patterns in nature.'
+    name: 'The Coffee Sanctuary', 
+    ritual: 'Deep Focus', 
+    icon: 'coffee', 
+    description: 'A warm brew and focused topic practice.',
+    isRandom: false
   },
   { 
     id: 'spot3', 
     name: 'The Daily Commute', 
     ritual: 'Transit', 
     icon: 'train', 
-    description: 'Quick-fire problem solving on the move.'
+    description: 'Quick-fire problem solving on the move.',
+    isRandom: false
   }
 ];
 
@@ -260,9 +267,10 @@ interface SpotWithTopic {
   ritual: string;
   icon: string;
   description: string;
-  topic: string;  // The problem_group name
+  topic: string;  // The problem_group name (or 'random' for mystery spot)
   topicDisplay: string;  // Formatted display name
-  remaining: number;  // Problems not mastered in this topic
+  remaining: number;  // Problems not mastered in this topic (or total remaining for random)
+  isRandom: boolean;  // Whether this spot uses random/mixed topics
 }
 
 const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave, savedReports }) => {
@@ -321,19 +329,40 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         // Filter topics that have remaining problems (not all mastered)
         const topicsWithRemaining = progressGrid.filter(g => g.masteredCount < g.totalCount);
         
-        // Shuffle topics and assign to spots
+        // Calculate total remaining across all topics (for random/mystery spot)
+        const totalRemaining = topicsWithRemaining.reduce(
+          (sum, g) => sum + (g.totalCount - g.masteredCount), 0
+        );
+        
+        // Shuffle topics for assignment to non-random spots
         const shuffledTopics = [...topicsWithRemaining].sort(() => Math.random() - 0.5);
         
-        const assignedSpots: SpotWithTopic[] = POWER_SPOTS.map((spot, idx) => {
-          // Cycle through topics if we have fewer topics than spots
-          const topicGroup = shuffledTopics[idx % shuffledTopics.length];
+        // Track which topics have been assigned to avoid duplicates
+        let topicIdx = 0;
+        
+        const assignedSpots: SpotWithTopic[] = POWER_SPOTS.map((spot) => {
+          // Handle random/mystery spot
+          if (spot.isRandom) {
+            return {
+              ...spot,
+              topic: 'random',
+              topicDisplay: 'Mixed Topics',
+              remaining: totalRemaining,
+              isRandom: true
+            };
+          }
+          
+          // Assign a specific topic to non-random spots
+          const topicGroup = shuffledTopics[topicIdx % shuffledTopics.length];
+          topicIdx++;
           
           if (topicGroup) {
             return {
               ...spot,
               topic: topicGroup.groupName,
               topicDisplay: topicGroup.groupName,
-              remaining: topicGroup.totalCount - topicGroup.masteredCount
+              remaining: topicGroup.totalCount - topicGroup.masteredCount,
+              isRandom: false
             };
           } else {
             // No topics with remaining problems - all mastered!
@@ -341,7 +370,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               ...spot,
               topic: 'all_mastered',
               topicDisplay: 'All Mastered!',
-              remaining: 0
+              remaining: 0,
+              isRandom: false
             };
           }
         });
@@ -734,10 +764,12 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         
         // Use spaced repetition queue if enabled and user is logged in
         if (useSpacedRepetition && user?.id) {
-            const { queue, stats } = await buildSpacedRepetitionQueue(user.id, spot.topic);
+            // For random/mystery spot, don't pass a topic filter - get mixed problems
+            const topicFilter = spot.isRandom ? undefined : spot.topic;
+            const { queue, stats } = await buildSpacedRepetitionQueue(user.id, topicFilter);
             problems = queue.slice(0, batchSize);
             setStudyStats(stats);
-            console.log(`[Spaced Repetition] Topic: ${spot.topic}, Queue:`, problems.map(p => p.title));
+            console.log(`[Spaced Repetition] Topic: ${spot.isRandom ? 'RANDOM/MIXED' : spot.topic}, Queue:`, problems.map(p => p.title));
         } else {
             // Fallback to original queue building (no topic filter)
             const allowedDifficulties = DIFFICULTY_MAP[difficultyMode];
@@ -1052,6 +1084,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     switch(icon) {
         case 'coffee': return <Coffee className={iconClass} />;
         case 'park': return <Trees className={iconClass} />;
+        case 'forest': return <Trees className={`${iconClass} text-emerald-400`} />;
         case 'train': return <Train className={iconClass} />;
         default: return <Target className={iconClass} />;
     }
@@ -1190,23 +1223,33 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                 key={spot.id} 
                 onClick={() => spot.remaining > 0 ? startSpotSession(spot) : null}
                 disabled={spot.remaining === 0}
-                className={`w-full bg-white/5 rounded-2xl sm:rounded-[2.5rem] border-2 border-white/5 p-4 sm:p-6 md:p-8 flex items-center gap-4 sm:gap-6 md:gap-8 text-left transition-all group ${
+                className={`w-full rounded-2xl sm:rounded-[2.5rem] border-2 p-4 sm:p-6 md:p-8 flex items-center gap-4 sm:gap-6 md:gap-8 text-left transition-all group ${
                   spot.remaining === 0 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:border-gold/40 hover:bg-gold/5'
+                    ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' 
+                    : spot.isRandom
+                    ? 'bg-emerald-950/30 border-emerald-500/20 hover:border-emerald-400/50 hover:bg-emerald-900/40'
+                    : 'bg-white/5 border-white/5 hover:border-gold/40 hover:bg-gold/5'
                 }`}
               >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-3xl bg-charcoal border border-white/10 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-gold group-hover:text-charcoal transition-all shrink-0">
+                <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-3xl border flex items-center justify-center transition-all shrink-0 ${
+                  spot.isRandom 
+                    ? 'bg-emerald-900/50 border-emerald-500/30 text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-400 group-hover:text-charcoal'
+                    : 'bg-charcoal border-white/10 text-white group-hover:scale-110 group-hover:bg-gold group-hover:text-charcoal'
+                }`}>
                     {getSpotIcon(spot.icon)}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className="text-[8px] sm:text-[10px] font-bold text-gold uppercase tracking-widest mb-0.5 sm:mb-1">{spot.ritual}</div>
+                    <div className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest mb-0.5 sm:mb-1 ${spot.isRandom ? 'text-emerald-400' : 'text-gold'}`}>{spot.ritual}</div>
                     <h3 className="text-lg sm:text-xl md:text-2xl font-serif font-bold mb-1 sm:mb-1.5 truncate">{spot.name}</h3>
                     
                     {/* Topic Tag */}
                     <div className="flex items-center gap-2 mb-1 sm:mb-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[9px] sm:text-[10px] font-medium">
-                        <Target size={10} className="sm:w-3 sm:h-3" />
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${
+                        spot.isRandom 
+                          ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
+                          : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
+                      }`}>
+                        {spot.isRandom ? <Sparkles size={10} className="sm:w-3 sm:h-3" /> : <Target size={10} className="sm:w-3 sm:h-3" />}
                         {spot.topicDisplay}
                       </span>
                       <span className={`text-[9px] sm:text-[10px] font-mono ${spot.remaining === 0 ? 'text-green-400' : 'text-gray-400'}`}>
@@ -1216,7 +1259,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                     
                     <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed line-clamp-1">{spot.description}</p>
                 </div>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-500 group-hover:text-gold shrink-0">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${
+                  spot.isRandom 
+                    ? 'bg-emerald-500/10 text-emerald-500 group-hover:text-emerald-300'
+                    : 'bg-white/5 text-gray-500 group-hover:text-gold'
+                }`}>
                     <ChevronRight size={16} className="sm:w-5 sm:h-5" />
                 </div>
               </button>

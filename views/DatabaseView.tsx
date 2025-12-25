@@ -20,10 +20,14 @@ import {
     fetchDueTomorrow 
 } from '../services/databaseService';
 
-// Helper to get date string in YYYY-MM-DD format
+// Helper to get date string in YYYY-MM-DD format (LOCAL timezone)
 const getDateString = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().split('T')[0];
+  // Use local timezone instead of UTC
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Helper to count mastered questions by date from saved reports

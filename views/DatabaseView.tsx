@@ -588,16 +588,16 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                      {/* --- PROGRESS TAB --- */}
                      {activeTab === 'progress' && (
                          <div className="space-y-8">
-                             {/* Study Plan Dashboard */}
+                             {/* Study Plan Dashboard - Flat dark theme matching WalkieTalkie */}
                              {studyStats && (
-                                 <div className="bg-gradient-to-r from-charcoal to-gray-800 rounded-2xl p-6 shadow-lg text-white">
+                                 <div className="bg-charcoal rounded-2xl border border-white/10 overflow-hidden text-white">
                                      {/* Header */}
-                                     <div className="flex items-center justify-between mb-6">
+                                     <div className="px-6 py-4 bg-black border-b border-white/5 flex items-center justify-between">
                                          <div className="flex items-center gap-3">
-                                             <Calendar size={20} className="text-gold" />
+                                             <Calendar size={18} className="text-gold" />
                                              <span className="text-sm font-bold uppercase tracking-widest text-gold">Study Plan</span>
-                                             <span className="text-sm text-gray-400">•</span>
-                                             <span className="text-sm font-medium text-white">
+                                             <span className="text-gray-600">•</span>
+                                             <span className="text-sm font-medium text-gray-300">
                                                  Day {Math.max(1, targetDays - studyStats.daysLeft + 1)} of {targetDays}
                                              </span>
                                          </div>
@@ -610,8 +610,8 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                          </div>
                                      </div>
                                      
-                                     {/* Progress Cards - Dark Theme */}
-                                     <div className="grid grid-cols-2 gap-4">
+                                     {/* Progress Cards */}
+                                     <div className="p-6 grid grid-cols-2 gap-4">
                                          {/* Today's Progress - Clickable */}
                                          <button 
                                              onClick={() => setShowTodayDetails(true)}
@@ -628,9 +628,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                  <span className="text-4xl font-bold text-white">{todayCompleted}</span>
                                                  <span className="text-xl text-gray-500">/ {dailyCap}</span>
                                              </div>
-                                             <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                             <div className="mt-3 h-2 bg-white/10 rounded-full overflow-hidden">
                                                  <div 
-                                                     className="h-full bg-gradient-to-r from-gold to-yellow-400 transition-all duration-500" 
+                                                     className="h-full bg-gold transition-all duration-500" 
                                                      style={{ width: `${Math.min(100, (todayCompleted / dailyCap) * 100)}%` }}
                                                  />
                                              </div>
@@ -655,9 +655,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                  <span className="text-4xl font-bold text-emerald-400">{studyStats.masteredCount}</span>
                                                  <span className="text-xl text-gray-500">/ 75</span>
                                              </div>
-                                             <div className="mt-3 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                             <div className="mt-3 h-2 bg-white/10 rounded-full overflow-hidden">
                                                  <div 
-                                                     className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500" 
+                                                     className="h-full bg-emerald-500 transition-all duration-500" 
                                                      style={{ width: `${(studyStats.masteredCount / 75) * 100}%` }}
                                                  />
                                              </div>

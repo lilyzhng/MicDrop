@@ -11,6 +11,7 @@ interface TeachingReportComponentProps {
   problem?: BlindProblem; // For displaying solution, complexity, example
   onContinue: () => void;
   onTryAgain?: () => void; // Optional: retry teaching the same problem
+  onReEvaluate?: () => void; // Optional: re-run Dean evaluation with updated prompts/data
   isLastProblem: boolean;
   teachingSession?: TeachingSession; // For debug transcript export
 }
@@ -23,6 +24,7 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
   problem,
   onContinue,
   onTryAgain,
+  onReEvaluate,
   isLastProblem,
   teachingSession
 }) => {
@@ -229,6 +231,15 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
     <div className="space-y-6">
       {/* Export Buttons */}
       <div className="flex justify-end gap-2 flex-wrap">
+        {onReEvaluate && (
+          <button 
+            onClick={onReEvaluate} 
+            className="px-4 py-2 bg-indigo-50 border border-indigo-200 rounded-full text-sm font-medium hover:bg-indigo-100 text-indigo-700 flex items-center gap-2 shadow-sm"
+            title="Re-run Dean evaluation with updated prompts and problem data"
+          >
+            <RotateCcw size={14} /> Re-evaluate
+          </button>
+        )}
         {teachingSession && (
           <>
             <button 

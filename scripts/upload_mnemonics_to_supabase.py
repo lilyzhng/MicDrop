@@ -192,20 +192,39 @@ def update_problem_url(supabase, leetcode_number: int, image_url: str, dry_run: 
         return True
     
     try:
+        # First check if the problem exists
+        check = supabase.table("blind_problems").select("leetcode_number, title").eq("leetcode_number", leetcode_number).execute()
+        
+        print(f"  🔍 DEBUG: Query result for #{leetcode_number}: {check.data}")
+        
+        if not check.data or len(check.data) == 0:
+            print(f"  ⚠️  No problem found with leetcode_number={leetcode_number}")
+            return False
+        
+        print(f"  ✓ Found: {check.data[0].get('title', 'Unknown')}")
+        
+        # Update the record
         result = supabase.table("blind_problems").update(
             {"mnemonic_image_url": image_url}
         ).eq("leetcode_number", leetcode_number).execute()
         
-        if result.data:
-            print(f"  📝 Updated problem #{leetcode_number}")
-            return True
-        else:
-            print(f"  ⚠️  No problem found with leetcode_number={leetcode_number}")
-            return False
+        # Update doesn't return data by default, just check if it didn't error
+        print(f"  📝 Updated problem #{leetcode_number}")
+        return True
             
     except Exception as e:
         print(f"  ❌ Failed to update problem #{leetcode_number}: {e}")
+        import traceback
+        traceback.print_exc()
         return False
+
+
+def get_public_url_for_filename(supabase, filename: str) -> str:
+    """
+    Get the public URL for an existing file in Supabase Storage.
+    Does NOT upload - assumes file already exists.
+    """
+    return supabase.storage.from_(BUCKET_NAME).get_public_url(filename)
 
 
 def main():
@@ -213,6 +232,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Preview without uploading")
     parser.add_argument("--problem", type=int, help="Upload specific problem number only")
     parser.add_argument("--upload-only", action="store_true", help="Upload to storage only, don't update table")
+    parser.add_argument("--update-urls-only", action="store_true", help="Update database URLs only (skip upload, assumes images exist in storage)")
     parser.add_argument("--list", action="store_true", help="List latest images without uploading")
     
     args = parser.parse_args()
@@ -242,6 +262,9 @@ def main():
     if args.dry_run:
         print("\n🏃 DRY RUN - No changes will be made\n")
     
+    if args.update_urls_only:
+        print("\n📝 UPDATE URLS ONLY - Skipping upload, updating database with existing storage URLs\n")
+    
     # Initialize Supabase client
     if not args.dry_run:
         print("\n🔌 Connecting to Supabase...")
@@ -250,22 +273,35 @@ def main():
         supabase = None
     
     # Process images
-    print(f"\n📤 Processing {len(latest_images)} images...\n")
+    action = "Updating URLs for" if args.update_urls_only else "Processing"
+    print(f"\n📤 {action} {len(latest_images)} images...\n")
     
     success_count = 0
     for problem_number in sorted(latest_images.keys()):
         filename = latest_images[problem_number]
         print(f"Problem #{problem_number}: {filename}")
         
-        # Upload image
-        image_url = upload_image(supabase, filename, dry_run=args.dry_run)
-        
-        if image_url and not args.upload_only:
-            # Update database
+        if args.update_urls_only:
+            # Skip upload, just get existing URL and update database
+            if args.dry_run:
+                image_url = f"https://example.com/{BUCKET_NAME}/{filename}"
+                print(f"  📎 Would use URL: {image_url}")
+            else:
+                image_url = get_public_url_for_filename(supabase, filename)
+                print(f"  📎 Using existing URL")
+            
             if update_problem_url(supabase, problem_number, image_url, dry_run=args.dry_run):
                 success_count += 1
-        elif image_url:
-            success_count += 1
+        else:
+            # Upload image
+            image_url = upload_image(supabase, filename, dry_run=args.dry_run)
+            
+            if image_url and not args.upload_only:
+                # Update database
+                if update_problem_url(supabase, problem_number, image_url, dry_run=args.dry_run):
+                    success_count += 1
+            elif image_url:
+                success_count += 1
         
         print()
     

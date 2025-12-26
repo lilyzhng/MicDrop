@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf, GraduationCap, MessageCircle, Volume2, VolumeX, Send, Layers, ExternalLink, Settings, Calendar, RefreshCw, Lock } from 'lucide-react';
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingTurn, JuniorState, TeachingReport, ReadinessReport } from '../types';
 import { UserStudySettings, StudyStats } from '../types/database';
+import { supabase } from '../config/supabase';
 import { analyzeWalkieSession, refineTranscript } from '../services/analysisService';
 import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle } from '../services/databaseService';
 import { 
@@ -1264,6 +1265,66 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setStep('teaching');
   };
 
+  // Handler for re-evaluating the teaching session with updated prompts/data
+  const handleReEvaluate = async () => {
+    if (!currentProblem || !teachingSession) return;
+    
+    setIsProcessing(true);
+    setStatusMessage("Re-evaluating with updated prompts and data...");
+    
+    try {
+      // Fetch fresh problem data from database (includes updated key_idea, steps, etc.)
+      const { data: freshProblem, error } = await supabase
+        .from('blind_problems')
+        .select('*')
+        .eq('id', currentProblem.id)
+        .single();
+      
+      if (error) throw error;
+      
+      // Convert database format to BlindProblem type
+      const updatedProblem: BlindProblem = {
+        id: freshProblem.id,
+        title: freshProblem.title,
+        prompt: freshProblem.prompt,
+        example: freshProblem.example,
+        constraints: freshProblem.constraints,
+        pattern: freshProblem.pattern,
+        keyIdea: freshProblem.key_idea,
+        detailedHint: freshProblem.detailed_hint,
+        definition: freshProblem.definition,
+        skeleton: freshProblem.skeleton,
+        timeComplexity: freshProblem.time_complexity,
+        spaceComplexity: freshProblem.space_complexity,
+        steps: freshProblem.steps,
+        expectedEdgeCases: freshProblem.expected_edge_cases,
+        topics: freshProblem.topics,
+        difficulty: freshProblem.difficulty,
+        problemGroup: freshProblem.problem_group,
+        leetcodeNumber: freshProblem.leetcode_number,
+        mnemonicImageUrl: freshProblem.mnemonic_image_url
+      };
+      
+      // Re-run the Dean evaluation with fresh data
+      const newReport = await evaluateTeaching(updatedProblem, teachingSession);
+      
+      setTeachingReport(newReport);
+      setStatusMessage("Re-evaluation complete!");
+      
+      setTimeout(() => {
+        setStatusMessage("");
+      }, 2000);
+    } catch (error) {
+      console.error('Re-evaluation error:', error);
+      setStatusMessage("Re-evaluation failed. Check console for details.");
+      setTimeout(() => {
+        setStatusMessage("");
+      }, 3000);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const getSpotIcon = (icon: string) => {
     const iconClass = "w-6 h-6 sm:w-7 sm:h-7";
     switch(icon) {
@@ -2280,6 +2341,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               problem={currentProblem}
               onContinue={handleTeachingContinue}
               onTryAgain={handleTryTeachAgain}
+              onReEvaluate={handleReEvaluate}
               isLastProblem={currentQueueIdx >= problemQueue.length - 1}
               teachingSession={teachingSession}
             />

@@ -513,12 +513,25 @@ Return a structured evaluation with:
 PROBLEM BEING TAUGHT:
 ${problem.prompt}
 
-EXPECTED CORRECT SOLUTION:
+EXPECTED CORRECT SOLUTION (Use this as the authoritative reference):
 - Pattern: ${problem.pattern}
 - Key Idea: ${problem.keyIdea}
+- Algorithm Steps: ${problem.steps ? problem.steps.join('\n  ') : 'N/A'}
 - Time Complexity: ${problem.timeComplexity}
 - Space Complexity: ${problem.spaceComplexity}
 - Edge Cases: ${problem.expectedEdgeCases.join(', ')}
+
+REFERENCE IMPLEMENTATION:
+${problem.skeleton || 'N/A'}
+
+${problem.detailedHint ? `DETAILED EXPLANATION:\n${problem.detailedHint}\n` : ''}
+
+CRITICAL EVALUATION GUIDELINES:
+1. The "Algorithm Steps" above are the AUTHORITATIVE source for what's correct
+2. If the steps include notes or optimizations (e.g., "max_freq doesn't need to decrease"), these are VALID and CORRECT
+3. If the teacher's explanation aligns with the steps/implementation above, it is NOT a factual error
+4. Only mark something as a factual error if it directly contradicts the reference solution above
+5. Different ways of explaining the same concept are fine - focus on correctness, not phrasing
 
 TEACHING CONVERSATION (turns are numbered for annotation):
 ${conversationHistory}

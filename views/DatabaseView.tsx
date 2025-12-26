@@ -1,14 +1,16 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, Clock, AlertCircle, BarChart3 } from 'lucide-react';
-import { SavedItem, SavedReport } from '../types';
+import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, Clock, AlertCircle, BarChart3, Loader2 } from 'lucide-react';
+import { SavedItem, SavedReport, BlindProblem } from '../types';
 import { StudyStats } from '../types/database';
+import { supabase } from '../config/supabase';
 import PerformanceReportComponent from '../components/PerformanceReport';
 import TeachingReportComponent from '../components/TeachingReport';
 import ReadinessReportComponent from '../components/ReadinessReport';
 import { findReportBySlug } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
+import { evaluateTeaching } from '../services/teachBackService';
 import { 
     getSettingsWithDefaults, 
     getProgressGrid, 
@@ -151,6 +153,13 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     const [targetDays, setTargetDays] = useState(10);
     const [showTodayDetails, setShowTodayDetails] = useState(false);
     const [showMasteredDetails, setShowMasteredDetails] = useState(false);
+    
+    // Re-evaluation state - use the same pattern as teaching evaluation
+    const [isReEvaluating, setIsReEvaluating] = useState(false);
+    const [updatedReport, setUpdatedReport] = useState<SavedReport | null>(null);
+    
+    // Use updated report if available, otherwise use the original
+    const displayReport = updatedReport || selectedReport;
     
     // Helper to find the teach report for a problem
     const findTeachReportForProblem = (problemTitle: string): SavedReport | undefined => {
@@ -447,18 +456,126 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         setEditingReportId(null);
     };
 
-    // If Viewing a specific report
-    if (selectedReport) {
-        // Check if this is a teaching report with full data
-        const isTeachReport = selectedReport.type === 'teach';
-        const isReadinessReport = selectedReport.type === 'readiness';
-        const teachingData = selectedReport.reportData.teachingReportData;
+    // Re-evaluate handler for teaching reports
+    const handleReEvaluate = async () => {
+        console.log('Re-evaluate button clicked!');
+        console.log('selectedReport:', selectedReport);
+        
+        if (!selectedReport || selectedReport.type !== 'teach') {
+            console.log('Not a teaching report, skipping');
+            return;
+        }
+        
         const teachingSession = selectedReport.reportData.teachingSession;
-        const readinessData = selectedReport.reportData.readinessReportData;
+        const teachingProblem = selectedReport.reportData.teachingProblem;
+        
+        console.log('teachingSession:', teachingSession);
+        console.log('teachingProblem:', teachingProblem);
+        
+        if (!teachingSession || !teachingProblem) {
+            console.log('Missing session or problem, skipping');
+            return;
+        }
+        
+        setIsReEvaluating(true);
+        console.log('Starting re-evaluation...');
+        
+        try {
+            // Fetch fresh problem data from database
+            const { data, error } = await supabase
+                .from('blind_problems')
+                .select('*')
+                .eq('id', teachingProblem.id)
+                .single();
+            
+            if (error || !data) throw error || new Error('Problem not found');
+            
+            // Type assertion for Supabase result
+            const freshProblem = data as any;
+            
+            console.log('Fetched fresh problem data:', freshProblem);
+            
+            // Convert database format to BlindProblem type
+            const updatedProblem: BlindProblem = {
+                id: freshProblem.id as string,
+                title: freshProblem.title as string,
+                prompt: freshProblem.prompt as string,
+                example: freshProblem.example as string | undefined,
+                constraints: freshProblem.constraints as string[],
+                pattern: freshProblem.pattern as string,
+                keyIdea: freshProblem.key_idea as string,
+                detailedHint: freshProblem.detailed_hint as string | undefined,
+                definition: freshProblem.definition as string | undefined,
+                skeleton: freshProblem.skeleton as string,
+                timeComplexity: freshProblem.time_complexity as string,
+                spaceComplexity: freshProblem.space_complexity as string,
+                steps: freshProblem.steps as string[],
+                expectedEdgeCases: freshProblem.expected_edge_cases as string[],
+                topics: freshProblem.topics as string[],
+                difficulty: freshProblem.difficulty as 'easy' | 'medium' | 'hard',
+                problemGroup: freshProblem.problem_group as string | undefined,
+                leetcodeNumber: freshProblem.leetcode_number as number | undefined,
+                mnemonicImageUrl: freshProblem.mnemonic_image_url as string | undefined
+            };
+            
+            console.log('Starting Dean evaluation...');
+            
+            // Re-run the Dean evaluation with fresh data
+            const newReport = await evaluateTeaching(updatedProblem, teachingSession);
+            
+            console.log('New evaluation complete:', newReport);
+            
+            // Update local state with new report
+            const updatedSavedReport: SavedReport = {
+                ...selectedReport,
+                reportData: {
+                    ...selectedReport.reportData,
+                    teachingReportData: newReport,
+                    teachingProblem: updatedProblem
+                }
+            };
+            
+            setUpdatedReport(updatedSavedReport);
+            
+            // Also update in parent (saves to localStorage/DB)
+            onUpdateReport(selectedReport.id, {
+                reportData: updatedSavedReport.reportData
+            });
+            
+            console.log('Re-evaluation complete!');
+        } catch (error) {
+            console.error('Re-evaluation error:', error);
+            alert('Re-evaluation failed. Check console for details.');
+        } finally {
+            setIsReEvaluating(false);
+        }
+    };
+
+    // If Viewing a specific report
+    if (displayReport) {
+        // Check if this is a teaching report with full data
+        const isTeachReport = displayReport.type === 'teach';
+        const isReadinessReport = displayReport.type === 'readiness';
+        const teachingData = displayReport.reportData.teachingReportData;
+        const teachingSession = displayReport.reportData.teachingSession;
+        const readinessData = displayReport.reportData.readinessReportData;
         
         return (
-            <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
-                <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
+            <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden relative">
+                {/* Re-evaluation Loading Overlay */}
+                {isReEvaluating && (
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-md">
+                            <Loader2 size={48} className="text-indigo-600 animate-spin" />
+                            <h3 className="text-xl font-bold text-charcoal">Re-evaluating...</h3>
+                            <p className="text-sm text-gray-600 text-center">
+                                Fetching updated problem data and re-running Dean evaluation with new prompts
+                            </p>
+                        </div>
+                    </div>
+                )}
+                
+                <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-40 shrink-0">
                     <div className="flex items-center gap-4">
                         <button onClick={() => navigate('/database')} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-bold uppercase tracking-widest text-gray-600">
                             <ArrowLeft size={14} /> Back to Database
@@ -468,40 +585,41 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 <div className="flex-1 overflow-y-auto p-8">
                      <div className="max-w-4xl mx-auto pb-20">
                          {isTeachReport && teachingData ? (
-                             <TeachingReportComponent 
-                                report={teachingData}
-                                juniorSummary={selectedReport.reportData.juniorSummary}
-                                problemTitle={selectedReport.title}
-                                problem={selectedReport.reportData.teachingProblem}
-                                onContinue={() => navigate('/database')}
-                                onTryAgain={() => navigate('/walkie-talkie', { 
-                                    state: { teachAgainProblem: selectedReport.title } 
-                                })}
-                                isLastProblem={true}
-                                teachingSession={teachingSession}
-                             />
+                            <TeachingReportComponent 
+                               report={teachingData}
+                               juniorSummary={displayReport.reportData.juniorSummary}
+                               problemTitle={displayReport.title}
+                               problem={displayReport.reportData.teachingProblem}
+                               onContinue={() => navigate('/database')}
+                               onTryAgain={() => navigate('/walkie-talkie', { 
+                                   state: { teachAgainProblem: displayReport.title } 
+                               })}
+                               onReEvaluate={handleReEvaluate}
+                               isLastProblem={true}
+                               teachingSession={teachingSession}
+                            />
                          ) : isReadinessReport && readinessData ? (
-                             <ReadinessReportComponent 
-                                report={readinessData}
-                                problemTitle={selectedReport.title}
-                                problem={selectedReport.reportData.readinessProblem}
-                                onContinueToTeach={() => navigate('/walkie-talkie', { 
-                                    state: { teachAgainProblem: selectedReport.title } 
-                                })}
-                                onTryAgain={() => navigate('/walkie-talkie')}
-                                rawTranscript={selectedReport.reportData.rawTranscript}
-                                refinedTranscript={selectedReport.reportData.refinedTranscript}
-                             />
+                            <ReadinessReportComponent 
+                               report={readinessData}
+                               problemTitle={displayReport.title}
+                               problem={displayReport.reportData.readinessProblem}
+                               onContinueToTeach={() => navigate('/walkie-talkie', { 
+                                   state: { teachAgainProblem: displayReport.title } 
+                               })}
+                               onTryAgain={() => navigate('/walkie-talkie')}
+                               rawTranscript={displayReport.reportData.rawTranscript}
+                               refinedTranscript={displayReport.reportData.refinedTranscript}
+                            />
                          ) : (
-                             <PerformanceReportComponent 
-                                report={selectedReport.reportData}
-                                reportType={selectedReport.type as 'coach' | 'walkie' | 'hot-take'}
-                                transcript={selectedReport.reportData.refinedTranscript}
-                                context={selectedReport.title}
-                                isSaved={isSaved} 
-                                onToggleSave={onToggleSave} 
-                                onDone={() => navigate('/database')} 
-                             />
+                            <PerformanceReportComponent 
+                               report={displayReport.reportData}
+                               reportType={displayReport.type as 'coach' | 'walkie' | 'hot-take'}
+                               transcript={displayReport.reportData.refinedTranscript}
+                               context={displayReport.title}
+                               isSaved={isSaved} 
+                               onToggleSave={onToggleSave} 
+                               onDone={() => navigate('/database')} 
+                            />
                          )}
                      </div>
                 </div>

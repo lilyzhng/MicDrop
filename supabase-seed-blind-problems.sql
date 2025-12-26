@@ -1,6 +1,9 @@
 -- Blind75 Problems Seed Data
 -- Generated from NeetCode's Blind 75 list
 -- Run this AFTER running supabase-blind-problems.sql to create the table
+--
+-- NOTE: This uses UPSERT (ON CONFLICT DO UPDATE) to preserve existing data in columns
+-- like detailed_hint, problem_group, mnemonic_image_url, and definition.
 
 -- ========================================
 -- CATEGORY: Arrays (10 problems)
@@ -23,7 +26,21 @@ VALUES (
     '["Array", "Hash Table"]',
     'easy',
     1
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 2. Best Time to Buy and Sell Stock
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -42,7 +59,21 @@ VALUES (
     '["Array", "Dynamic Programming"]',
     'easy',
     121
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 3. Contains Duplicate
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -61,7 +92,21 @@ VALUES (
     '["Array", "Hash Table", "Sorting"]',
     'easy',
     217
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 4. Product of Array Except Self
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -80,7 +125,21 @@ VALUES (
     '["Array", "Prefix Sum"]',
     'medium',
     238
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 5. Maximum Subarray
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -99,7 +158,21 @@ VALUES (
     '["Array", "Dynamic Programming", "Divide and Conquer"]',
     'medium',
     53
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 6. Maximum Product Subarray
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -118,7 +191,21 @@ VALUES (
     '["Array", "Dynamic Programming"]',
     'medium',
     152
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 7. Find Minimum in Rotated Sorted Array
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -137,7 +224,21 @@ VALUES (
     '["Array", "Binary Search"]',
     'medium',
     153
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 8. Search in Rotated Sorted Array
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -156,7 +257,21 @@ VALUES (
     '["Array", "Binary Search"]',
     'medium',
     33
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 9. 3Sum
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -175,7 +290,21 @@ VALUES (
     '["Array", "Two Pointers", "Sorting"]',
     'medium',
     15
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 10. Container With Most Water
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -194,7 +323,21 @@ VALUES (
     '["Array", "Two Pointers", "Greedy"]',
     'medium',
     11
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Binary (5 problems)
@@ -217,7 +360,21 @@ VALUES (
     '["Math", "Bit Manipulation"]',
     'medium',
     371
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 12. Number of 1 Bits
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -236,7 +393,21 @@ VALUES (
     '["Divide and Conquer", "Bit Manipulation"]',
     'easy',
     191
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 13. Counting Bits
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -255,7 +426,21 @@ VALUES (
     '["Dynamic Programming", "Bit Manipulation"]',
     'easy',
     338
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 14. Missing Number
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -274,7 +459,21 @@ VALUES (
     '["Array", "Hash Table", "Math", "Bit Manipulation", "Sorting"]',
     'easy',
     268
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 15. Reverse Bits
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -293,7 +492,21 @@ VALUES (
     '["Divide and Conquer", "Bit Manipulation"]',
     'easy',
     190
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Dynamic Programming (11 problems)
@@ -316,7 +529,21 @@ VALUES (
     '["Math", "Dynamic Programming", "Memoization"]',
     'easy',
     70
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 17. Coin Change
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -335,7 +562,21 @@ VALUES (
     '["Array", "Dynamic Programming", "Breadth-First Search"]',
     'medium',
     322
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 18. Longest Increasing Subsequence
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -354,7 +595,21 @@ VALUES (
     '["Array", "Binary Search", "Dynamic Programming"]',
     'medium',
     300
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 19. Longest Common Subsequence
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -373,7 +628,21 @@ VALUES (
     '["String", "Dynamic Programming"]',
     'medium',
     1143
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 20. Word Break
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -392,7 +661,21 @@ VALUES (
     '["Hash Table", "String", "Dynamic Programming", "Trie", "Memoization"]',
     'medium',
     139
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 21. Combination Sum
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -411,7 +694,21 @@ VALUES (
     '["Array", "Backtracking"]',
     'medium',
     39
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 22. House Robber
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -430,7 +727,21 @@ VALUES (
     '["Array", "Dynamic Programming"]',
     'medium',
     198
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 23. House Robber II
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -449,7 +760,21 @@ VALUES (
     '["Array", "Dynamic Programming"]',
     'medium',
     213
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 24. Decode Ways
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -468,7 +793,21 @@ VALUES (
     '["String", "Dynamic Programming"]',
     'medium',
     91
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 25. Unique Paths
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -487,7 +826,21 @@ VALUES (
     '["Math", "Dynamic Programming", "Combinatorics"]',
     'medium',
     62
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 26. Jump Game
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -506,7 +859,21 @@ VALUES (
     '["Array", "Dynamic Programming", "Greedy"]',
     'medium',
     55
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Graph (8 problems)
@@ -529,7 +896,21 @@ VALUES (
     '["Hash Table", "Depth-First Search", "Breadth-First Search", "Graph"]',
     'medium',
     133
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 28. Course Schedule
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -548,7 +929,21 @@ VALUES (
     '["Depth-First Search", "Breadth-First Search", "Graph", "Topological Sort"]',
     'medium',
     207
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 29. Pacific Atlantic Water Flow
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -567,7 +962,21 @@ VALUES (
     '["Array", "Depth-First Search", "Breadth-First Search", "Matrix"]',
     'medium',
     417
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 30. Number of Islands
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -586,7 +995,21 @@ VALUES (
     '["Array", "Depth-First Search", "Breadth-First Search", "Union Find", "Matrix"]',
     'medium',
     200
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 31. Longest Consecutive Sequence
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -605,7 +1028,21 @@ VALUES (
     '["Array", "Hash Table", "Union Find"]',
     'medium',
     128
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 32. Alien Dictionary (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -624,7 +1061,21 @@ VALUES (
     '["Array", "String", "Depth-First Search", "Breadth-First Search", "Graph", "Topological Sort"]',
     'hard',
     269
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 33. Graph Valid Tree (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -643,7 +1094,21 @@ VALUES (
     '["Depth-First Search", "Breadth-First Search", "Union Find", "Graph"]',
     'medium',
     261
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 34. Number of Connected Components (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -662,7 +1127,21 @@ VALUES (
     '["Depth-First Search", "Breadth-First Search", "Union Find", "Graph"]',
     'medium',
     323
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Interval (5 problems)
@@ -685,7 +1164,21 @@ VALUES (
     '["Array", "Interval"]',
     'medium',
     57
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 36. Merge Intervals
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -704,7 +1197,21 @@ VALUES (
     '["Array", "Sorting"]',
     'medium',
     56
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 37. Non-overlapping Intervals
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -723,7 +1230,21 @@ VALUES (
     '["Array", "Dynamic Programming", "Greedy", "Sorting"]',
     'medium',
     435
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 38. Meeting Rooms (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -742,7 +1263,21 @@ VALUES (
     '["Array", "Sorting"]',
     'easy',
     252
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 39. Meeting Rooms II (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -761,7 +1296,21 @@ VALUES (
     '["Array", "Two Pointers", "Greedy", "Sorting", "Heap"]',
     'medium',
     253
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Linked List (6 problems)
@@ -784,7 +1333,21 @@ VALUES (
     '["Linked List", "Recursion"]',
     'easy',
     206
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 41. Linked List Cycle
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -803,7 +1366,21 @@ VALUES (
     '["Hash Table", "Linked List", "Two Pointers"]',
     'easy',
     141
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 42. Merge Two Sorted Lists
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -822,7 +1399,21 @@ VALUES (
     '["Linked List", "Recursion"]',
     'easy',
     21
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 43. Merge K Sorted Lists
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -841,7 +1432,21 @@ VALUES (
     '["Linked List", "Divide and Conquer", "Heap", "Merge Sort"]',
     'hard',
     23
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 44. Remove Nth Node From End of List
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -860,7 +1465,21 @@ VALUES (
     '["Linked List", "Two Pointers"]',
     'medium',
     19
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 45. Reorder List
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -879,7 +1498,21 @@ VALUES (
     '["Linked List", "Two Pointers", "Stack", "Recursion"]',
     'medium',
     143
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Matrix (4 problems)
@@ -902,7 +1535,21 @@ VALUES (
     '["Array", "Hash Table", "Matrix"]',
     'medium',
     73
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 47. Spiral Matrix
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -921,7 +1568,21 @@ VALUES (
     '["Array", "Matrix", "Simulation"]',
     'medium',
     54
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 48. Rotate Image
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -940,7 +1601,21 @@ VALUES (
     '["Array", "Math", "Matrix"]',
     'medium',
     48
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 49. Word Search
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -959,7 +1634,21 @@ VALUES (
     '["Array", "Backtracking", "Matrix"]',
     'medium',
     79
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: String (10 problems)
@@ -982,17 +1671,31 @@ VALUES (
     '["Hash Table", "String", "Sliding Window"]',
     'medium',
     3
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 51. Longest Repeating Character Replacement
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Repeating Character Replacement',
     'You are given a string s and an integer k. You can choose any character of the string and change it to any other uppercase English character. You can perform this operation at most k times. Return the length of the longest substring containing the same letter you can get after performing the above operations.',
-    E'Input: s = "AABABBA", k = 1\nOutput: 4\nExplanation: Replace one ''A'' in the middle to get "AABBBBA" with substring "BBBB" of length 4.',
+    E'Input: s = "AABABBA", k = 1\nOutput: 4\nExplanation: Replace one ''A'' in the middle to get "AABBBBA" with substring "BBBB" of length 4.\n\nInput: s = "ABBA", k = 1\nOutput: 3\nExplanation: Replace one ''A'' to get substring "BBB" of length 3, or replace one ''B'' to get substring "AAA" of length 3.',
     '["1 <= s.length <= 10^5", "s consists of only uppercase English letters", "0 <= k <= s.length"]',
     'Sliding Window',
-    'Window is valid if (window_length - count_of_most_frequent_char) <= k. Expand right, shrink left when invalid.',
+    'Window is valid if (window_length - max_freq) <= k, where max_freq tracks the highest frequency seen (doesn''t decrease when shrinking - an optimization that still works). Expand right, shrink left when invalid.',
     'def characterReplacement(s: str, k: int) -> int:\n    count = {}\n    left = max_freq = max_len = 0\n    for right in range(len(s)):\n        count[s[right]] = count.get(s[right], 0) + 1\n        max_freq = max(max_freq, count[s[right]])\n        while (right - left + 1) - max_freq > k:\n            count[s[left]] -= 1\n            left += 1\n        max_len = max(max_len, right - left + 1)\n    return max_len',
     'O(n)',
     'O(26)',
@@ -1001,7 +1704,21 @@ VALUES (
     '["Hash Table", "String", "Sliding Window"]',
     'medium',
     424
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 52. Minimum Window Substring
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1020,7 +1737,21 @@ VALUES (
     '["Hash Table", "String", "Sliding Window"]',
     'hard',
     76
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 53. Valid Anagram
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1039,7 +1770,21 @@ VALUES (
     '["Hash Table", "String", "Sorting"]',
     'easy',
     242
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 54. Group Anagrams
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1058,7 +1803,21 @@ VALUES (
     '["Array", "Hash Table", "String", "Sorting"]',
     'medium',
     49
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 55. Valid Parentheses
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1077,7 +1836,21 @@ VALUES (
     '["String", "Stack"]',
     'easy',
     20
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 56. Valid Palindrome
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1096,7 +1869,21 @@ VALUES (
     '["Two Pointers", "String"]',
     'easy',
     125
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 57. Longest Palindromic Substring
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1115,7 +1902,21 @@ VALUES (
     '["String", "Dynamic Programming"]',
     'medium',
     5
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 58. Palindromic Substrings
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1134,7 +1935,21 @@ VALUES (
     '["String", "Dynamic Programming"]',
     'medium',
     647
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 59. Encode and Decode Strings (Premium)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1153,7 +1968,21 @@ VALUES (
     '["Array", "String", "Design"]',
     'medium',
     271
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Tree (14 problems)
@@ -1176,7 +2005,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Breadth-First Search", "Binary Tree"]',
     'easy',
     104
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 61. Same Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1195,7 +2038,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Breadth-First Search", "Binary Tree"]',
     'easy',
     100
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 62. Invert Binary Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1214,7 +2071,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Breadth-First Search", "Binary Tree"]',
     'easy',
     226
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 63. Binary Tree Maximum Path Sum
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1233,7 +2104,21 @@ VALUES (
     '["Dynamic Programming", "Tree", "Depth-First Search", "Binary Tree"]',
     'hard',
     124
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 64. Binary Tree Level Order Traversal
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1252,7 +2137,21 @@ VALUES (
     '["Tree", "Breadth-First Search", "Binary Tree"]',
     'medium',
     102
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 65. Serialize and Deserialize Binary Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1271,7 +2170,21 @@ VALUES (
     '["String", "Tree", "Depth-First Search", "Breadth-First Search", "Design", "Binary Tree"]',
     'hard',
     297
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 66. Subtree of Another Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1290,7 +2203,21 @@ VALUES (
     '["Tree", "Depth-First Search", "String Matching", "Binary Tree", "Hash Function"]',
     'easy',
     572
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 67. Construct Binary Tree from Preorder and Inorder Traversal
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1309,7 +2236,21 @@ VALUES (
     '["Array", "Hash Table", "Divide and Conquer", "Tree", "Binary Tree"]',
     'medium',
     105
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 68. Validate Binary Search Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1328,7 +2269,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Binary Search Tree", "Binary Tree"]',
     'medium',
     98
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 69. Kth Smallest Element in a BST
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1347,7 +2302,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Binary Search Tree", "Binary Tree"]',
     'medium',
     230
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 70. Lowest Common Ancestor of a Binary Search Tree
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1366,7 +2335,21 @@ VALUES (
     '["Tree", "Depth-First Search", "Binary Search Tree", "Binary Tree"]',
     'medium',
     235
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 71. Implement Trie (Prefix Tree)
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1385,7 +2368,21 @@ VALUES (
     '["Hash Table", "String", "Design", "Trie"]',
     'medium',
     208
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 72. Design Add and Search Words Data Structure
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1404,7 +2401,21 @@ VALUES (
     '["String", "Depth-First Search", "Design", "Trie"]',
     'medium',
     211
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 73. Word Search II
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1423,7 +2434,21 @@ VALUES (
     '["Array", "String", "Backtracking", "Trie", "Matrix"]',
     'hard',
     212
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- CATEGORY: Heap (2 problems - Merge K Sorted Lists covered in Linked List)
@@ -1446,7 +2471,21 @@ VALUES (
     '["Array", "Hash Table", "Divide and Conquer", "Sorting", "Heap", "Bucket Sort", "Counting", "Quickselect"]',
     'medium',
     347
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- 75. Find Median from Data Stream
 INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
@@ -1465,7 +2504,21 @@ VALUES (
     '["Two Pointers", "Design", "Sorting", "Heap", "Data Stream"]',
     'hard',
     295
-);
+)
+ON CONFLICT (title) DO UPDATE SET
+    prompt = EXCLUDED.prompt,
+    example = EXCLUDED.example,
+    constraints = EXCLUDED.constraints,
+    pattern = EXCLUDED.pattern,
+    key_idea = EXCLUDED.key_idea,
+    skeleton = EXCLUDED.skeleton,
+    time_complexity = EXCLUDED.time_complexity,
+    space_complexity = EXCLUDED.space_complexity,
+    steps = EXCLUDED.steps,
+    expected_edge_cases = EXCLUDED.expected_edge_cases,
+    topics = EXCLUDED.topics,
+    difficulty = EXCLUDED.difficulty,
+    leetcode_number = EXCLUDED.leetcode_number;
 
 -- ========================================
 -- END OF HEAP CATEGORY (2/2 + 1 shared with Linked List = 3 total)

@@ -167,12 +167,20 @@ Note: "alphanumeric" means letters AND digits (0-9), not just letters."""
     121: {
         "title": "Best Time to Buy and Sell Stock",
         "filename": "121_best_time_to_buy_sell_stock.png",
-        "punchline": "Track minimum price so far, maximize (today - min)",
-        "detailed_hint": """The key insight is that for any given day, the maximum profit you can make by selling on that day depends only on the minimum price you've seen BEFORE that day. You can't go back in time to buy.
+        "punchline": "Two pointers: left=buy, right=sell. Move left when you find a lower price.",
+        "detailed_hint": """Use two pointers to find the maximum profit in a single pass:
 
-Visualize it: as you scan left to right through prices, you're maintaining the best "buy" opportunity so far. At each new price, you calculate the potential profit if you sold today (current_price - min_price_so_far), and update your max profit if it's better.
+- LEFT pointer marks the "buy" day (best buying opportunity so far)
+- RIGHT pointer is the current "sell" day being evaluated
 
-This is a single-pass solution because both values you're tracking (min_price and max_profit) only look backwards."""
+Start with left=0, right=1. At each step:
+1. If prices[right] > prices[left]: Calculate profit (prices[right] - prices[left]), update max profit if better
+2. If prices[right] < prices[left]: Move left to right (found a new, lower buy point!)
+3. Always advance right to check the next selling day
+
+The visual: Two arrows moving through a stock price chart. The LEFT arrow (green, labeled "BUY") stays planted at the lowest price seen so far. The RIGHT arrow (red, labeled "SELL") sweeps forward, measuring the gap between them. When the right pointer finds a price LOWER than left, the left pointer jumps to that new position.
+
+This is O(n) time, O(1) space - a classic sliding window / two-pointer pattern."""
     },
     
     3: {

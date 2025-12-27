@@ -322,12 +322,14 @@ export async function updateProgressAfterAttempt(
  * @param topicFilter - Optional: filter problems to a specific topic (problem_group)
  * @param reviewsPriority - If true, ALL due reviews are included first (ignoring topic filter for reviews), then remaining slots filled with topic-filtered new problems
  * @param onlyReviews - If true, ONLY due reviews are included (no new problems)
+ * @param newProblemsOnly - If true, ONLY new problems are included (no reviews) - for focused topic practice
  */
 export async function buildSpacedRepetitionQueue(
     userId: string,
     topicFilter?: string,
     reviewsPriority: boolean = false,
-    onlyReviews: boolean = false
+    onlyReviews: boolean = false,
+    newProblemsOnly: boolean = false
 ): Promise<{
     queue: BlindProblem[];
     stats: StudyStats;
@@ -421,10 +423,12 @@ export async function buildSpacedRepetitionQueue(
     // Build the queue
     const queue: BlindProblem[] = [];
     
-    // Add due reviews first (they take priority)
-    for (const { problem } of dueProblems) {
-        if (queue.length >= settings.dailyCap) break;
-        queue.push(problem);
+    // Add due reviews first (they take priority) - unless newProblemsOnly is true
+    if (!newProblemsOnly) {
+        for (const { problem } of dueProblems) {
+            if (queue.length >= settings.dailyCap) break;
+            queue.push(problem);
+        }
     }
     
     // Fill remaining slots with new problems (unless onlyReviews is true)
@@ -436,6 +440,7 @@ export async function buildSpacedRepetitionQueue(
     
     // Calculate stats (for the full set, not filtered)
     const fullAllProgress = allProgress;
+    const reviewsInQueue = newProblemsOnly ? 0 : Math.min(dueProblems.length, settings.dailyCap);
     const stats: StudyStats = {
         totalProblems: TOTAL_BLIND_75,
         newCount: TOTAL_BLIND_75 - fullAllProgress.length,
@@ -447,12 +452,12 @@ export async function buildSpacedRepetitionQueue(
         onPace: fullAllProgress.length >= (daysPassed * (TOTAL_BLIND_75 / settings.targetDays)),
         todaysQueue: {
             newProblems: Math.min(slotsForNew, newProblems.length),
-            reviews: Math.min(dueProblems.length, settings.dailyCap),
+            reviews: reviewsInQueue,
             total: queue.length
         }
     };
     
-    const modeLabel = reviewsPriority ? 'REVIEWS PRIORITY' : (topicFilter ? `Topic: ${topicFilter}` : 'All Topics');
+    const modeLabel = newProblemsOnly ? 'NEW PROBLEMS ONLY' : (reviewsPriority ? 'REVIEWS PRIORITY' : (topicFilter ? `Topic: ${topicFilter}` : 'All Topics'));
     console.log(`[Spaced Repetition] Queue built: ${queue.length} problems (${stats.todaysQueue.reviews} reviews + ${stats.todaysQueue.newProblems} new) [${modeLabel}]`);
     
     return { queue, stats };

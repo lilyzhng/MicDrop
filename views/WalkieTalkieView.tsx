@@ -253,7 +253,8 @@ const POWER_SPOTS = [
     description: 'Never miss your daily reviews!',
     isRandom: false,
     reviewsPriority: true,
-    onlyReviews: true
+    onlyReviews: true,
+    newProblemsOnly: false
   },
   { 
     id: 'spot2', 
@@ -262,7 +263,9 @@ const POWER_SPOTS = [
     icon: 'coffee', 
     description: 'A warm brew and focused topic practice.',
     isRandom: false,
-    reviewsPriority: false
+    reviewsPriority: false,
+    onlyReviews: false,
+    newProblemsOnly: true
   },
   { 
     id: 'spot1', 
@@ -271,7 +274,9 @@ const POWER_SPOTS = [
     icon: 'forest', 
     description: 'Venture into the unknown with mixed challenges.',
     isRandom: true,
-    reviewsPriority: false
+    reviewsPriority: false,
+    onlyReviews: false,
+    newProblemsOnly: false
   }
 ];
 
@@ -288,7 +293,8 @@ interface SpotWithTopic {
   isRandom: boolean;  // Whether this spot uses random/mixed topics
   locked: boolean;  // Whether the topic is locked (user has entered this spot today)
   reviewsPriority: boolean;  // Whether this spot prioritizes all reviews first (ignores topic filtering for reviews)
-  onlyReviews?: boolean; // If true, this spot only serves reviews and locks when done
+  onlyReviews: boolean; // If true, this spot only serves reviews and locks when done
+  newProblemsOnly: boolean; // If true, this spot only serves new problems (no reviews)
 }
 
 // Type for saved spot topic assignments (persisted per day)
@@ -639,6 +645,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [isRecording, setIsRecording] = useState(false);
   const [revealHintIdx, setRevealHintIdx] = useState(0);
   const [usedHints, setUsedHints] = useState(false); // Track if user requested any hints
+  const [showDefinitionExpanded, setShowDefinitionExpanded] = useState(false); // Track if definition is expanded within pattern
 
   // Teaching Mode State
   const [teachingSession, setTeachingSession] = useState<TeachingSession | null>(null);
@@ -716,6 +723,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         setTeachingRawTranscript("");
         setJuniorQuestion("");
         setRevealHintIdx(0);
+        setShowDefinitionExpanded(false);
         setUsedHints(false);
         
         // Reset timer for this problem
@@ -981,6 +989,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setCurrentQueueIdx(prev => prev + 1);
       setStep('problem');
       setRevealHintIdx(0);
+      setShowDefinitionExpanded(false);
       setUsedHints(false); // Reset hint usage for next problem
       setTranscript("");
       setRawTranscript("");
@@ -1027,16 +1036,18 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         if (useSpacedRepetition && user?.id) {
             // For random/mystery spot, don't pass a topic filter - get mixed problems
             // For reviews priority spot, pass the flag to include ALL reviews first
+            // For new problems only spot (Coffee Sanctuary), exclude reviews
             const topicFilter = spot.isRandom ? undefined : spot.topic;
             const { queue, stats } = await buildSpacedRepetitionQueue(
                 user.id, 
                 topicFilter, 
                 spot.reviewsPriority,
-                spot.onlyReviews
+                spot.onlyReviews,
+                spot.newProblemsOnly
             );
             problems = queue.slice(0, batchSize);
             setStudyStats(stats);
-            const mode = spot.onlyReviews ? 'ONLY REVIEWS' : (spot.reviewsPriority ? 'REVIEWS PRIORITY' : (spot.isRandom ? 'RANDOM/MIXED' : spot.topic));
+            const mode = spot.newProblemsOnly ? 'NEW PROBLEMS ONLY' : (spot.onlyReviews ? 'ONLY REVIEWS' : (spot.reviewsPriority ? 'REVIEWS PRIORITY' : (spot.isRandom ? 'RANDOM/MIXED' : spot.topic)));
             console.log(`[Spaced Repetition] Mode: ${mode}, Queue:`, problems.map(p => p.title));
         } else {
             // Fallback to original queue building (no topic filter)
@@ -1067,6 +1078,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         setTeachingSession(null);
         setTeachingReport(null);
         setRevealHintIdx(0);
+        setShowDefinitionExpanded(false);
         setUsedHints(false);
         setTranscript("");
         setRawTranscript("");
@@ -1114,6 +1126,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setTranscript("");
     // Reset hints - user should try without hints this time
     setRevealHintIdx(0);
+    setShowDefinitionExpanded(false);
     setUsedHints(false);
     // Reset timer for fresh attempt
     resetProblemStartTime();
@@ -1348,6 +1361,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setTeachingRawTranscript("");
       setJuniorQuestion("");
       setRevealHintIdx(0);
+      setShowDefinitionExpanded(false);
       setUsedHints(false);
       setTranscript("");
       setRawTranscript("");
@@ -2096,11 +2110,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             </div>
             
             {/* Need a Hint Button - Centered below the two columns */}
-            {revealHintIdx < 5 && (
+            {revealHintIdx < 4 && (
               <div className="flex justify-center mt-8 sm:mt-10">
                 <button 
                   onClick={() => {
-                    setRevealHintIdx(p => Math.min(p + 1, 5));
+                    setRevealHintIdx(p => Math.min(p + 1, 4));
                     setUsedHints(true); // Mark that hints were used - prevents 'Mastered' status
                   }} 
                   className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-[0.2em] sm:tracking-[0.3em] border border-gold/40 px-5 sm:px-8 py-3 sm:py-4 rounded-full hover:bg-gold/10 transition-all flex items-center gap-2 sm:gap-3"
@@ -2111,13 +2125,37 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             )}
             
             {/* Hints Section - Full width below */}
-            {/* Order: 1. Definition (data structure basics) → 2. Pattern → 3. Key Idea → 4. Detailed Hint → 5. Skeleton */}
+            {/* Order: 1. Pattern (with expandable Definition) → 2. Key Idea → 3. Detailed Hint → 4. Skeleton */}
             <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-8">
-              {revealHintIdx >= 1 && currentProblem?.definition && <div className="p-5 sm:p-8 bg-emerald-950/30 border border-emerald-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-emerald-400 tracking-widest mb-2 sm:mb-3 block">📚 Definitions & Concepts</span><div className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none [&_strong]:text-emerald-300">{currentProblem?.definition?.split('**').map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part)}</div></div>}
-              {revealHintIdx >= 2 && <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gold tracking-widest mb-2 sm:mb-3 block opacity-60">Pattern</span><p className="text-lg sm:text-2xl font-serif font-semibold">{currentProblem?.pattern}</p></div>}
-              {revealHintIdx >= 3 && <div className="p-5 sm:p-8 bg-white/5 border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-2 sm:mb-3 block">Key Idea</span><p className="text-base sm:text-xl italic font-light">"{currentProblem?.keyIdea}"</p></div>}
-              {revealHintIdx >= 4 && currentProblem?.detailedHint && <div className="p-5 sm:p-8 bg-blue-950/30 border border-blue-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-400 tracking-widest mb-2 sm:mb-3 block">Approach Walkthrough</span><p className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">{currentProblem?.detailedHint}</p></div>}
-              {revealHintIdx >= 5 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton?.replace(/\\n/g, '\n')}</pre></div>}
+              {revealHintIdx >= 1 && (
+                <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4">
+                  <span className="text-[9px] sm:text-[10px] font-bold uppercase text-gold tracking-widest mb-2 sm:mb-3 block opacity-60">Pattern</span>
+                  <p className="text-lg sm:text-2xl font-serif font-semibold">{currentProblem?.pattern}</p>
+                  
+                  {/* Expandable Definition Section */}
+                  {currentProblem?.definition && (
+                    <div className="mt-4">
+                      <button 
+                        onClick={() => setShowDefinitionExpanded(!showDefinitionExpanded)}
+                        className="text-[9px] sm:text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2 hover:text-emerald-300 transition-colors"
+                      >
+                        📚 {showDefinitionExpanded ? 'Hide' : 'Expand'} Definitions & Concepts
+                        <span className={`transition-transform ${showDefinitionExpanded ? 'rotate-180' : ''}`}>▼</span>
+                      </button>
+                      {showDefinitionExpanded && (
+                        <div className="mt-3 pt-4 border-t border-emerald-500/20">
+                          <div className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap prose prose-invert prose-sm max-w-none [&_strong]:text-emerald-300">
+                            {currentProblem?.definition?.split('**').map((part, i) => i % 2 === 1 ? <strong key={i}>{part}</strong> : part)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              {revealHintIdx >= 2 && <div className="p-5 sm:p-8 bg-white/5 border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-2 sm:mb-3 block">Key Idea</span><p className="text-base sm:text-xl italic font-light">"{currentProblem?.keyIdea}"</p></div>}
+              {revealHintIdx >= 3 && currentProblem?.detailedHint && <div className="p-5 sm:p-8 bg-blue-950/30 border border-blue-500/20 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-blue-400 tracking-widest mb-2 sm:mb-3 block">Approach Walkthrough</span><p className="text-sm sm:text-base text-gray-200 leading-relaxed whitespace-pre-wrap">{currentProblem?.detailedHint}</p></div>}
+              {revealHintIdx >= 4 && <div className="p-5 sm:p-8 bg-black border border-white/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4"><span className="text-[9px] sm:text-[10px] font-bold uppercase text-gray-600 tracking-widest mb-2 sm:mb-3 block">Logic Structure (Python)</span><pre className="text-xs sm:text-sm font-mono text-gold/80 whitespace-pre-wrap overflow-x-auto">{currentProblem?.skeleton?.replace(/\\n/g, '\n')}</pre></div>}
             </div>
           </div>
         </div>

@@ -379,6 +379,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [analysisPhase, setAnalysisPhase] = useState<'refining' | 'evaluating'>('refining');
   const [selectedSpot, setSelectedSpot] = useState<typeof POWER_SPOTS[0] | null>(null);
   const [showStats, setShowStats] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   
   // Spaced Repetition Settings State
   const [showSettings, setShowSettings] = useState(false);
@@ -843,9 +845,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                     }
                   },
                   missingElements: [
-                    'You used hints during this explanation',
-                    'Teachers should explain without external references',
-                    'Try again without revealing any hints'
+                    { element: 'No Hints', correctAnswer: 'Explain without using hints' },
+                    { element: 'Memory Recall', correctAnswer: 'Teachers explain from memory' },
+                    { element: 'Independence', correctAnswer: 'Try again without revealing hints' }
                   ],
                   strengthElements: [],
                   suggestion: 'Go back and explain the solution without using any hints. A strong teacher can explain the concept from memory.'
@@ -913,12 +915,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
               setAnalysisPhase('evaluating');
               const report = await analyzeWalkieSession(base64Audio, polishedText, currentProblem);
               
-              // Determine mastery based on rating (source of truth)
-              // The AI's detectedAutoScore can be inconsistent, so we use rating thresholds
-              // HINT PENALTY: If user used hints, they cannot achieve 'good' (mastered) status
+              // Determine tier based on rating (source of truth)
+              // Score >= 75: Excellent (1 review required)
+              // Score 70-74: Passed (2 reviews required)
+              // Score < 70: Relearn (needs re-attempt)
+              // HINT PENALTY: If user used hints, they cannot achieve 'good' (Excellent) status
               let score: 'good' | 'partial' | 'missed' = 
                 report.rating >= 75 ? 'good' : 
-                report.rating >= 50 ? 'partial' : 
+                report.rating >= 70 ? 'partial' : 
                 'missed';
               
               // Apply hint penalty - max score is 'partial' if hints were used
@@ -1396,27 +1400,28 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       
       if (error) throw error;
       
-      // Convert database format to BlindProblem type
+      // Convert database format to BlindProblem type (casting through any to resolve type issues with never)
+      const freshProblemAny = freshProblem as any;
       const updatedProblem: BlindProblem = {
-        id: freshProblem.id,
-        title: freshProblem.title,
-        prompt: freshProblem.prompt,
-        example: freshProblem.example,
-        constraints: freshProblem.constraints,
-        pattern: freshProblem.pattern,
-        keyIdea: freshProblem.key_idea,
-        detailedHint: freshProblem.detailed_hint,
-        definition: freshProblem.definition,
-        skeleton: freshProblem.skeleton,
-        timeComplexity: freshProblem.time_complexity,
-        spaceComplexity: freshProblem.space_complexity,
-        steps: freshProblem.steps,
-        expectedEdgeCases: freshProblem.expected_edge_cases,
-        topics: freshProblem.topics,
-        difficulty: freshProblem.difficulty,
-        problemGroup: freshProblem.problem_group,
-        leetcodeNumber: freshProblem.leetcode_number,
-        mnemonicImageUrl: freshProblem.mnemonic_image_url
+        id: freshProblemAny.id,
+        title: freshProblemAny.title,
+        prompt: freshProblemAny.prompt,
+        example: freshProblemAny.example,
+        constraints: freshProblemAny.constraints,
+        pattern: freshProblemAny.pattern,
+        keyIdea: freshProblemAny.key_idea,
+        detailedHint: freshProblemAny.detailed_hint,
+        definition: freshProblemAny.definition,
+        skeleton: freshProblemAny.skeleton,
+        timeComplexity: freshProblemAny.time_complexity,
+        spaceComplexity: freshProblemAny.space_complexity,
+        steps: freshProblemAny.steps,
+        expectedEdgeCases: freshProblemAny.expected_edge_cases,
+        topics: freshProblemAny.topics,
+        difficulty: freshProblemAny.difficulty,
+        problemGroup: freshProblemAny.problem_group,
+        leetcodeNumber: freshProblemAny.leetcode_number,
+        mnemonicImageUrl: freshProblemAny.mnemonic_image_url
       };
       
       // Re-run the Dean evaluation with fresh data
@@ -2173,27 +2178,36 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
                         <p className="text-gray-400 text-xs sm:text-sm">Gemini has evaluated your solution correctness.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3 sm:gap-6">
-                         {score === 'good' && (
+                        {score === 'good' && (
                              <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-green-500/20 border border-green-500/50 rounded-lg sm:rounded-xl text-green-300 w-full sm:w-auto justify-center">
                                  <CheckCircle2 size={20} className="sm:w-6 sm:h-6" />
-                                 <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Mastered</span>
+                                 <div className="flex flex-col text-left">
+                                     <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Excellent</span>
+                                     <span className="text-[9px] sm:text-[10px] opacity-70 leading-tight">1 review required</span>
+                                 </div>
                              </div>
                          )}
                          {score === 'partial' && (
                              <div className="flex flex-col items-center gap-1">
                                  <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg sm:rounded-xl text-yellow-300 w-full sm:w-auto justify-center">
                                      <AlertCircle size={20} className="sm:w-6 sm:h-6" />
-                                     <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Partial</span>
+                                     <div className="flex flex-col text-left">
+                                         <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Passed</span>
+                                         <span className="text-[9px] sm:text-[10px] opacity-70 leading-tight">2 reviews required</span>
+                                     </div>
                                  </div>
                                  {usedHints && aiReport && aiReport.rating >= 75 && (
-                                     <span className="text-[9px] sm:text-[10px] text-yellow-400/70 italic">Hints used — try again without hints to master</span>
+                                     <span className="text-[9px] sm:text-[10px] text-yellow-400/70 italic">Hints used — try again without hints for Excellent</span>
                                  )}
                              </div>
                          )}
                          {score === 'missed' && (
                              <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 sm:py-3 bg-red-500/20 border border-red-500/50 rounded-lg sm:rounded-xl text-red-300 w-full sm:w-auto justify-center">
                                  <ShieldAlert size={20} className="sm:w-6 sm:h-6" />
-                                 <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Missed</span>
+                                 <div className="flex flex-col text-left">
+                                     <span className="font-bold uppercase tracking-widest text-xs sm:text-sm">Relearn</span>
+                                     <span className="text-[9px] sm:text-[10px] opacity-70 leading-tight">Score below 70 • Try again</span>
+                                 </div>
                              </div>
                          )}
                          

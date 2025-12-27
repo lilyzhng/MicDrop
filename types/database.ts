@@ -21,6 +21,7 @@ export interface Database {
           detailed_hint: string | null
           definition: string | null
           skeleton: string
+          solution: string | null
           time_complexity: string
           space_complexity: string
           steps: string[]
@@ -43,6 +44,7 @@ export interface Database {
           detailed_hint?: string | null
           definition?: string | null
           skeleton: string
+          solution?: string | null
           time_complexity: string
           space_complexity: string
           steps?: string[]
@@ -65,6 +67,7 @@ export interface Database {
           detailed_hint?: string | null
           definition?: string | null
           skeleton?: string
+          solution?: string | null
           time_complexity?: string
           space_complexity?: string
           steps?: string[]
@@ -240,7 +243,7 @@ export interface Database {
 // Spaced Repetition Types (Application Layer)
 // ============================================
 
-export type ProblemStatus = 'new' | 'learning' | 'mastered';
+export type ProblemStatus = 'new' | 'learning' | 'reviewing' | 'mastered' | 'graduated';
 
 export interface UserStudySettings {
   userId: string;

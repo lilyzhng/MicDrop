@@ -41,43 +41,44 @@ export const DEFAULT_SETTINGS: Omit<UserStudySettings, 'userId'> = {
 
 // Score thresholds for determining reviews needed
 const SCORE_THRESHOLDS = {
-    EXCEPTIONAL: 85,  // 0 reviews needed
-    MASTERED: 75,     // 1 review needed
-    PARTIAL: 50,      // 2 reviews needed
-    // Below 50: 3 reviews needed
+    EXCELLENT: 75,  // 1 review required (Excellent tier)
+    PASSED: 70,     // 2 reviews required (Passed tier)
+    // Below 70: Relearn (needs to re-attempt, not in review queue)
 };
 
-// Difficulty bonuses/penalties
-const DIFFICULTY_ADJUSTMENTS: Record<'easy' | 'medium' | 'hard', number> = {
-    easy: 10,    // +10 points
-    medium: 0,   // No adjustment
-    hard: -5     // -5 points
-};
+// Difficulty bonuses/penalties - REMOVED: Using flat score thresholds now
+// const DIFFICULTY_ADJUSTMENTS = ...
 
 // ============================================
 // Score-Based Review Calculation
 // ============================================
 
 /**
- * Calculate how many reviews are needed based on score and difficulty
+ * Calculate how many reviews are required based on initial teaching score
+ * 
+ * @param score - The score from the teaching session (0-100)
+ * @returns Number of reviews required to reach Mastered status
  */
-export function calculateReviewsNeeded(
-    score: number,
-    difficulty: 'easy' | 'medium' | 'hard',
-    easyBonus: number = DEFAULT_SETTINGS.easyBonus
-): number {
-    // Apply difficulty adjustment
-    const adjustment = difficulty === 'easy' ? easyBonus : DIFFICULTY_ADJUSTMENTS[difficulty];
-    const adjustedScore = score + adjustment;
-
-    if (adjustedScore >= SCORE_THRESHOLDS.EXCEPTIONAL) {
-        return 0; // Instant mastery
-    } else if (adjustedScore >= SCORE_THRESHOLDS.MASTERED) {
-        return 1; // Quick review
-    } else if (adjustedScore >= SCORE_THRESHOLDS.PARTIAL) {
-        return 2; // Standard review cycle
+export function calculateReviewsNeeded(score: number): number {
+    if (score >= SCORE_THRESHOLDS.EXCELLENT) {
+        return 1; // Excellent tier: 1 review to confirm mastery
+    } else if (score >= SCORE_THRESHOLDS.PASSED) {
+        return 2; // Passed tier: 2 reviews to confirm mastery
     } else {
-        return 3; // Extra practice needed
+        return 0; // Relearn: needs to re-attempt (not queued for review)
+    }
+}
+
+/**
+ * Get the tier name based on score
+ */
+export function getScoreTier(score: number): 'excellent' | 'passed' | 'relearn' {
+    if (score >= SCORE_THRESHOLDS.EXCELLENT) {
+        return 'excellent';
+    } else if (score >= SCORE_THRESHOLDS.PASSED) {
+        return 'passed';
+    } else {
+        return 'relearn';
     }
 }
 
@@ -88,9 +89,15 @@ export function determineStatus(
     reviewsCompleted: number,
     reviewsNeeded: number
 ): ProblemStatus {
-    if (reviewsNeeded === 0 || reviewsCompleted >= reviewsNeeded) {
+    // Relearn state: reviewsNeeded is 0, meaning they need to re-attempt
+    if (reviewsNeeded === 0) {
+        return 'learning'; // Still in learning, but needs re-attempt
+    }
+    // Mastered: completed all required reviews
+    if (reviewsCompleted >= reviewsNeeded) {
         return 'mastered';
     }
+    // Review Duty: in progress
     return 'learning';
 }
 
@@ -142,7 +149,17 @@ export async function resetStudyPlan(userId: string): Promise<UserStudySettings 
 // ============================================
 
 /**
- * Update progress after completing a problem
+ * Update progress after completing a problem (teaching session or review)
+ * 
+ * Initial Teaching Session:
+ * - Score < 70: Relearn (needs re-attempt, not in review queue)
+ * - Score 70-74: Passed tier, 2 reviews required
+ * - Score >= 75: Excellent tier, 1 review required
+ * 
+ * Review Session:
+ * - Score < 70: Failed review, reschedule for tomorrow (no progress increment)
+ * - Score >= 70: Successful review, increment reviews_completed
+ * - If reviews_completed >= reviews_required: Mastered
  */
 export async function updateProgressAfterAttempt(
     userId: string,
@@ -151,39 +168,141 @@ export async function updateProgressAfterAttempt(
     difficulty: 'easy' | 'medium' | 'hard',
     existingProgress: UserProblemProgress | null
 ): Promise<UserProblemProgress | null> {
-    const settings = await getSettingsWithDefaults(userId);
+    // Check if this is a first teaching attempt, a scheduled review, or an extra practice attempt
+    const isInRelearnState = existingProgress && 
+        existingProgress.reviewsNeeded === 0 && 
+        existingProgress.status !== 'mastered';
     
-    // Calculate reviews needed based on this attempt's score
-    const reviewsNeeded = calculateReviewsNeeded(score, difficulty, settings.easyBonus);
+    // Check if the problem is actually DUE for review (nextReviewAt is today or earlier)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const isDueForReview = existingProgress?.nextReviewAt && 
+        new Date(existingProgress.nextReviewAt) <= now;
     
-    // Get current review count (first attempt = 1)
-    const previousReviews = existingProgress?.reviewsCompleted || 0;
-    const newReviewsCompleted = previousReviews + 1;
+    // Determine attempt type:
+    // 1. INITIAL: No existing progress, or in relearn state
+    // 2. SCHEDULED_REVIEW: Has progress and is due for review
+    // 3. EXTRA_PRACTICE: Has progress but not due yet (doesn't count as review, just updates best score)
+    const isInitialAttempt = !existingProgress || isInRelearnState;
+    const isScheduledReview = existingProgress && !isInRelearnState && isDueForReview;
+    const isExtraPractice = existingProgress && !isInRelearnState && !isDueForReview;
     
-    // Determine new status
-    const newStatus = determineStatus(newReviewsCompleted, reviewsNeeded);
+    console.log(`[Spaced Repetition] Attempt type: initial=${isInitialAttempt}, scheduledReview=${isScheduledReview}, extraPractice=${isExtraPractice}`);
     
-    // Calculate next review date (tomorrow if still learning)
-    let nextReviewAt: Date | null = null;
-    if (newStatus === 'learning') {
-        nextReviewAt = new Date();
-        nextReviewAt.setDate(nextReviewAt.getDate() + 1);
-        nextReviewAt.setHours(0, 0, 0, 0);
+    if (isExtraPractice && existingProgress) {
+        // ========================================
+        // EXTRA PRACTICE (not due for review yet)
+        // ========================================
+        // Just update best score, don't change review progress
+        const newBestScore = Math.max(existingProgress.bestScore || 0, score);
+        console.log(`[Spaced Repetition] Extra practice: updating best score to ${newBestScore}, keeping reviewsCompleted=${existingProgress.reviewsCompleted}`);
+        
+        return upsertUserProblemProgress(userId, problemTitle, {
+            status: existingProgress.status,
+            bestScore: newBestScore,
+            reviewsNeeded: existingProgress.reviewsNeeded,
+            reviewsCompleted: existingProgress.reviewsCompleted, // Don't increment!
+            lastReviewedAt: new Date(),
+            nextReviewAt: existingProgress.nextReviewAt // Keep the scheduled review date
+        });
     }
     
-    // Determine best score
-    const bestScore = existingProgress?.bestScore 
-        ? Math.max(existingProgress.bestScore, score) 
-        : score;
-    
-    return upsertUserProblemProgress(userId, problemTitle, {
-        status: newStatus,
-        bestScore,
-        reviewsNeeded,
-        reviewsCompleted: newReviewsCompleted,
-        lastReviewedAt: new Date(),
-        nextReviewAt
-    });
+    if (isInitialAttempt) {
+        // ========================================
+        // INITIAL TEACHING SESSION
+        // ========================================
+        const reviewsNeeded = calculateReviewsNeeded(score);
+        const tier = getScoreTier(score);
+        
+        console.log(`[Spaced Repetition] Initial attempt: score=${score}, tier=${tier}, reviewsNeeded=${reviewsNeeded}`);
+        
+        if (tier === 'relearn') {
+            // Score < 70: Relearn state
+            // Not queued for review, needs to re-attempt
+            return upsertUserProblemProgress(userId, problemTitle, {
+                status: 'learning',
+                bestScore: score,
+                reviewsNeeded: 0, // Marker for "relearn" state
+                reviewsCompleted: 0,
+                lastReviewedAt: new Date(),
+                nextReviewAt: null // Not in review queue
+            });
+        } else {
+            // Score >= 70: Review Duty
+            // Queue for review tomorrow
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 1);
+            nextReview.setHours(0, 0, 0, 0);
+            
+            return upsertUserProblemProgress(userId, problemTitle, {
+                status: 'learning',
+                bestScore: score,
+                reviewsNeeded: reviewsNeeded,
+                reviewsCompleted: 0, // Initial attempt doesn't count as review
+                lastReviewedAt: new Date(),
+                nextReviewAt: nextReview
+            });
+        }
+    } else {
+        // ========================================
+        // REVIEW SESSION
+        // ========================================
+        const reviewTier = getScoreTier(score);
+        const newBestScore = Math.max(existingProgress.bestScore || 0, score);
+        
+        // Check if the user PASSED this review attempt (score >= 70)
+        // If they failed (score < 70), reschedule for tomorrow without incrementing reviewsCompleted
+        if (reviewTier === 'relearn') {
+            // Failed the review - reschedule for tomorrow, don't increment reviewsCompleted
+            console.log(`[Spaced Repetition] Review FAILED: score=${score}, rescheduling for tomorrow without incrementing progress`);
+            
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 1);
+            nextReview.setHours(0, 0, 0, 0);
+            
+            return upsertUserProblemProgress(userId, problemTitle, {
+                status: 'learning',
+                bestScore: newBestScore,
+                reviewsNeeded: existingProgress.reviewsNeeded,
+                reviewsCompleted: existingProgress.reviewsCompleted, // Keep same, don't increment
+                lastReviewedAt: new Date(),
+                nextReviewAt: nextReview
+            });
+        }
+        
+        // Passed the review - increment reviews_completed
+        const newReviewsCompleted = existingProgress.reviewsCompleted + 1;
+        
+        console.log(`[Spaced Repetition] Review PASSED: reviewsCompleted=${newReviewsCompleted}/${existingProgress.reviewsNeeded}`);
+        
+        // Check if mastered
+        if (newReviewsCompleted >= existingProgress.reviewsNeeded) {
+            // Mastered!
+            console.log(`[Spaced Repetition] MASTERED: ${problemTitle}`);
+            return upsertUserProblemProgress(userId, problemTitle, {
+                status: 'mastered',
+                bestScore: newBestScore,
+                reviewsNeeded: existingProgress.reviewsNeeded,
+                reviewsCompleted: newReviewsCompleted,
+                lastReviewedAt: new Date(),
+                nextReviewAt: null // No more reviews needed
+            });
+        } else {
+            // Still in Review Duty, schedule next review
+            const nextReview = new Date();
+            nextReview.setDate(nextReview.getDate() + 1);
+            nextReview.setHours(0, 0, 0, 0);
+            
+            return upsertUserProblemProgress(userId, problemTitle, {
+                status: 'learning',
+                bestScore: newBestScore,
+                reviewsNeeded: existingProgress.reviewsNeeded,
+                reviewsCompleted: newReviewsCompleted,
+                lastReviewedAt: new Date(),
+                nextReviewAt: nextReview
+            });
+        }
+    }
 }
 
 // ============================================
@@ -239,9 +358,19 @@ export async function buildSpacedRepetitionQueue(
     
     // Calculate pace
     const today = new Date();
+    // Use local timezone for start date calculation to avoid "yesterday" issues
     const startDate = new Date(settings.startDate);
-    const daysPassed = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const daysLeft = Math.max(1, settings.targetDays - daysPassed);
+    
+    // Normalize dates to midnight to count full calendar days
+    const todayMidnight = new Date(today);
+    todayMidnight.setHours(0, 0, 0, 0);
+    
+    const startMidnight = new Date(startDate);
+    startMidnight.setHours(0, 0, 0, 0);
+    
+    // Calculate difference in days (add 1 to include today as Day 1)
+    const daysPassed = Math.floor((todayMidnight.getTime() - startMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const daysLeft = Math.max(1, settings.targetDays - daysPassed + 1); // +1 to include today in remaining days
     
     // Count problems by status (for filtered set if topic provided)
     const filteredProgress = allProgress.filter(p => 

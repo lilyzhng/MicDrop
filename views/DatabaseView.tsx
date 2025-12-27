@@ -163,6 +163,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     const [targetDays, setTargetDays] = useState(10);
     const [showTodayDetails, setShowTodayDetails] = useState(false);
     const [showMasteredDetails, setShowMasteredDetails] = useState(false);
+    const [showPassedDetails, setShowPassedDetails] = useState(false);
     
     // Re-evaluation state - use the same pattern as teaching evaluation
     const [isReEvaluating, setIsReEvaluating] = useState(false);
@@ -181,21 +182,71 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     
     // Get all mastered problems from progressGrid
     const allMasteredProblems = useMemo(() => {
-        const mastered: Array<{ title: string; group: string; difficulty: 'easy' | 'medium' | 'hard'; bestScore: number | null }> = [];
+        const mastered: Array<{ 
+            title: string; 
+            group: string; 
+            difficulty: 'easy' | 'medium' | 'hard'; 
+            bestScore: number | null;
+            reviewsCompleted: number;
+            reviewsNeeded: number;
+            attempts: number;
+        }> = [];
         progressGrid.forEach(group => {
             group.problems.forEach(item => {
                 if (item.progress?.status === 'mastered') {
+                    // Count attempts by counting teach reports for this problem
+                    const attemptCount = savedReports.filter(
+                        r => r.type === 'teach' && r.title === item.problem.title
+                    ).length;
+                    
                     mastered.push({
                         title: item.problem.title,
                         group: group.groupName,
                         difficulty: item.problem.difficulty,
-                        bestScore: item.progress.bestScore
+                        bestScore: item.progress.bestScore,
+                        reviewsCompleted: item.progress.reviewsCompleted,
+                        reviewsNeeded: item.progress.reviewsNeeded,
+                        attempts: attemptCount
                     });
                 }
             });
         });
         return mastered;
-    }, [progressGrid]);
+    }, [progressGrid, savedReports]);
+    
+    // Get all passed problems (in review duty, not yet mastered)
+    const allPassedProblems = useMemo(() => {
+        const passed: Array<{ 
+            title: string; 
+            group: string; 
+            difficulty: 'easy' | 'medium' | 'hard'; 
+            bestScore: number | null;
+            reviewsCompleted: number;
+            reviewsNeeded: number;
+            attempts: number;
+        }> = [];
+        progressGrid.forEach(group => {
+            group.problems.forEach(item => {
+                // Passed = in learning state with reviewsNeeded > 0 (meaning they passed but haven't completed all reviews)
+                if (item.progress?.status === 'learning' && item.progress.reviewsNeeded > 0) {
+                    const attemptCount = savedReports.filter(
+                        r => r.type === 'teach' && r.title === item.problem.title
+                    ).length;
+                    
+                    passed.push({
+                        title: item.problem.title,
+                        group: group.groupName,
+                        difficulty: item.problem.difficulty,
+                        bestScore: item.progress.bestScore,
+                        reviewsCompleted: item.progress.reviewsCompleted,
+                        reviewsNeeded: item.progress.reviewsNeeded,
+                        attempts: attemptCount
+                    });
+                }
+            });
+        });
+        return passed;
+    }, [progressGrid, savedReports]);
     
     // Get all today's reports (including readiness reports for time tracking)
     const todayAllReports = useMemo(() => {
@@ -231,30 +282,67 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
             return reportDate === todayStr;
         });
         
+        // Build a map of progress data from progressGrid
+        const progressMap = new Map<string, { 
+            status: string; 
+            reviewsCompleted: number; 
+            reviewsNeeded: number;
+        }>();
+        progressGrid.forEach(group => {
+            group.problems.forEach(item => {
+                if (item.progress) {
+                    progressMap.set(item.problem.title, {
+                        status: item.progress.status,
+                        reviewsCompleted: item.progress.reviewsCompleted,
+                        reviewsNeeded: item.progress.reviewsNeeded
+                    });
+                }
+            });
+        });
+        
         // Group by problem title - take the best/latest result per problem
         const problemMap = new Map<string, {
             title: string;
             type: string;
-            isMastered: boolean;
             score: number;
+            scoreTier: 'Excellent' | 'Passed' | 'Relearn';
+            status: 'mastered' | 'passed' | 'relearn'; // Derived status for display
+            reviewsCompleted: number;
+            reviewsNeeded: number;
             date: string;
             timeSpentSeconds: number;
             attemptCount: number;
-            reportId: string; // ID of the best report for this problem
+            reportId: string;
         }>();
         
         for (const r of relevantReports) {
-            let isMastered = false;
             let score = 0;
             
             if (r.type === 'walkie') {
-                isMastered = r.reportData?.detectedAutoScore === 'good';
                 score = r.reportData?.rating ?? 0;
             } else if (r.type === 'teach') {
                 const teachingData = r.reportData?.teachingReportData;
-                isMastered = teachingData?.studentOutcome === 'can_implement' && 
-                            (teachingData?.teachingScore ?? 0) >= 75;
                 score = teachingData?.teachingScore ?? 0;
+            }
+            
+            // Determine score tier
+            const scoreTier: 'Excellent' | 'Passed' | 'Relearn' = 
+                score >= 75 ? 'Excellent' : score >= 70 ? 'Passed' : 'Relearn';
+            
+            // Get progress info from progressGrid
+            const progressInfo = progressMap.get(r.title);
+            const reviewsCompleted = progressInfo?.reviewsCompleted ?? 0;
+            const reviewsNeeded = progressInfo?.reviewsNeeded ?? (scoreTier === 'Excellent' ? 1 : scoreTier === 'Passed' ? 2 : 0);
+            const dbStatus = progressInfo?.status ?? 'learning';
+            
+            // Derive display status
+            let displayStatus: 'mastered' | 'passed' | 'relearn';
+            if (dbStatus === 'mastered') {
+                displayStatus = 'mastered';
+            } else if (scoreTier === 'Relearn') {
+                displayStatus = 'relearn';
+            } else {
+                displayStatus = 'passed'; // Passed or Excellent tier, but not yet mastered
             }
             
             const stats = problemStatsMap[r.title] || { time: 0, attempts: 0 };
@@ -263,21 +351,33 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 problemMap.set(r.title, {
                     title: r.title,
                     type: r.type,
-                    isMastered,
                     score,
+                    scoreTier,
+                    status: displayStatus,
+                    reviewsCompleted,
+                    reviewsNeeded,
                     date: r.date,
-                    timeSpentSeconds: stats.time, // Use cumulative time from all reports
-                    attemptCount: stats.attempts, // Use cumulative attempts from all reports
-                    reportId: r.id // Store the report ID
+                    timeSpentSeconds: stats.time,
+                    attemptCount: stats.attempts,
+                    reportId: r.id
                 });
             } else {
-                // Update with better result if this attempt was successful
-                if (isMastered && !existing.isMastered) {
-                    existing.isMastered = true;
+                // Update with better result if this attempt has a higher score
+                if (score > existing.score) {
                     existing.score = score;
+                    existing.scoreTier = scoreTier;
                     existing.type = r.type;
-                    existing.reportId = r.id; // Update to the mastered report ID
+                    existing.reportId = r.id;
                 }
+                // Update status if improved
+                if (displayStatus === 'mastered' && existing.status !== 'mastered') {
+                    existing.status = 'mastered';
+                } else if (displayStatus === 'passed' && existing.status === 'relearn') {
+                    existing.status = 'passed';
+                }
+                // Update review info
+                existing.reviewsCompleted = reviewsCompleted;
+                existing.reviewsNeeded = reviewsNeeded;
                 // Always use cumulative stats
                 existing.timeSpentSeconds = stats.time;
                 existing.attemptCount = stats.attempts;
@@ -285,19 +385,23 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         }
         
         return Array.from(problemMap.values());
-    }, [savedReports, problemStatsMap]);
+    }, [savedReports, problemStatsMap, progressGrid]);
     
     // Calculate today's total study time (sum of all individual report times)
     const todayTotalTime = useMemo(() => {
         return todayAllReports.reduce((sum, r) => sum + (r.reportData?.timeSpentSeconds || 0), 0);
     }, [todayAllReports]);
     
-    // Split into mastered and attempted (not mastered)
+    // Split into mastered, passed (in review), and relearn
     const todayMastered = useMemo(() => 
-        todayReports.filter(r => r.isMastered), [todayReports]);
-    const todayAttempted = useMemo(() => 
-        todayReports.filter(r => !r.isMastered), [todayReports]);
-    const todayCompleted = todayMastered.length;
+        todayReports.filter(r => r.status === 'mastered'), [todayReports]);
+    const todayPassed = useMemo(() => 
+        todayReports.filter(r => r.status === 'passed'), [todayReports]);
+    const todayRelearn = useMemo(() => 
+        todayReports.filter(r => r.status === 'relearn'), [todayReports]);
+    // Count both mastered AND passed as "completed" for daily progress
+    // (passed = score >= 70, queued for review - this is still progress!)
+    const todayCompleted = todayMastered.length + todayPassed.length;
     
     // Load spaced repetition data when Progress tab is active
     useEffect(() => {
@@ -316,9 +420,19 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 
                 // Calculate study stats
                 const today = new Date();
+                // Use local timezone for start date calculation
                 const startDate = new Date(settings.startDate);
-                const daysPassed = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                const daysLeft = Math.max(1, settings.targetDays - daysPassed);
+                
+                // Normalize dates to midnight to count full calendar days
+                const todayMidnight = new Date(today);
+                todayMidnight.setHours(0, 0, 0, 0);
+                
+                const startMidnight = new Date(startDate);
+                startMidnight.setHours(0, 0, 0, 0);
+                
+                // Calculate difference in days (add 1 to include today as Day 1)
+                const daysPassed = Math.floor((todayMidnight.getTime() - startMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                const daysLeft = Math.max(1, settings.targetDays - daysPassed + 1);
                 
                 const newCount = 75 - allProgress.length;
                 const learningCount = allProgress.filter(p => p.status === 'learning').length;
@@ -906,7 +1020,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                      <Target size={16} className="text-gold" />
                                                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Today's Progress</span>
                                                  </div>
-                                                 <span className="text-[10px] text-gray-500 group-hover:text-gold transition-colors">View details →</span>
+                                                 <span className="text-[10px] text-gray-500 group-hover:text-gold transition-colors">View all →</span>
                                              </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="flex items-baseline gap-2">
@@ -915,13 +1029,31 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                                        <div 
-                                                            className="h-full bg-gold transition-all duration-500" 
-                                                            style={{ width: `${Math.min(100, (todayCompleted / dailyCap) * 100)}%` }}
-                                                        />
+                                                        {/* Stacked progress bar: mastered (green) + passed (yellow) */}
+                                                        <div className="h-full flex">
+                                                            <div 
+                                                                className="h-full bg-emerald-500 transition-all duration-500" 
+                                                                style={{ width: `${Math.min(100, (todayMastered.length / dailyCap) * 100)}%` }}
+                                                            />
+                                                            <div 
+                                                                className="h-full bg-yellow-500 transition-all duration-500" 
+                                                                style={{ width: `${Math.min(100 - (todayMastered.length / dailyCap) * 100, (todayPassed.length / dailyCap) * 100)}%` }}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-gray-500 mt-2">
-                                                        {todayCompleted >= dailyCap ? '🎉 Goal reached!' : `${dailyCap - todayCompleted} more to go`}
+                                                    <div className="text-xs text-gray-500 mt-2 flex items-center gap-2">
+                                                        {todayCompleted >= dailyCap ? (
+                                                            <span>🎉 Goal reached!</span>
+                                                        ) : (
+                                                            <>
+                                                                <span>{dailyCap - todayCompleted} more to go</span>
+                                                                {todayMastered.length > 0 && todayPassed.length > 0 && (
+                                                                    <span className="text-gray-600">
+                                                                        ({todayMastered.length} <span className="text-emerald-400">✓</span> + {todayPassed.length} <span className="text-yellow-400">⏳</span>)
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -947,52 +1079,96 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                      </div>
                                      
                                      {/* Second Row - Total Progress */}
-                                     <div className="px-6 pb-6">
-                                         <button 
-                                             onClick={() => setShowMasteredDetails(true)}
-                                             className="w-full bg-white/5 rounded-xl p-5 border border-white/10 text-left hover:bg-white/10 hover:border-emerald-500/30 transition-all cursor-pointer group"
-                                         >
-                                             <div className="flex items-center justify-between mb-3">
-                                                 <div className="flex items-center gap-2">
-                                                     <TrendingUp size={16} className="text-emerald-400" />
-                                                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Progress</span>
-                                                 </div>
-                                                 <span className="text-[10px] text-gray-500 group-hover:text-emerald-400 transition-colors">View all →</span>
-                                             </div>
-                                             <div className="flex items-center gap-6">
-                                                 <div className="flex items-baseline gap-2">
-                                                     <span className="text-4xl font-bold text-emerald-400">{studyStats.masteredCount}</span>
-                                                     <span className="text-xl text-gray-500">/ 75</span>
-                                                 </div>
-                                                 <div className="flex-1">
-                                                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                                                         <div 
-                                                             className="h-full bg-emerald-500 transition-all duration-500" 
-                                                             style={{ width: `${(studyStats.masteredCount / 75) * 100}%` }}
-                                                         />
-                                                     </div>
-                                                     <div className="text-xs text-gray-500 mt-2">
-                                                         {75 - studyStats.masteredCount} problems remaining
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         </button>
-                                     </div>
+                                    <div className="px-6 pb-6">
+                                        {/* Two separate progress cards - matching Today's Progress style */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {/* Passed (In Review Duty) */}
+                                            <button
+                                                onClick={() => setShowPassedDetails(true)}
+                                                className="bg-white/5 rounded-xl p-5 border border-white/10 text-left hover:bg-white/10 hover:border-yellow-500/30 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Target size={16} className="text-yellow-400" />
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Passed</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-500 group-hover:text-yellow-400 transition-colors">View all →</span>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-4xl font-bold text-yellow-400">
+                                                            {(studyStats.learningCount || 0) + (studyStats.masteredCount || 0)}
+                                                        </span>
+                                                        <span className="text-xl text-gray-500">/ 75</span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-yellow-400 transition-all duration-500" 
+                                                                style={{ width: `${(((studyStats.learningCount || 0) + studyStats.masteredCount) / 75) * 100}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mt-2">
+                                                            {studyStats.learningCount || 0} in review duty
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                            
+                                            {/* Mastered (Completed All Reviews) */}
+                                            <button 
+                                                onClick={() => setShowMasteredDetails(true)}
+                                                className="bg-white/5 rounded-xl p-5 border border-white/10 text-left hover:bg-white/10 hover:border-emerald-500/30 transition-all cursor-pointer group"
+                                            >
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <TrendingUp size={16} className="text-emerald-400" />
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Mastered</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-gray-500 group-hover:text-emerald-400 transition-colors">View all →</span>
+                                                </div>
+                                                <div className="flex items-center gap-6">
+                                                    <div className="flex items-baseline gap-2">
+                                                        <span className="text-4xl font-bold text-emerald-400">{studyStats.masteredCount}</span>
+                                                        <span className="text-xl text-gray-500">/ 75</span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-emerald-500 transition-all duration-500" 
+                                                                style={{ width: `${(studyStats.masteredCount / 75) * 100}%` }}
+                                                            />
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 mt-2">
+                                                            {75 - studyStats.masteredCount} remaining
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
                                  </div>
                              )}
                              
                              {/* Blind 75 Problem Grid */}
                              {progressGrid.length > 0 && (
                                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0]">
-                                     <div className="flex items-center justify-between mb-6">
-                                         <div className="flex items-center gap-2">
-                                             <BarChart3 size={18} className="text-charcoal" />
-                                             <h3 className="text-lg font-bold text-charcoal">Blind 75 Progress</h3>
-                                         </div>
-                                         <div className="text-sm text-gray-500">
-                                             {studyStats?.masteredCount ?? 0}/75 mastered ({Math.round(((studyStats?.masteredCount ?? 0) / 75) * 100)}%)
-                                         </div>
-                                     </div>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-2">
+                                            <BarChart3 size={18} className="text-charcoal" />
+                                            <h3 className="text-lg font-bold text-charcoal">Blind 75 Progress</h3>
+                                        </div>
+                                        <div className="text-sm text-gray-500 flex items-center gap-3">
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+                                                {(studyStats?.learningCount ?? 0) + (studyStats?.masteredCount ?? 0)} passed
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                {studyStats?.masteredCount ?? 0} mastered
+                                            </span>
+                                        </div>
+                                    </div>
                                      
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
                                         {progressGrid.map((group) => (
@@ -1034,20 +1210,20 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                         ))}
                                     </div>
                                      
-                                     {/* Legend */}
-                                     <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-gray-100">
-                                         <div className="flex items-center gap-2">
-                                             <div className="w-4 h-4 rounded bg-emerald-500"></div>
-                                             <span className="text-xs text-gray-500">Mastered</span>
-                                         </div>
-                                         <div className="flex items-center gap-2">
-                                             <div className="w-4 h-4 rounded bg-yellow-400"></div>
-                                             <span className="text-xs text-gray-500">Learning</span>
-                                         </div>
-                                         <div className="flex items-center gap-2">
-                                             <div className="w-4 h-4 rounded bg-blue-500"></div>
-                                             <span className="text-xs text-gray-500">Due Today</span>
-                                         </div>
+                                    {/* Legend */}
+                                    <div className="flex items-center justify-center gap-6 mt-6 pt-4 border-t border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-emerald-500"></div>
+                                            <span className="text-xs text-gray-500">Mastered (reviews complete)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-yellow-400"></div>
+                                            <span className="text-xs text-gray-500">Passed (in review duty)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-blue-500"></div>
+                                            <span className="text-xs text-gray-500">Due Today</span>
+                                        </div>
                                          <div className="flex items-center gap-2">
                                              <div className="w-4 h-4 rounded bg-gray-100"></div>
                                              <span className="text-xs text-gray-500">New</span>
@@ -1471,44 +1647,38 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                    >
                                                        {report.title}
                                                    </button>
-                                                   <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                                                   <div className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
                                                        <span className={report.type === 'teach' ? 'text-purple-400' : 'text-gold'}>
                                                            {report.type === 'teach' ? '👨‍🏫 Teach' : '🎤 Explain'}
                                                        </span>
                                                        <span>•</span>
-                                                       <span>Score: {report.score}</span>
-                                                       {report.timeSpentSeconds && report.timeSpentSeconds > 0 && (
-                                                           <>
-                                                               <span>•</span>
-                                                               <span className="flex items-center gap-1 text-gray-500">
-                                                                   <Clock size={10} />
-                                                                   {formatTimeSpent(report.timeSpentSeconds)}
-                                                                   {report.attemptCount > 1 && ` (${report.attemptCount} attempts)`}
-                                                               </span>
-                                                           </>
-                                                       )}
+                                                       <span>Score: {report.score} <span className={report.scoreTier === 'Excellent' ? 'text-emerald-400' : 'text-yellow-400'}>({report.scoreTier})</span></span>
+                                                       <span>•</span>
+                                                       <span>Attempts: {report.attemptCount}</span>
+                                                       <span>•</span>
+                                                       <span className="text-emerald-400">Reviews: {report.reviewsCompleted}/{report.reviewsNeeded}</span>
                                                    </div>
                                                </div>
-                                               <div className="text-emerald-400 ml-2">✓</div>
+                                               <div className="text-emerald-400 ml-2 text-lg">✓</div>
                                            </div>
                                        ))}
                                    </div>
                                  )}
                              </div>
                              
-                             {/* Attempted (Not Mastered) Section */}
+                             {/* Passed (In Review) Section */}
                              <div>
                                  <div className="flex items-center gap-2 mb-3">
                                      <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
                                      <span className="text-sm font-bold text-yellow-400 uppercase tracking-widest">
-                                         Attempted ({todayAttempted.length})
+                                         Passed ({todayPassed.length})
                                      </span>
                                  </div>
-                                 {todayAttempted.length === 0 ? (
-                                     <p className="text-gray-500 text-sm italic">No other attempts today</p>
+                                 {todayPassed.length === 0 ? (
+                                     <p className="text-gray-500 text-sm italic">No passed problems awaiting review</p>
                                  ) : (
                                    <div className="space-y-2">
-                                       {todayAttempted.map((report, idx) => (
+                                       {todayPassed.map((report, idx) => (
                                            <div key={idx} className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 flex items-center justify-between">
                                                <div className="flex-1">
                                                    <button
@@ -1520,33 +1690,69 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                    >
                                                        {report.title}
                                                    </button>
-                                                   <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                                                   <div className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
                                                        <span className={report.type === 'teach' ? 'text-purple-400' : 'text-gold'}>
                                                            {report.type === 'teach' ? '👨‍🏫 Teach' : '🎤 Explain'}
                                                        </span>
                                                        <span>•</span>
-                                                       <span>Score: {report.score}</span>
-                                                       {report.timeSpentSeconds && report.timeSpentSeconds > 0 && (
-                                                           <>
-                                                               <span>•</span>
-                                                               <span className="flex items-center gap-1 text-gray-500">
-                                                                   <Clock size={10} />
-                                                                   {formatTimeSpent(report.timeSpentSeconds)}
-                                                                   {report.attemptCount > 1 && ` (${report.attemptCount} attempts)`}
-                                                               </span>
-                                                           </>
-                                                       )}
+                                                       <span>Score: {report.score} <span className={report.scoreTier === 'Excellent' ? 'text-emerald-400' : 'text-yellow-400'}>({report.scoreTier})</span></span>
+                                                       <span>•</span>
+                                                       <span>Attempts: {report.attemptCount}</span>
+                                                       <span>•</span>
+                                                       <span className="text-yellow-400">Reviews: {report.reviewsCompleted}/{report.reviewsNeeded}</span>
                                                    </div>
                                                </div>
-                                                <div className="text-yellow-400 text-xs ml-2">Needs review</div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                                 )}
+                             </div>
+                             
+                             {/* Relearn Section */}
+                             <div>
+                                 <div className="flex items-center gap-2 mb-3">
+                                     <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                                     <span className="text-sm font-bold text-red-400 uppercase tracking-widest">
+                                         Relearn ({todayRelearn.length})
+                                     </span>
+                                 </div>
+                                 {todayRelearn.length === 0 ? (
+                                     <p className="text-gray-500 text-sm italic">No problems need relearning</p>
+                                 ) : (
+                                   <div className="space-y-2">
+                                       {todayRelearn.map((report, idx) => (
+                                           <div key={idx} className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center justify-between">
+                                               <div className="flex-1">
+                                                   <button
+                                                       onClick={() => {
+                                                           setShowTodayDetails(false);
+                                                           navigate(`/report/${report.reportId}`);
+                                                       }}
+                                                       className="text-white font-medium hover:text-red-300 hover:underline transition-colors text-left"
+                                                   >
+                                                       {report.title}
+                                                   </button>
+                                                   <div className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+                                                       <span className={report.type === 'teach' ? 'text-purple-400' : 'text-gold'}>
+                                                           {report.type === 'teach' ? '👨‍🏫 Teach' : '🎤 Explain'}
+                                                       </span>
+                                                       <span>•</span>
+                                                       <span>Score: {report.score} <span className="text-red-400">(Relearn)</span></span>
+                                                       <span>•</span>
+                                                       <span>Attempts: {report.attemptCount}</span>
+                                                       <span>•</span>
+                                                       <span className="text-red-400">Reviews: —</span>
+                                                   </div>
+                                               </div>
+                                               <div className="text-red-400 text-xs ml-2">Try again</div>
+                                           </div>
+                                       ))}
+                                   </div>
                                  )}
                              </div>
                              
                              {/* Summary */}
-                             {todayMastered.length === 0 && todayAttempted.length === 0 && (
+                             {todayMastered.length === 0 && todayPassed.length === 0 && todayRelearn.length === 0 && (
                                  <div className="text-center py-8">
                                      <div className="text-4xl mb-3">📚</div>
                                      <p className="text-gray-400">No activity yet today</p>
@@ -1615,8 +1821,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                     ) : (
                                                         <div className="text-white font-medium">{problem.title}</div>
                                                     )}
-                                                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-3">
-                                                        <span className="text-emerald-400/70">{problem.group}</span>
+                                                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
                                                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
                                                             problem.difficulty === 'easy' 
                                                                 ? 'bg-green-500/20 text-green-400' 
@@ -1626,12 +1831,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                         }`}>
                                                             {problem.difficulty}
                                                         </span>
-                                                        {problem.bestScore && (
-                                                            <span className="text-gray-500">Best: {problem.bestScore}</span>
-                                                        )}
-                                                        {teachReport && (
-                                                            <span className="text-purple-400">👨‍🏫 Report available</span>
-                                                        )}
+                                                        <span className="text-gray-500">•</span>
+                                                        <span>Score: {problem.bestScore || 0} <span className={problem.bestScore && problem.bestScore >= 75 ? 'text-emerald-400' : 'text-yellow-400'}>({problem.bestScore && problem.bestScore >= 75 ? 'Excellent' : 'Passed'})</span></span>
+                                                        <span className="text-gray-500">•</span>
+                                                        <span>Attempts: {problem.attempts}</span>
+                                                        <span className="text-gray-500">•</span>
+                                                        <span className="text-emerald-400">Reviews: {problem.reviewsCompleted}/{problem.reviewsNeeded}</span>
                                                     </div>
                                                 </div>
                                                 <div className="text-emerald-400 text-lg">✓</div>
@@ -1651,6 +1856,105 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                      </span>
                                      <span className="text-emerald-400 font-bold">
                                          {Math.round((allMasteredProblems.length / 75) * 100)}% complete
+                                     </span>
+                                 </div>
+                             </div>
+                         )}
+                    </div>
+                </div>
+             )}
+             
+             {/* All Passed Problems Modal */}
+             {showPassedDetails && (
+                 <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowPassedDetails(false)}>
+                     <div 
+                         className="bg-charcoal rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10"
+                         onClick={(e) => e.stopPropagation()}
+                     >
+                         {/* Header */}
+                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                             <div>
+                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                     <Target size={20} className="text-yellow-400" />
+                                     Passed Problems (In Review)
+                                 </h2>
+                                 <p className="text-sm text-gray-400 mt-1">
+                                     {allPassedProblems.length} problems awaiting review
+                                 </p>
+                             </div>
+                             <button 
+                                 onClick={() => setShowPassedDetails(false)}
+                                 className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 transition-colors"
+                             >
+                                 <X size={16} />
+                             </button>
+                         </div>
+                         
+                         {/* Content */}
+                         <div className="p-6 overflow-y-auto max-h-[70vh]">
+                             {allPassedProblems.length === 0 ? (
+                                 <div className="text-center py-12">
+                                     <div className="text-5xl mb-4">📚</div>
+                                     <p className="text-gray-400 text-lg">No problems in review duty</p>
+                                     <p className="text-gray-500 text-sm mt-2">Pass problems with a score of 70+ to add them to your review queue!</p>
+                                 </div>
+                             ) : (
+                                <div className="space-y-2">
+                                    {allPassedProblems.map((problem, idx) => {
+                                        const teachReport = findTeachReportForProblem(problem.title);
+                                        return (
+                                            <div 
+                                                key={idx} 
+                                                className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 flex items-center justify-between hover:bg-yellow-500/15 transition-colors"
+                                            >
+                                                <div className="flex-1">
+                                                    {teachReport ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowPassedDetails(false);
+                                                                navigate(`/report/${teachReport.id}`);
+                                                            }}
+                                                            className="text-white font-medium hover:text-yellow-300 hover:underline transition-colors text-left"
+                                                        >
+                                                            {problem.title}
+                                                        </button>
+                                                    ) : (
+                                                        <div className="text-white font-medium">{problem.title}</div>
+                                                    )}
+                                                    <div className="text-xs text-gray-400 mt-1 flex items-center gap-2 flex-wrap">
+                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                                            problem.difficulty === 'easy' 
+                                                                ? 'bg-green-500/20 text-green-400' 
+                                                                : problem.difficulty === 'medium'
+                                                                ? 'bg-yellow-500/20 text-yellow-400'
+                                                                : 'bg-red-500/20 text-red-400'
+                                                        }`}>
+                                                            {problem.difficulty}
+                                                        </span>
+                                                        <span className="text-gray-500">•</span>
+                                                        <span>Score: {problem.bestScore || 0} <span className={problem.bestScore && problem.bestScore >= 75 ? 'text-emerald-400' : 'text-yellow-400'}>({problem.bestScore && problem.bestScore >= 75 ? 'Excellent' : 'Passed'})</span></span>
+                                                        <span className="text-gray-500">•</span>
+                                                        <span>Attempts: {problem.attempts}</span>
+                                                        <span className="text-gray-500">•</span>
+                                                        <span className="text-yellow-400">Reviews: {problem.reviewsCompleted}/{problem.reviewsNeeded}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                             )}
+                         </div>
+                         
+                         {/* Footer */}
+                         {allPassedProblems.length > 0 && (
+                             <div className="p-4 border-t border-white/10 bg-white/5">
+                                 <div className="flex items-center justify-between text-sm">
+                                     <span className="text-gray-400">
+                                         {allPassedProblems.length} problems in review duty
+                                     </span>
+                                     <span className="text-yellow-400 font-bold">
+                                         Complete reviews to master!
                                      </span>
                                  </div>
                              </div>

@@ -43,20 +43,21 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 2. Best Time to Buy and Sell Stock
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Best Time to Buy and Sell Stock',
     'You are given an array prices where prices[i] is the price of a given stock on the ith day. You want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock. Return the maximum profit you can achieve from this transaction. If you cannot achieve any profit, return 0.',
     E'Input: prices = [7,1,5,3,6,4]\nOutput: 5\nExplanation: Buy on day 2 (price = 1) and sell on day 5 (price = 6), profit = 6-1 = 5.',
     '["1 <= prices.length <= 10^5", "0 <= prices[i] <= 10^4"]',
-    'Sliding Window',
-    'Track the minimum price seen so far and calculate potential profit at each step. Update max profit accordingly.',
-    'def maxProfit(prices: List[int]) -> int:\n    min_price = float("inf")\n    max_profit = 0\n    for price in prices:\n        # Update min_price and max_profit\n        pass\n    return max_profit',
+    'Two Pointers',
+    'Use two pointers: left (buy day) and right (sell day). If profitable, update max_profit. If not profitable, move left to right (found a new minimum). Always advance right.',
+    E'def maxProfit(self, prices: List[int]) -> int:\n    left, right = 0, 1\n    max_profit = 0\n\n    while right < len(prices):\n        # if profitable, update max_profit\n        # else, move left to right (new minimum)\n        # always advance right\n        pass\n    \n    return max_profit',
+    E'def maxProfit(self, prices: List[int]) -> int:\n    left, right = 0, 1\n    max_profit = 0\n\n    while right < len(prices):\n        # if profitable\n        if prices[left] < prices[right]:\n            # update profit\n            profit = prices[right] - prices[left]\n            # update max_profit\n            max_profit = max(max_profit, profit)\n        else:\n            # update left pointer\n            left = right\n        # update right pointer\n        right += 1\n    \n    return max_profit',
     'O(n)',
     'O(1)',
-    '["Initialize min_price to infinity, max_profit to 0", "Iterate through each price", "Update min_price if current price is lower", "Calculate profit = current_price - min_price", "Update max_profit if profit is higher"]',
+    '["Initialize left=0 (buy), right=1 (sell), max_profit=0", "While right < len(prices)", "If prices[left] < prices[right]: calculate profit, update max_profit", "Else: move left to right (found new minimum buy price)", "Always increment right pointer"]',
     '["Prices always decreasing (return 0)", "Prices always increasing", "Single day (no transaction possible)", "All same prices", "Minimum at end of array"]',
-    '["Array", "Dynamic Programming"]',
+    '["Array", "Two Pointers"]',
     'easy',
     121
 )
@@ -67,6 +68,7 @@ ON CONFLICT (title) DO UPDATE SET
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
     skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,

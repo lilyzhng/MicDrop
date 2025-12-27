@@ -314,8 +314,8 @@ ${refinedTranscript || '(not available)'}
                     </div>
                 )}
 
-                {/* Full-width Python Code at Bottom */}
-                {problem?.skeleton && (
+                {/* Full-width Python Code at Bottom - prefer complete solution over skeleton */}
+                {(problem?.solution || problem?.skeleton) && (
                     <div className="bg-[#0d0d0d] rounded-xl border border-[#333] overflow-hidden">
                         <div className="px-4 py-2 border-b border-[#333] flex items-center gap-2 bg-[#1a1a1a]">
                             <Code2 size={14} className="text-gold" />
@@ -323,7 +323,7 @@ ${refinedTranscript || '(not available)'}
                         </div>
                         <pre className="p-4 overflow-x-auto text-sm leading-relaxed">
                             <code className="text-gray-300 font-mono whitespace-pre">
-                                {formatText(problem.skeleton)}
+                                {formatText(problem.solution || problem.skeleton)}
                             </code>
                         </pre>
                     </div>

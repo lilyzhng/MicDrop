@@ -285,6 +285,7 @@ const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
     detailedHint: row.detailed_hint || undefined,
     definition: row.definition || undefined,
     skeleton: row.skeleton,
+    solution: row.solution || undefined,
     timeComplexity: row.time_complexity,
     spaceComplexity: row.space_complexity,
     steps: row.steps as string[],
@@ -568,7 +569,7 @@ export const fetchDueReviews = async (userId: string): Promise<UserProblemProgre
         .from('user_problem_progress')
         .select('*')
         .eq('user_id', userId)
-        .neq('status', 'mastered')
+        .neq('status', 'graduated') // Only exclude fully graduated items
         .lte('next_review_at', today)
         .order('next_review_at', { ascending: true });
 
@@ -593,7 +594,7 @@ export const fetchDueTomorrow = async (userId: string): Promise<UserProblemProgr
         .from('user_problem_progress')
         .select('*')
         .eq('user_id', userId)
-        .neq('status', 'mastered')
+        .neq('status', 'graduated') // Only exclude fully graduated items
         .gt('next_review_at', today.toISOString())
         .lte('next_review_at', tomorrow.toISOString())
         .order('next_review_at', { ascending: true });

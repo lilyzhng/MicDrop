@@ -568,8 +568,8 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
             </div>
           )}
 
-          {/* Python Solution */}
-          {problem.skeleton && (
+          {/* Python Solution - prefer complete solution over skeleton */}
+          {(problem.solution || problem.skeleton) && (
             <div>
               <div className="px-6 py-2 border-b border-[#333] flex items-center gap-2 bg-[#1a1a1a]">
                 <Code2 size={14} className="text-gold" />
@@ -577,7 +577,7 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
               </div>
               <pre className="p-6 overflow-x-auto text-sm leading-relaxed bg-[#0d0d0d]">
                 <code className="text-gray-300 font-mono whitespace-pre">
-                  {formatText(problem.skeleton)}
+                  {formatText(problem.solution || problem.skeleton)}
                 </code>
               </pre>
             </div>

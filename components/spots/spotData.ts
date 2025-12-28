@@ -147,3 +147,201 @@ export const clearSpotAssignments = (userId: string): void => {
   }
 };
 
+// Type for progress grid items (from spacedRepetitionService)
+export interface ProgressGridGroup {
+  groupName: string;
+  problems: Array<{ progress: { status: string } | null }>;
+  masteredCount: number;
+  totalCount: number;
+}
+
+/**
+ * Assign random topics to power spots.
+ * Locked spots keep their topics, unlocked spots get random topics.
+ * 
+ * @param progressGrid - Array of topic groups with problem progress
+ * @param lockedAssignments - Array of spots that are locked to specific topics
+ * @param dueReviewCount - Number of due reviews (for Daily Commute spot)
+ */
+export const assignTopicsToSpots = (
+  progressGrid: ProgressGridGroup[],
+  lockedAssignments: SavedSpotAssignment[],
+  dueReviewCount: number = 0
+): import('./spotTypes').SpotWithTopic[] => {
+  // Helper to count NEW problems (no progress at all) in a topic group
+  const countNewProblems = (group: ProgressGridGroup) => 
+    group.problems.filter(p => p.progress === null).length;
+  
+  // For newProblemsOnly spots, use count of problems with no progress
+  // For other spots, use count of unmastered problems
+  const topicsWithRemaining = progressGrid.filter(g => g.masteredCount < g.totalCount);
+  const topicsWithNewProblems = progressGrid.filter(g => countNewProblems(g) > 0);
+  const totalRemaining = topicsWithRemaining.reduce(
+    (sum, g) => sum + (g.totalCount - g.masteredCount), 0
+  );
+  
+  // Get topics that are already locked (to avoid assigning same topic to unlocked spots)
+  const lockedTopics = lockedAssignments.map(a => a.topic);
+  
+  // Filter out locked topics from available topics for unlocked spots
+  const availableTopics = topicsWithRemaining.filter(t => !lockedTopics.includes(t.groupName));
+  const availableTopicsForNewOnly = topicsWithNewProblems.filter(t => !lockedTopics.includes(t.groupName));
+  const shuffledTopics = [...availableTopics].sort(() => Math.random() - 0.5);
+  const shuffledTopicsForNewOnly = [...availableTopicsForNewOnly].sort(() => Math.random() - 0.5);
+  
+  let topicIdx = 0;
+  let topicIdxNewOnly = 0;
+  
+  return POWER_SPOTS.map((spot) => {
+    const isNewProblemsOnly = spot.newProblemsOnly === true;
+    
+    // Handle "Only Reviews" spots (e.g. Daily Commute)
+    if (spot.onlyReviews) {
+      const isCompleted = dueReviewCount === 0;
+      return {
+        ...spot,
+        topic: 'reviews',
+        topicDisplay: 'Daily Reviews',
+        remaining: dueReviewCount,
+        isRandom: false,
+        locked: isCompleted, // Lock if no reviews due
+        reviewsPriority: spot.reviewsPriority,
+        onlyReviews: true,
+        newProblemsOnly: false
+      };
+    }
+
+    // Handle random/mystery spot
+    if (spot.isRandom) {
+      return {
+        ...spot,
+        topic: 'random',
+        topicDisplay: 'Mixed Topics',
+        remaining: totalRemaining,
+        isRandom: true,
+        locked: false,
+        reviewsPriority: spot.reviewsPriority,
+        onlyReviews: spot.onlyReviews || false,
+        newProblemsOnly: isNewProblemsOnly
+      };
+    }
+    
+    // Check if this spot is locked
+    const lockedAssignment = lockedAssignments.find(a => a.spotId === spot.id && a.locked);
+    console.log(`[AssignTopics] Checking spot ${spot.id} (${spot.name}) against lockedAssignments:`, lockedAssignments);
+    console.log(`[AssignTopics] Found match for ${spot.id}:`, lockedAssignment);
+    
+    if (lockedAssignment) {
+      // Use the locked topic
+      const topicGroup = progressGrid.find(g => g.groupName === lockedAssignment.topic);
+      
+      // For newProblemsOnly spots, count problems with no progress
+      // For other spots, count unmastered problems
+      let remaining = 0;
+      if (topicGroup) {
+        if (isNewProblemsOnly) {
+          remaining = countNewProblems(topicGroup);
+        } else {
+          remaining = topicGroup.totalCount - topicGroup.masteredCount;
+        }
+      }
+      
+      // If this is a newProblemsOnly spot and remaining is 0, unlock it (topic is done for today)
+      const shouldUnlock = isNewProblemsOnly && remaining === 0;
+      
+      console.log(`[AssignTopics] Using locked topic "${lockedAssignment.topic}" for spot ${spot.id}, remaining=${remaining}, newProblemsOnly=${isNewProblemsOnly}, shouldUnlock=${shouldUnlock}`);
+      
+      if (shouldUnlock) {
+        // Topic exhausted for newProblemsOnly - unlock and assign new topic
+        console.log(`[AssignTopics] Topic "${lockedAssignment.topic}" exhausted for newProblemsOnly spot, assigning new topic`);
+        const newTopicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
+          || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
+        topicIdxNewOnly++;
+        
+        if (newTopicGroup) {
+          return {
+            ...spot,
+            topic: newTopicGroup.groupName,
+            topicDisplay: newTopicGroup.groupName,
+            remaining: countNewProblems(newTopicGroup),
+            isRandom: false,
+            locked: false, // Unlocked now
+            reviewsPriority: spot.reviewsPriority,
+            onlyReviews: spot.onlyReviews || false,
+            newProblemsOnly: isNewProblemsOnly
+          };
+        } else {
+          // All topics exhausted
+          return {
+            ...spot,
+            topic: 'all_done_today',
+            topicDisplay: 'All Done Today!',
+            remaining: 0,
+            isRandom: false,
+            locked: false,
+            reviewsPriority: spot.reviewsPriority,
+            onlyReviews: spot.onlyReviews || false,
+            newProblemsOnly: isNewProblemsOnly
+          };
+        }
+      }
+      
+      return {
+        ...spot,
+        topic: lockedAssignment.topic,
+        topicDisplay: lockedAssignment.topicDisplay,
+        remaining,
+        isRandom: false,
+        locked: true,
+        reviewsPriority: spot.reviewsPriority,
+        onlyReviews: spot.onlyReviews || false,
+        newProblemsOnly: isNewProblemsOnly
+      };
+    }
+    
+    // Unlocked spot - assign a random topic
+    console.log(`[AssignTopics] No locked assignment for spot ${spot.id}, assigning random topic`);
+    
+    // Use appropriate topic pool based on spot type
+    let topicGroup;
+    if (isNewProblemsOnly) {
+      topicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
+        || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
+      topicIdxNewOnly++;
+    } else {
+      topicGroup = shuffledTopics[topicIdx % Math.max(shuffledTopics.length, 1)] 
+      || topicsWithRemaining[topicIdx % Math.max(topicsWithRemaining.length, 1)];
+    topicIdx++;
+    }
+    
+    if (topicGroup) {
+      const remaining = isNewProblemsOnly 
+        ? countNewProblems(topicGroup) 
+        : topicGroup.totalCount - topicGroup.masteredCount;
+      return {
+        ...spot,
+        topic: topicGroup.groupName,
+        topicDisplay: topicGroup.groupName,
+        remaining,
+        isRandom: false,
+        locked: false,
+        reviewsPriority: spot.reviewsPriority,
+        onlyReviews: spot.onlyReviews || false,
+        newProblemsOnly: isNewProblemsOnly
+      };
+    } else {
+      return {
+        ...spot,
+        topic: isNewProblemsOnly ? 'all_done_today' : 'all_mastered',
+        topicDisplay: isNewProblemsOnly ? 'All Done Today!' : 'All Mastered!',
+        remaining: 0,
+        isRandom: false,
+        locked: false,
+        reviewsPriority: spot.reviewsPriority,
+        onlyReviews: spot.onlyReviews || false,
+        newProblemsOnly: isNewProblemsOnly
+      };
+    }
+  });
+};
+

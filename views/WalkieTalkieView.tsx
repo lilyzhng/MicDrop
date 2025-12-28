@@ -13,7 +13,7 @@ import {
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport } from '../types';
 import { UserStudySettings, StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
-import { analyzeWalkieSession, refineTranscript } from '../services/analysisService';
+import { analyzeWalkieSession } from '../services/analysisService';
 import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews } from '../services/databaseService';
 import { 
   getJuniorResponse, 
@@ -416,177 +416,168 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
   };
 
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    isRecordingRef.current = false; // Track in ref for onend handler
-    if (recognitionRef.current) recognitionRef.current.stop();
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.onstop = async () => {
-        // For paired mode, evaluate readiness to teach first
-        if (sessionMode === 'paired') {
-          // Show loading state immediately while processing
-          setStep('readiness_evaluating');
-          
-          try {
-            if (currentProblem) {
-              // Skip refinement - send raw transcript directly to preserve all content
-              // The evaluation prompt handles transcription errors gracefully
-              setExplainTranscript(rawTranscript);
-              setTranscript(rawTranscript);
-              
-              // HINT PENALTY: If user used hints, they are automatically "not ready"
-              // A teacher should be able to explain the solution without referring to hints
-              if (usedHints) {
-                const hintPenaltyReport: ReadinessReport = {
-                  readinessScore: 40,
-                  isReadyToTeach: false,
-                  checklist: {
-                    coreInsight: {
-                      present: false,
-                      quality: 'vague',
-                      feedback: 'You used hints during this section. Try to internalize the core insight before teaching.'
-                    },
-                    stateDefinition: {
-                      present: false,
-                      quality: 'hand-wavy',
-                      feedback: 'Hints were referenced. Practice explaining the state definition from memory.'
-                    },
-                    exampleWalkthrough: {
-                      present: false,
-                      quality: 'abstract',
-                      feedback: 'Work through examples without hints to build confidence.'
-                    },
-                    edgeCases: {
-                      mentioned: [],
-                      missing: ['All edge cases - hints were used'],
-                      feedback: 'Review edge cases without hints to solidify understanding.'
-                    },
-                    complexity: {
-                      timeMentioned: false,
-                      timeCorrect: false,
-                      spaceMentioned: false,
-                      spaceCorrect: false,
-                      feedback: 'Practice complexity analysis without referring to hints.'
-                    }
-                  },
-                  missingElements: [
-                    { element: 'No Hints', correctAnswer: 'Explain without using hints' },
-                    { element: 'Memory Recall', correctAnswer: 'Teachers explain from memory' },
-                    { element: 'Independence', correctAnswer: 'Try again without revealing hints' }
-                  ],
-                  strengthElements: [],
-                  suggestion: 'Go back and explain the solution without using any hints. A strong teacher can explain the concept from memory.'
-                };
-                setReadinessReport(hintPenaltyReport);
-                
-                // Save hint penalty readiness report
-                const hintPenaltyPerformanceReport: PerformanceReport = {
-                  rating: hintPenaltyReport.readinessScore,
-                  summary: hintPenaltyReport.suggestion,
-                  suggestions: [],
-                  pronunciationFeedback: [],
-                  readinessReportData: hintPenaltyReport,
-                  readinessProblem: currentProblem,
-                  rawTranscript: rawTranscript,
-                  refinedTranscript: rawTranscript,
-                  timeSpentSeconds: getElapsedSeconds()
-                };
-                onSaveReport(currentProblem.title, 'readiness', hintPenaltyPerformanceReport);
-                
-                setStep('readiness_reveal');
-                return;
+  // Shared logic for processing explanation (used by both voice and text input)
+  const processExplanation = async (text: string) => {
+    if (!text.trim() || !currentProblem) return;
+    
+    // Set the transcript
+    setRawTranscript(text);
+    setTranscript(text);
+    setExplainTranscript(text);
+    
+    // For paired mode, evaluate readiness to teach
+    if (sessionMode === 'paired') {
+      setStep('readiness_evaluating');
+      
+      try {
+        // HINT PENALTY: If user used hints, they are automatically "not ready"
+        if (usedHints) {
+          const hintPenaltyReport: ReadinessReport = {
+            readinessScore: 40,
+            isReadyToTeach: false,
+            checklist: {
+              coreInsight: {
+                present: false,
+                quality: 'vague',
+                feedback: 'You used hints during this section. Try to internalize the core insight before teaching.'
+              },
+              stateDefinition: {
+                present: false,
+                quality: 'hand-wavy',
+                feedback: 'Hints were referenced. Practice explaining the state definition from memory.'
+              },
+              exampleWalkthrough: {
+                present: false,
+                quality: 'abstract',
+                feedback: 'Work through examples without hints to build confidence.'
+              },
+              edgeCases: {
+                mentioned: [],
+                missing: ['All edge cases - hints were used'],
+                feedback: 'Review edge cases without hints to solidify understanding.'
+              },
+              complexity: {
+                timeMentioned: false,
+                timeCorrect: false,
+                spaceMentioned: false,
+                spaceCorrect: false,
+                feedback: 'Practice complexity analysis without referring to hints.'
               }
-              
-              // No hints used - proceed with AI evaluation (loading state already shown)
-              const readiness = await evaluateReadinessToTeach(currentProblem, rawTranscript);
-              setReadinessReport(readiness);
-              setExplainTranscript(rawTranscript);
-              
-              // Save readiness report to My Performance
-              const readinessPerformanceReport: PerformanceReport = {
-                rating: readiness.readinessScore,
-                summary: readiness.suggestion,
-                suggestions: [],
-                pronunciationFeedback: [],
-                readinessReportData: readiness,
-                readinessProblem: currentProblem,
-                rawTranscript: rawTranscript,
-                refinedTranscript: rawTranscript,
-                timeSpentSeconds: getElapsedSeconds()
-              };
-              onSaveReport(currentProblem.title, 'readiness', readinessPerformanceReport);
-              
-              setStep('readiness_reveal');
-            }
-          } catch (e) {
-            console.error("Readiness evaluation failed", e);
-            setStep('problem');
-          }
+            },
+            missingElements: [
+              { element: 'No Hints', correctAnswer: 'Explain without using hints' },
+              { element: 'Memory Recall', correctAnswer: 'Teachers explain from memory' },
+              { element: 'Independence', correctAnswer: 'Try again without revealing hints' }
+            ],
+            strengthElements: [],
+            suggestion: 'Go back and explain the solution without using any hints. A strong teacher can explain the concept from memory.'
+          };
+          setReadinessReport(hintPenaltyReport);
+          
+          // Save hint penalty readiness report
+          const hintPenaltyPerformanceReport: PerformanceReport = {
+            rating: hintPenaltyReport.readinessScore,
+            summary: hintPenaltyReport.suggestion,
+            suggestions: [],
+            pronunciationFeedback: [],
+            readinessReportData: hintPenaltyReport,
+            readinessProblem: currentProblem,
+            rawTranscript: text,
+            refinedTranscript: text,
+            timeSpentSeconds: getElapsedSeconds()
+          };
+          onSaveReport(currentProblem.title, 'readiness', hintPenaltyPerformanceReport);
+          
+          setStep('readiness_reveal');
           return;
         }
         
-        // Standard explain mode - full analysis
-        setStep('analyzing');
-        setAnalysisPhase('refining');
+        // No hints used - proceed with AI evaluation
+        const readiness = await evaluateReadinessToTeach(currentProblem, text);
+        setReadinessReport(readiness);
         
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp3' });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Audio = (reader.result as string).split(',')[1];
-          try {
-            if (currentProblem) {
-              const polishedText = await refineTranscript(rawTranscript, `Solving coding problem: ${currentProblem.title}`);
-              setTranscript(polishedText);
-              setAnalysisPhase('evaluating');
-              const report = await analyzeWalkieSession(base64Audio, polishedText, currentProblem);
-              
-              // Determine tier based on rating (source of truth)
-              // Score >= 75: Excellent (1 review required)
-              // Score 70-74: Passed (2 reviews required)
-              // Score < 70: Relearn (needs re-attempt)
-              // HINT PENALTY: If user used hints, they cannot achieve 'good' (Excellent) status
-              let score: 'good' | 'partial' | 'missed' = 
-                report.rating >= 75 ? 'good' : 
-                report.rating >= 70 ? 'partial' : 
-                'missed';
-              
-              // Apply hint penalty - max score is 'partial' if hints were used
-              if (usedHints && score === 'good') {
-                score = 'partial';
-              }
-              report.detectedAutoScore = score;
-              report.timeSpentSeconds = getElapsedSeconds();
-              
-              setAiReport(report);
-
-              // Auto-Save and Auto-Update Stats
-              onSaveReport(currentProblem.title, 'walkie', report);
-              
-              // Update spaced repetition progress
-              if (useSpacedRepetition && user?.id) {
-                  const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
-                  await updateProgressAfterAttempt(
-                      user.id,
-                      currentProblem.title,
-                      report.rating,
-                      currentProblem.difficulty,
-                      existingProgress
-                  );
-              }
-              
-              if (score === 'good') {
-                  onMastered(currentProblem.title);
-                  setSessionScore(prev => prev + 1);
-              }
-
-              setStep('reveal');
-            }
-          } catch (e) {
-            console.error("AI Analysis failed", e);
-            setStep('reveal');
-          }
+        // Save readiness report
+        const readinessPerformanceReport: PerformanceReport = {
+          rating: readiness.readinessScore,
+          summary: readiness.suggestion,
+          suggestions: [],
+          pronunciationFeedback: [],
+          readinessReportData: readiness,
+          readinessProblem: currentProblem,
+          rawTranscript: text,
+          refinedTranscript: text,
+          timeSpentSeconds: getElapsedSeconds()
         };
-        reader.readAsDataURL(audioBlob);
+        onSaveReport(currentProblem.title, 'readiness', readinessPerformanceReport);
+        
+        setStep('readiness_reveal');
+      } catch (e) {
+        console.error("Readiness evaluation failed", e);
+        setStep('problem');
+      }
+      return;
+    }
+    
+    // Standard explain mode - full analysis
+    setStep('analyzing');
+    setAnalysisPhase('evaluating');
+    
+    try {
+      const report = await analyzeWalkieSession('', text, currentProblem);
+      
+      // Determine tier based on rating
+      let score: 'good' | 'partial' | 'missed' = 
+        report.rating >= 75 ? 'good' : 
+        report.rating >= 70 ? 'partial' : 
+        'missed';
+      
+      // Apply hint penalty
+      if (usedHints && score === 'good') {
+        score = 'partial';
+      }
+      report.detectedAutoScore = score;
+      report.timeSpentSeconds = getElapsedSeconds();
+      
+      setAiReport(report);
+      onSaveReport(currentProblem.title, 'walkie', report);
+      
+      // Update spaced repetition progress
+      if (useSpacedRepetition && user?.id) {
+        const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
+        await updateProgressAfterAttempt(
+          user.id,
+          currentProblem.title,
+          report.rating,
+          currentProblem.difficulty,
+          existingProgress
+        );
+      }
+      
+      if (score === 'good') {
+        onMastered(currentProblem.title);
+        setSessionScore(prev => prev + 1);
+      }
+      
+      setStep('reveal');
+    } catch (e) {
+      console.error("AI Analysis failed", e);
+      setStep('reveal');
+    }
+  };
+
+  // Handle text submission for explain/problem step
+  const handleTextSubmit = (text: string) => {
+    processExplanation(text);
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+    isRecordingRef.current = false;
+    if (recognitionRef.current) recognitionRef.current.stop();
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.onstop = async () => {
+        // Use the shared processing logic with the recorded transcript
+        await processExplanation(rawTranscript);
       };
       mediaRecorderRef.current.stop();
     }
@@ -800,20 +791,15 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
   };
 
-  const handleStopTeachingRecording = async () => {
-    setIsTeachingRecording(false);
-    isTeachingRecordingRef.current = false; // Track in ref for onend handler
-    if (recognitionRef.current) recognitionRef.current.stop();
-    
-    if (!teachingRawTranscript.trim() || !currentProblem || !teachingSession) return;
+  // Shared logic for processing a teaching turn (used by both voice and text input)
+  const processTeachingTurn = async (text: string) => {
+    if (!text.trim() || !currentProblem || !teachingSession) return;
     
     setStep('junior_thinking');
     
     try {
-      // Skip refinement - send raw transcript directly to preserve ALL content
-      // The Junior Engineer prompt handles transcription errors gracefully
-      // This prevents the AI refiner from accidentally removing example traces
-      const updatedSession = addTurn(teachingSession, 'teacher', teachingRawTranscript, teachingRawTranscript);
+      // Add the text as a turn
+      const updatedSession = addTurn(teachingSession, 'teacher', text, text);
       setTeachingSession(updatedSession);
       
       // Get junior's response
@@ -844,8 +830,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         const report = await evaluateTeaching(currentProblem, finalSession);
         setTeachingReport(report);
         
-        // Save the teaching report as a PerformanceReport-compatible format
-        // Include full teaching report data for proper viewing later
+        // Save the teaching report
         const performanceReport: PerformanceReport = {
           rating: report.teachingScore,
           summary: `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
@@ -859,14 +844,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             explanation: ''
           })),
           teachingReportData: report,
-          teachingSession: updatedSession,  // Include the full dialog
+          teachingSession: updatedSession,
           juniorSummary: finalSession.juniorSummary,
-          teachingProblem: currentProblem,  // Include problem for model answer display
+          teachingProblem: currentProblem,
           timeSpentSeconds: getElapsedSeconds()
         };
         onSaveReport(currentProblem.title, 'teach', performanceReport);
         
-        // Update spaced repetition progress (use teaching score as rating)
+        // Update spaced repetition progress
         if (useSpacedRepetition && user?.id) {
           const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
           await updateProgressAfterAttempt(
@@ -879,7 +864,6 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         }
         
         // Mark as mastered if student can implement AND teaching score >= 75
-        // This ensures both good outcome AND quality teaching
         if (report.studentOutcome === 'can_implement' && report.teachingScore >= 75) {
           onMastered(currentProblem.title);
           setSessionScore(prev => prev + 1);
@@ -899,7 +883,22 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       console.error("Teaching response failed", e);
       setStep('teaching');
     }
+  };
+
+  // Handle text submission for teaching step
+  const handleTeachingTextSubmit = (text: string) => {
+    processTeachingTurn(text);
+  };
+
+  const handleStopTeachingRecording = async () => {
+    setIsTeachingRecording(false);
+    isTeachingRecordingRef.current = false;
+    if (recognitionRef.current) recognitionRef.current.stop();
     
+    if (!teachingRawTranscript.trim()) return;
+    
+    // Use the shared processing logic with the recorded transcript
+    await processTeachingTurn(teachingRawTranscript);
     setTeachingRawTranscript("");
   };
 
@@ -1158,6 +1157,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         setStep={setStep}
         handleStartRecording={handleStartRecording}
         handleStopRecording={handleStopRecording}
+        handleTextSubmit={handleTextSubmit}
         setRevealHintIdx={setRevealHintIdx}
         setUsedHints={setUsedHints}
         setShowDefinitionExpanded={setShowDefinitionExpanded}
@@ -1202,6 +1202,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         setTtsEnabled={setTtsEnabled}
         handleStartTeachingRecording={handleStartTeachingRecording}
         handleStopTeachingRecording={handleStopTeachingRecording}
+        handleTeachingTextSubmit={handleTeachingTextSubmit}
         handleEndTeachingSession={handleEndTeachingSession}
         speakJuniorResponse={speakJuniorResponse}
       />

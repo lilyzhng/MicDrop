@@ -2,9 +2,10 @@
  * ProblemStep Component
  * 
  * The problem display and recording screen for explaining solutions.
+ * Supports both voice recording and text input modes.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   Mic, 
@@ -12,12 +13,15 @@ import {
   ExternalLink, 
   Sparkles, 
   Layers, 
-  StopCircle 
+  StopCircle,
+  Keyboard,
+  Send
 } from 'lucide-react';
 import { BlindProblem } from '../../types';
 import { getNeetCodeUrl } from '../../config/neetcodeUrls';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
+type InputMode = 'voice' | 'text';
 
 interface ProblemStepProps {
   step: 'problem' | 'recording';
@@ -34,6 +38,7 @@ interface ProblemStepProps {
   setStep: (step: 'locations' | 'recording') => void;
   handleStartRecording: () => void;
   handleStopRecording: () => void;
+  handleTextSubmit: (text: string) => void;
   setRevealHintIdx: (fn: (prev: number) => number) => void;
   setUsedHints: (used: boolean) => void;
   setShowDefinitionExpanded: (show: boolean) => void;
@@ -52,10 +57,21 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
   setStep,
   handleStartRecording,
   handleStopRecording,
+  handleTextSubmit,
   setRevealHintIdx,
   setUsedHints,
   setShowDefinitionExpanded
 }) => {
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+  const [textInput, setTextInput] = useState('');
+
+  const onTextSubmit = () => {
+    if (textInput.trim()) {
+      handleTextSubmit(textInput.trim());
+      setTextInput('');
+    }
+  };
+
   return (
     <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
       {/* Header - Mobile responsive */}
@@ -184,26 +200,85 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
         </div>
       </div>
 
-      {/* Recording Controls - Mobile responsive */}
+      {/* Recording/Text Controls - Mobile responsive */}
       <div className="p-6 sm:p-10 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 flex flex-col items-center">
+        {/* Input Mode Toggle */}
+        {step === 'problem' && (
+          <div className="flex items-center gap-2 mb-6">
+            <button
+              onClick={() => setInputMode('voice')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                inputMode === 'voice'
+                  ? 'bg-gold/20 border border-gold/40 text-gold'
+                  : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+              }`}
+            >
+              <Mic size={12} />
+              <span>Voice</span>
+            </button>
+            <button
+              onClick={() => setInputMode('text')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                inputMode === 'text'
+                  ? 'bg-gold/20 border border-gold/40 text-gold'
+                  : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+              }`}
+            >
+              <Keyboard size={12} />
+              <span>Type</span>
+            </button>
+          </div>
+        )}
+
         {step === 'problem' ? (
-          <button onClick={() => { setStep('recording'); handleStartRecording(); }} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-charcoal border-4 border-white/10 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group"><Mic size={28} className="sm:w-10 sm:h-10 group-hover:text-gold transition-colors" /></button>
+          inputMode === 'voice' ? (
+            // Voice mode - show mic button
+            <button onClick={() => { setStep('recording'); handleStartRecording(); }} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-charcoal border-4 border-white/10 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group">
+              <Mic size={28} className="sm:w-10 sm:h-10 group-hover:text-gold transition-colors" />
+            </button>
+          ) : (
+            // Text mode - show text area and submit button
+            <div className="w-full max-w-2xl flex flex-col items-center">
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder={sessionMode === 'paired' 
+                  ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
+                  : "Type your explanation of the solution..."}
+                className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 mb-4 border border-white/10 min-h-[150px] sm:min-h-[200px] max-h-[40vh] text-gray-200 font-serif text-base sm:text-lg resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+              />
+              <button 
+                onClick={onTextSubmit}
+                disabled={!textInput.trim()}
+                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
+                  textInput.trim() 
+                    ? 'bg-gold hover:scale-110 active:scale-95 border-gold/40' 
+                    : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <Send size={24} className="sm:w-8 sm:h-8" />
+              </button>
+            </div>
+          )
         ) : (
+          // Recording mode - show transcript and stop button
           <div className="w-full max-w-2xl flex flex-col items-center">
             <div className={`w-full bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 mb-6 sm:mb-10 border border-white/10 min-h-[80px] sm:min-h-[120px] max-h-[30vh] sm:max-h-[40vh] overflow-y-auto text-gray-400 font-serif italic text-base sm:text-xl text-center ${!rawTranscript ? 'flex items-center justify-center' : 'block'}`}>
                 {rawTranscript || (sessionMode === 'paired' 
                   ? "Form your mental model: insight, state, example, edges, complexity..." 
                   : "Verbalize your mental model...")}
             </div>
-            <button onClick={handleStopRecording} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95"><StopCircle size={28} className="sm:w-10 sm:h-10" /></button>
+            <button onClick={handleStopRecording} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95">
+              <StopCircle size={28} className="sm:w-10 sm:h-10" />
+            </button>
           </div>
         )}
         <span className="mt-5 sm:mt-8 text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] sm:tracking-[0.4em]">
           {step === 'problem' 
-            ? (sessionMode === 'paired' ? 'Start Explaining' : 'Push to Explain') 
+            ? (inputMode === 'text' ? 'Submit Explanation' : (sessionMode === 'paired' ? 'Start Explaining' : 'Push to Explain'))
             : 'Stop Recording'}
         </span>
-        {sessionMode === 'paired' && step === 'problem' && (
+        {sessionMode === 'paired' && step === 'problem' && inputMode === 'voice' && (
           <p className="mt-3 text-[9px] text-gray-600 text-center max-w-sm">
             Cover: core insight, state definition, example walkthrough, edge cases, and complexity
           </p>

@@ -2,9 +2,10 @@
  * TeachingStep Component
  * 
  * The teaching conversation screen where user teaches a junior engineer.
+ * Supports both voice recording and text input modes.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   Mic, 
@@ -13,11 +14,13 @@ import {
   MessageCircle, 
   Volume2, 
   VolumeX, 
-  Send 
+  Send,
+  Keyboard
 } from 'lucide-react';
 import { BlindProblem, TeachingSession } from '../../types';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
+type InputMode = 'voice' | 'text';
 
 interface TeachingStepProps {
   step: 'teaching' | 'junior_question';
@@ -34,6 +37,7 @@ interface TeachingStepProps {
   setTtsEnabled: (enabled: boolean) => void;
   handleStartTeachingRecording: () => void;
   handleStopTeachingRecording: () => void;
+  handleTeachingTextSubmit: (text: string) => void;
   handleEndTeachingSession: () => void;
   speakJuniorResponse: (text: string) => void;
 }
@@ -51,9 +55,20 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
   setTtsEnabled,
   handleStartTeachingRecording,
   handleStopTeachingRecording,
+  handleTeachingTextSubmit,
   handleEndTeachingSession,
   speakJuniorResponse
 }) => {
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+  const [textInput, setTextInput] = useState('');
+
+  const onTextSubmit = () => {
+    if (textInput.trim()) {
+      handleTeachingTextSubmit(textInput.trim());
+      setTextInput('');
+    }
+  };
+
   return (
     <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
       {/* Header */}
@@ -160,11 +175,41 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
         </div>
       </div>
 
-      {/* Recording Controls */}
+      {/* Recording/Text Controls */}
       <div className="p-4 sm:p-8 bg-gradient-to-t from-black via-black/95 to-transparent shrink-0">
         <div className="max-w-2xl mx-auto">
-          {/* TTS Toggle */}
-          <div className="flex items-center justify-center gap-2 mb-4">
+          {/* Mode Toggles Row */}
+          <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
+            {/* Input Mode Toggle */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setInputMode('voice')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                  inputMode === 'voice'
+                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                    : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+                }`}
+              >
+                <Mic size={12} />
+                <span>Voice</span>
+              </button>
+              <button
+                onClick={() => setInputMode('text')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                  inputMode === 'text'
+                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
+                    : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+                }`}
+              >
+                <Keyboard size={12} />
+                <span>Type</span>
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="w-px h-4 bg-white/10" />
+
+            {/* TTS Toggle */}
             <button 
               onClick={() => setTtsEnabled(!ttsEnabled)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
@@ -178,8 +223,8 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
             </button>
           </div>
 
-          {/* Recording UI */}
-          {isTeachingRecording ? (
+          {/* Voice Recording UI */}
+          {inputMode === 'voice' && isTeachingRecording ? (
             <div className="flex flex-col items-center">
               <div className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 mb-4 border border-white/10 min-h-[60px] max-h-[20vh] overflow-y-auto text-gray-400 font-serif italic text-sm text-center">
                 {teachingRawTranscript || "Speaking..."}
@@ -192,7 +237,8 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
               </button>
               <span className="mt-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">Tap to Send</span>
             </div>
-          ) : (
+          ) : inputMode === 'voice' ? (
+            // Voice mode - not recording
             <div className="flex flex-col items-center gap-4">
               <div className="flex items-center gap-3">
                 <button 
@@ -210,6 +256,43 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
               </div>
               <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
                 {step === 'junior_question' ? 'Continue Teaching' : 'Start Teaching'}
+              </span>
+            </div>
+          ) : (
+            // Text mode UI
+            <div className="flex flex-col items-center gap-4">
+              <textarea
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Type your teaching response here..."
+                className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 min-h-[100px] max-h-[25vh] text-gray-200 font-serif text-sm resize-none focus:outline-none focus:border-purple-500/40 placeholder:text-gray-500 placeholder:italic"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    onTextSubmit();
+                  }
+                }}
+              />
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={onTextSubmit}
+                  disabled={!textInput.trim()}
+                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
+                    textInput.trim() 
+                      ? 'bg-purple-600 hover:scale-110 active:scale-95 border-purple-500/40' 
+                      : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <Send size={20} className="sm:w-6 sm:h-6" />
+                </button>
+                <button 
+                  onClick={handleEndTeachingSession}
+                  className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
+                >
+                  End Session
+                </button>
+              </div>
+              <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                ⌘/Ctrl + Enter to send
               </span>
             </div>
           )}

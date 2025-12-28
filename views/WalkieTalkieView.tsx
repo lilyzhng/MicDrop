@@ -1,7 +1,17 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Home, ArrowLeft, Mic, StopCircle, ChevronRight, CheckCircle2, Award, Sparkles, Code2, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Coffee, Trees, Train, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf, GraduationCap, MessageCircle, Volume2, VolumeX, Send, Layers, ExternalLink, Settings, Calendar, RefreshCw, Lock } from 'lucide-react';
+import { Home, ArrowLeft, Mic, StopCircle, CheckCircle2, Award, Sparkles, Loader2, BrainCircuit, X, ShieldAlert, BookOpen, Trophy, Star, AlertCircle, Flame, Target, Repeat, Zap, Leaf, GraduationCap, MessageCircle, Volume2, VolumeX, Send, Layers, ExternalLink, Settings, Calendar } from 'lucide-react';
+import { 
+  SpotCard,
+  SpotWithTopic,
+  PowerSpot,
+  SavedSpotAssignment,
+  POWER_SPOTS,
+  getLockedSpotAssignments,
+  lockSpotAssignment,
+  getDateString
+} from '../components/spots';
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingTurn, JuniorState, TeachingReport, ReadinessReport } from '../types';
 import { UserStudySettings, StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
@@ -167,14 +177,10 @@ interface WalkieTalkieViewProps {
   savedReports: SavedReport[];
 }
 
-// Helper to get date string in YYYY-MM-DD format (LOCAL timezone)
-const getDateString = (date: Date | string): string => {
+// Helper to get date string from Date or string (for report counting)
+const getDateStringFromReport = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  // Use local timezone instead of UTC
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getDateString(d);
 };
 
 // Helper to count questions solved per day from saved reports
@@ -197,7 +203,7 @@ const countQuestionsByDate = (reports: SavedReport[]): Record<string, number> =>
   });
   
   for (const report of relevantReports) {
-    const dateStr = getDateString(report.date);
+    const dateStr = getDateStringFromReport(report.date);
     
     if (!uniquePerDay[dateStr]) {
       uniquePerDay[dateStr] = new Set();
@@ -243,128 +249,7 @@ const getDailyStats = (reports: SavedReport[], days: number = 7): DailyStats[] =
   return stats;
 };
 
-// 3 REAL WORLD LOCATIONS - Two with specific topics, one random (mystery)
-const POWER_SPOTS = [
-  { 
-    id: 'spot3', 
-    name: 'The Daily Commute', 
-    ritual: 'Transit', 
-    icon: 'train', 
-    description: 'Never miss your daily reviews!',
-    isRandom: false,
-    reviewsPriority: true,
-    onlyReviews: true,
-    newProblemsOnly: false
-  },
-  { 
-    id: 'spot2', 
-    name: 'The Coffee Sanctuary', 
-    ritual: 'Deep Focus', 
-    icon: 'coffee', 
-    description: 'A warm brew and focused topic practice.',
-    isRandom: false,
-    reviewsPriority: false,
-    onlyReviews: false,
-    newProblemsOnly: true
-  },
-  { 
-    id: 'spot1', 
-    name: 'The Mysterious Forest', 
-    ritual: 'Adventure', 
-    icon: 'forest', 
-    description: 'Venture into the unknown with mixed challenges.',
-    isRandom: true,
-    reviewsPriority: false,
-    onlyReviews: false,
-    newProblemsOnly: false
-  }
-];
-
-// Type for spot with assigned topic
-interface SpotWithTopic {
-  id: string;
-  name: string;
-  ritual: string;
-  icon: string;
-  description: string;
-  topic: string;  // The problem_group name (or 'random' for mystery spot)
-  topicDisplay: string;  // Formatted display name
-  remaining: number;  // Problems not mastered in this topic (or total remaining for random)
-  isRandom: boolean;  // Whether this spot uses random/mixed topics
-  locked: boolean;  // Whether the topic is locked (user has entered this spot today)
-  reviewsPriority: boolean;  // Whether this spot prioritizes all reviews first (ignores topic filtering for reviews)
-  onlyReviews: boolean; // If true, this spot only serves reviews and locks when done
-  newProblemsOnly: boolean; // If true, this spot only serves new problems (no reviews)
-}
-
-// Type for saved spot topic assignments (persisted per day)
-// Only spots that have been "entered" are saved/locked
-interface SavedSpotAssignment {
-  spotId: string;
-  topic: string;
-  topicDisplay: string;
-  locked: boolean;  // true = user has entered this spot, topic is frozen for the day
-}
-
-interface SavedDayAssignments {
-  date: string;  // YYYY-MM-DD format
-  assignments: SavedSpotAssignment[];
-}
-
-// Helper to get/save today's locked spot topic assignments from localStorage
-const SPOT_ASSIGNMENTS_KEY = 'walkie_talkie_spot_assignments';
-
-const getLockedSpotAssignments = (userId: string): SavedDayAssignments | null => {
-  try {
-    const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
-    const saved = localStorage.getItem(key);
-    if (!saved) return null;
-    
-    const parsed: SavedDayAssignments = JSON.parse(saved);
-    const todayStr = getDateString(new Date());
-    
-    // Only return if the saved assignments are from today
-    if (parsed.date === todayStr) {
-      return parsed;
-    }
-    return null;
-  } catch (error) {
-    console.error('Error loading saved spot assignments:', error);
-    return null;
-  }
-};
-
-const lockSpotAssignment = (userId: string, spotId: string, topic: string, topicDisplay: string) => {
-  try {
-    const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
-    const todayStr = getDateString(new Date());
-    
-    // Get existing locked assignments
-    const existing = getLockedSpotAssignments(userId);
-    const existingAssignments = existing?.assignments || [];
-    
-    // Check if this spot is already locked
-    const alreadyLocked = existingAssignments.find(a => a.spotId === spotId && a.locked);
-    if (alreadyLocked) return; // Already locked, don't update
-    
-    // Add/update this spot as locked
-    const updatedAssignments = existingAssignments.filter(a => a.spotId !== spotId);
-    updatedAssignments.push({
-      spotId,
-      topic,
-      topicDisplay,
-      locked: true
-    });
-    
-    const data: SavedDayAssignments = {
-      date: todayStr,
-      assignments: updatedAssignments
-    };
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error('Error locking spot assignment:', error);
-  }
-};
+// POWER_SPOTS, SpotWithTopic, and related types/functions are imported from '../components/spots'
 
 const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave, savedReports }) => {
   // Get auth context for user ID
@@ -383,7 +268,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   
   const [step, setStep] = useState<StepType>('locations');
   const [analysisPhase, setAnalysisPhase] = useState<'refining' | 'evaluating'>('refining');
-  const [selectedSpot, setSelectedSpot] = useState<typeof POWER_SPOTS[0] | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<PowerSpot | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
@@ -412,7 +297,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     lockedAssignments: SavedSpotAssignment[],
     dueReviewCount: number = 0
   ): SpotWithTopic[] => {
+    // Helper to count NEW problems (no progress at all) in a topic group
+    const countNewProblems = (group: Awaited<ReturnType<typeof getProgressGrid>>[number]) => 
+      group.problems.filter(p => p.progress === null).length;
+    
+    // For newProblemsOnly spots, use count of problems with no progress
+    // For other spots, use count of unmastered problems
     const topicsWithRemaining = progressGrid.filter(g => g.masteredCount < g.totalCount);
+    const topicsWithNewProblems = progressGrid.filter(g => countNewProblems(g) > 0);
     const totalRemaining = topicsWithRemaining.reduce(
       (sum, g) => sum + (g.totalCount - g.masteredCount), 0
     );
@@ -422,11 +314,16 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     
     // Filter out locked topics from available topics for unlocked spots
     const availableTopics = topicsWithRemaining.filter(t => !lockedTopics.includes(t.groupName));
+    const availableTopicsForNewOnly = topicsWithNewProblems.filter(t => !lockedTopics.includes(t.groupName));
     const shuffledTopics = [...availableTopics].sort(() => Math.random() - 0.5);
+    const shuffledTopicsForNewOnly = [...availableTopicsForNewOnly].sort(() => Math.random() - 0.5);
     
     let topicIdx = 0;
+    let topicIdxNewOnly = 0;
     
     return POWER_SPOTS.map((spot) => {
+      const isNewProblemsOnly = (spot as any).newProblemsOnly === true;
+      
       // Handle "Only Reviews" spots (e.g. Daily Commute)
       if ((spot as any).onlyReviews) {
         const isCompleted = dueReviewCount === 0;
@@ -438,7 +335,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           isRandom: false,
           locked: isCompleted, // Lock if no reviews due
           reviewsPriority: spot.reviewsPriority,
-          onlyReviews: true
+          onlyReviews: true,
+          newProblemsOnly: false
         };
       }
 
@@ -452,19 +350,70 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           isRandom: true,
           locked: false,
           reviewsPriority: spot.reviewsPriority,
-          onlyReviews: (spot as any).onlyReviews
+          onlyReviews: (spot as any).onlyReviews,
+          newProblemsOnly: isNewProblemsOnly
         };
       }
       
       // Check if this spot is locked
       const lockedAssignment = lockedAssignments.find(a => a.spotId === spot.id && a.locked);
+      console.log(`[AssignTopics] Checking spot ${spot.id} (${spot.name}) against lockedAssignments:`, lockedAssignments);
+      console.log(`[AssignTopics] Found match for ${spot.id}:`, lockedAssignment);
       
       if (lockedAssignment) {
         // Use the locked topic
         const topicGroup = progressGrid.find(g => g.groupName === lockedAssignment.topic);
-        const remaining = topicGroup 
-          ? topicGroup.totalCount - topicGroup.masteredCount 
-          : 0;
+        
+        // For newProblemsOnly spots, count problems with no progress
+        // For other spots, count unmastered problems
+        let remaining = 0;
+        if (topicGroup) {
+          if (isNewProblemsOnly) {
+            remaining = countNewProblems(topicGroup);
+          } else {
+            remaining = topicGroup.totalCount - topicGroup.masteredCount;
+          }
+        }
+        
+        // If this is a newProblemsOnly spot and remaining is 0, unlock it (topic is done for today)
+        const shouldUnlock = isNewProblemsOnly && remaining === 0;
+        
+        console.log(`[AssignTopics] Using locked topic "${lockedAssignment.topic}" for spot ${spot.id}, remaining=${remaining}, newProblemsOnly=${isNewProblemsOnly}, shouldUnlock=${shouldUnlock}`);
+        
+        if (shouldUnlock) {
+          // Topic exhausted for newProblemsOnly - unlock and assign new topic
+          console.log(`[AssignTopics] Topic "${lockedAssignment.topic}" exhausted for newProblemsOnly spot, assigning new topic`);
+          const newTopicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
+            || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
+          topicIdxNewOnly++;
+          
+          if (newTopicGroup) {
+            return {
+              ...spot,
+              topic: newTopicGroup.groupName,
+              topicDisplay: newTopicGroup.groupName,
+              remaining: countNewProblems(newTopicGroup),
+              isRandom: false,
+              locked: false, // Unlocked now
+              reviewsPriority: spot.reviewsPriority,
+              onlyReviews: (spot as any).onlyReviews,
+              newProblemsOnly: isNewProblemsOnly
+            };
+          } else {
+            // All topics exhausted
+            return {
+              ...spot,
+              topic: 'all_done_today',
+              topicDisplay: 'All Done Today!',
+              remaining: 0,
+              isRandom: false,
+              locked: false,
+              reviewsPriority: spot.reviewsPriority,
+              onlyReviews: (spot as any).onlyReviews,
+              newProblemsOnly: isNewProblemsOnly
+            };
+          }
+        }
         
         return {
           ...spot,
@@ -474,36 +423,52 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           isRandom: false,
           locked: true,
           reviewsPriority: spot.reviewsPriority,
-          onlyReviews: (spot as any).onlyReviews
+          onlyReviews: (spot as any).onlyReviews,
+          newProblemsOnly: isNewProblemsOnly
         };
       }
       
       // Unlocked spot - assign a random topic
-      const topicGroup = shuffledTopics[topicIdx % Math.max(shuffledTopics.length, 1)] 
-        || topicsWithRemaining[topicIdx % Math.max(topicsWithRemaining.length, 1)];
-      topicIdx++;
+      console.log(`[AssignTopics] No locked assignment for spot ${spot.id}, assigning random topic`);
+      
+      // Use appropriate topic pool based on spot type
+      let topicGroup;
+      if (isNewProblemsOnly) {
+        topicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
+          || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
+        topicIdxNewOnly++;
+      } else {
+        topicGroup = shuffledTopics[topicIdx % Math.max(shuffledTopics.length, 1)] 
+          || topicsWithRemaining[topicIdx % Math.max(topicsWithRemaining.length, 1)];
+        topicIdx++;
+      }
       
       if (topicGroup) {
+        const remaining = isNewProblemsOnly 
+          ? countNewProblems(topicGroup) 
+          : topicGroup.totalCount - topicGroup.masteredCount;
         return {
           ...spot,
           topic: topicGroup.groupName,
           topicDisplay: topicGroup.groupName,
-          remaining: topicGroup.totalCount - topicGroup.masteredCount,
+          remaining,
           isRandom: false,
           locked: false,
           reviewsPriority: spot.reviewsPriority,
-          onlyReviews: (spot as any).onlyReviews
+          onlyReviews: (spot as any).onlyReviews,
+          newProblemsOnly: isNewProblemsOnly
         };
       } else {
         return {
           ...spot,
-          topic: 'all_mastered',
-          topicDisplay: 'All Mastered!',
+          topic: isNewProblemsOnly ? 'all_done_today' : 'all_mastered',
+          topicDisplay: isNewProblemsOnly ? 'All Done Today!' : 'All Mastered!',
           remaining: 0,
           isRandom: false,
           locked: false,
           reviewsPriority: spot.reviewsPriority,
-          onlyReviews: (spot as any).onlyReviews
+          onlyReviews: (spot as any).onlyReviews,
+          newProblemsOnly: isNewProblemsOnly
         };
       }
     });
@@ -514,7 +479,18 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     e.stopPropagation(); // Prevent triggering the spot click
     if (!user?.id || progressGridData.length === 0) return;
     
-    const topicsWithRemaining = progressGridData.filter(g => g.masteredCount < g.totalCount);
+    // Find the current spot to check if it's newProblemsOnly
+    const currentSpot = spotsWithTopics.find(s => s.id === spotId);
+    const isNewProblemsOnly = currentSpot?.newProblemsOnly === true;
+    
+    // Helper to count new problems (no progress)
+    const countNewProblems = (group: typeof progressGridData[number]) => 
+      group.problems.filter(p => p.progress === null).length;
+    
+    // Use appropriate filter based on spot type
+    const topicsWithAvailable = isNewProblemsOnly
+      ? progressGridData.filter(g => countNewProblems(g) > 0)
+      : progressGridData.filter(g => g.masteredCount < g.totalCount);
     
     // Get topics that are already used by other spots (to avoid duplicates)
     const usedTopics = spotsWithTopics
@@ -522,12 +498,17 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       .map(s => s.topic);
     
     // Filter out used topics
-    const availableTopics = topicsWithRemaining.filter(t => !usedTopics.includes(t.groupName));
+    const availableTopics = topicsWithAvailable.filter(t => !usedTopics.includes(t.groupName));
     
     if (availableTopics.length === 0) return;
     
     // Pick a random topic from available ones
     const randomTopic = availableTopics[Math.floor(Math.random() * availableTopics.length)];
+    
+    // Calculate remaining based on spot type
+    const remaining = isNewProblemsOnly 
+      ? countNewProblems(randomTopic) 
+      : randomTopic.totalCount - randomTopic.masteredCount;
     
     // Update just this spot
     setSpotsWithTopics(prev => prev.map(spot => {
@@ -536,7 +517,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           ...spot,
           topic: randomTopic.groupName,
           topicDisplay: randomTopic.groupName,
-          remaining: randomTopic.totalCount - randomTopic.masteredCount
+          remaining
         };
       }
       return spot;
@@ -567,16 +548,21 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       
     // Get locked assignments from today
     const lockedAssignments = getLockedSpotAssignments(user.id);
-    // Only consider spots locked if they are explicitly marked as review-only (Daily Commute)
-    // This cleans up any legacy locked state for non-review spots like Coffee Sanctuary
+    console.log('[LoadSpots] Raw locked assignments:', lockedAssignments);
+    
+    // Consider spots locked if they are non-random (Daily Commute and Coffee Sanctuary)
+    // Random/mystery spots should never be locked
     const lockedOnly = lockedAssignments?.assignments.filter(a => {
-      // Check if the spot is actually configured as onlyReviews in POWER_SPOTS
+      // Check if the spot is configured as non-random in POWER_SPOTS
       const spotConfig = POWER_SPOTS.find(s => s.id === a.spotId);
-      return a.locked && spotConfig && (spotConfig as any).onlyReviews;
+      return a.locked && spotConfig && !spotConfig.isRandom;
     }) || [];
+    
+    console.log('[LoadSpots] Filtered locked assignments:', lockedOnly);
       
       // Assign topics: locked spots keep their topics, unlocked spots get random topics
       const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount);
+      console.log('[LoadSpots] Assigned spots:', assignedSpots.map(s => ({ id: s.id, name: s.name, topic: s.topic, locked: s.locked })));
       
       setSpotsWithTopics(assignedSpots);
     } catch (error) {
@@ -1004,9 +990,12 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setSelectedSpot(spot);
     setStep('curating');
     
-    // Lock this spot's topic ONLY if it's the Daily Commute (onlyReviews)
-    // Other spots like Coffee Sanctuary should NOT be locked - they can be refreshed
-    if ((spot as any).onlyReviews && user?.id) {
+    // Lock this spot's topic for non-random spots (Daily Commute and Coffee Sanctuary)
+    // This ensures the topic persists when the page is refreshed
+    // Users can still manually refresh a spot's topic before entering using the refresh button
+    console.log('[StartSession] Spot:', { id: spot.id, name: spot.name, topic: spot.topic, isRandom: spot.isRandom });
+    if (!spot.isRandom && user?.id) {
+      console.log('[StartSession] Locking spot', spot.id, 'with topic', spot.topic);
       lockSpotAssignment(user.id, spot.id, spot.topic, spot.topicDisplay);
       
       // Update local state to reflect the lock
@@ -1458,16 +1447,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
   };
 
-  const getSpotIcon = (icon: string) => {
-    const iconClass = "w-6 h-6 sm:w-7 sm:h-7";
-    switch(icon) {
-        case 'coffee': return <Coffee className={iconClass} />;
-        case 'park': return <Trees className={iconClass} />;
-        case 'forest': return <Trees className={iconClass} />; // Color inherited from parent container
-        case 'train': return <Train className={iconClass} />;
-        default: return <Target className={iconClass} />;
-    }
-  };
+  // getSpotIcon moved to SpotCard component
 
   if (step === 'locations') {
     return (
@@ -1603,80 +1583,13 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             </div>
           ) : (
             spotsWithTopics.map((spot) => (
-              <button 
-                key={spot.id} 
-                onClick={() => spot.remaining > 0 ? startSpotSession(spot) : null}
-                disabled={spot.remaining === 0}
-                className={`w-full rounded-2xl sm:rounded-[2.5rem] border-2 p-4 sm:p-6 md:p-8 flex items-center gap-4 sm:gap-6 md:gap-8 text-left transition-all group ${
-                  spot.remaining === 0 
-                    ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' 
-                    : spot.reviewsPriority && studyStats && studyStats.dueToday > 0
-                    ? 'bg-red-950/30 border-red-500/30 hover:border-red-400/50 hover:bg-red-900/40'
-                    : spot.isRandom
-                    ? 'bg-emerald-950/30 border-emerald-500/20 hover:border-emerald-400/50 hover:bg-emerald-900/40'
-                    : 'bg-white/5 border-white/5 hover:border-gold/40 hover:bg-gold/5'
-                }`}
-              >
-                <div className={`w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl sm:rounded-3xl border flex items-center justify-center transition-all shrink-0 ${
-                  spot.isRandom 
-                    ? 'bg-emerald-900/50 border-emerald-500/30 text-emerald-400 group-hover:scale-110 group-hover:bg-emerald-400 group-hover:text-charcoal'
-                    : 'bg-charcoal border-white/10 text-white group-hover:scale-110 group-hover:bg-gold group-hover:text-charcoal'
-                }`}>
-                    {getSpotIcon(spot.icon)}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest mb-0.5 sm:mb-1 ${spot.isRandom ? 'text-emerald-400' : 'text-gold'}`}>{spot.ritual}</div>
-                    <h3 className="text-lg sm:text-xl md:text-2xl font-serif font-bold mb-1 sm:mb-1.5 truncate">{spot.name}</h3>
-                    
-                    {/* Topic Tag */}
-                    <div className="flex items-center gap-2 mb-1 sm:mb-1.5 flex-wrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${
-                        spot.isRandom 
-                          ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-300'
-                          : spot.locked
-                          ? 'bg-amber-500/20 border border-amber-500/30 text-amber-300'
-                          : 'bg-blue-500/20 border border-blue-500/30 text-blue-300'
-                      }`}>
-                        {spot.isRandom ? <Sparkles size={10} className="sm:w-3 sm:h-3" /> : spot.locked ? <Lock size={10} className="sm:w-3 sm:h-3" /> : <Target size={10} className="sm:w-3 sm:h-3" />}
-                        {spot.topicDisplay}
-                      </span>
-                      {/* Reviews Priority Badge */}
-                      {spot.reviewsPriority && studyStats && studyStats.dueToday > 0 && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse">
-                          <AlertCircle size={10} className="sm:w-3 sm:h-3" />
-                          {studyStats.dueToday} review{studyStats.dueToday !== 1 ? 's' : ''} due
-                        </span>
-                      )}
-                      {/* Shuffle button for unlocked, non-random spots */}
-                      {!spot.isRandom && !spot.locked && spot.remaining > 0 && !(spot as any).onlyReviews && (
-                        <button
-                          onClick={(e) => handleRefreshSingleSpot(spot.id, e)}
-                          className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-gray-400 hover:bg-blue-500/20 hover:border-blue-500/30 hover:text-blue-300 transition-all"
-                          title={`Shuffle ${spot.name} topic`}
-                        >
-                          <RefreshCw size={10} className="sm:w-3 sm:h-3" />
-                        </button>
-                      )}
-                      {spot.locked && (
-                        <span className="text-[8px] sm:text-[9px] text-amber-400/70 italic">
-                          locked today
-                        </span>
-                      )}
-                      <span className={`text-[9px] sm:text-[10px] font-mono ${spot.remaining === 0 ? 'text-green-400' : 'text-gray-400'}`}>
-                        {spot.remaining === 0 ? '✓ Complete' : `${spot.remaining} remaining`}
-                      </span>
-                    </div>
-                    
-                    <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed line-clamp-1">{spot.description}</p>
-                </div>
-                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  spot.isRandom 
-                    ? 'bg-emerald-500/10 text-emerald-500 group-hover:text-emerald-300'
-                    : 'bg-white/5 text-gray-500 group-hover:text-gold'
-                }`}>
-                    <ChevronRight size={16} className="sm:w-5 sm:h-5" />
-                </div>
-              </button>
+              <SpotCard
+                key={spot.id}
+                spot={spot}
+                studyStats={studyStats}
+                onStartSession={startSpotSession}
+                onRefresh={handleRefreshSingleSpot}
+              />
             ))
           )}
 

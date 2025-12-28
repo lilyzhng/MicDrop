@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, Clock, AlertCircle, BarChart3, Loader2 } from 'lucide-react';
+import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, ChevronDown, Clock, AlertCircle, BarChart3, Loader2 } from 'lucide-react';
 import { SavedItem, SavedReport, BlindProblem } from '../types';
 import { StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
@@ -165,6 +165,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     const [showMasteredDetails, setShowMasteredDetails] = useState(false);
     const [showPassedDetails, setShowPassedDetails] = useState(false);
     
+    // Expanded problem groups state
+    const [expandedProblems, setExpandedProblems] = useState<Set<string>>(new Set());
+    
     // Re-evaluation state - use the same pattern as teaching evaluation
     const [isReEvaluating, setIsReEvaluating] = useState(false);
     const [updatedReport, setUpdatedReport] = useState<SavedReport | null>(null);
@@ -258,7 +261,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         });
     }, [savedReports]);
     
-    // Calculate cumulative time and attempt count per problem (sum all attempts: explain + teach + retries)
+    // Calculate cumulative time and attempt count per problem
+    // Time includes all report types (walkie, teach, readiness)
+    // Attempts only count actual teaching sessions (walkie, teach), NOT readiness checks
     const problemStatsMap = useMemo(() => {
         const statsMap: Record<string, { time: number; attempts: number }> = {};
         for (const r of todayAllReports) {
@@ -267,7 +272,10 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 statsMap[r.title] = { time: 0, attempts: 0 };
             }
             statsMap[r.title].time += time;
-            statsMap[r.title].attempts += 1;
+            // Only count walkie and teach as attempts (not readiness checks)
+            if (r.type === 'walkie' || r.type === 'teach') {
+                statsMap[r.title].attempts += 1;
+            }
         }
         return statsMap;
     }, [todayAllReports]);
@@ -869,38 +877,58 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                              'readiness': 'bg-teal-500/10 text-teal-600'
                                          };
                                          
-                                         return (
-                                             <div key={group.title} className="bg-white rounded-xl shadow-sm border border-[#EBE8E0] overflow-hidden">
-                                                 {/* Problem Header */}
-                                                 <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                                                     <div className="flex items-center justify-between">
-                                                         <div className="flex items-center gap-3">
-                                                             {group.isMastered && (
-                                                                 <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs">✓</div>
-                                                             )}
-                                                             <div>
-                                                                 <h3 className="text-lg font-bold text-charcoal">{group.title}</h3>
-                                                                 <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
-                                                                     <span>{group.reports.length} attempt{group.reports.length !== 1 ? 's' : ''}</span>
-                                                                     {group.totalTime > 0 && (
-                                                                         <>
-                                                                             <span>•</span>
-                                                                             <span className="flex items-center gap-1">
-                                                                                 <Clock size={10} />
-                                                                                 {formatTimeSpent(group.totalTime)} total
-                                                                             </span>
-                                                                         </>
-                                                                     )}
-                                                                     <span>•</span>
-                                                                     <span>Best: {group.bestScore}</span>
-                                                                 </div>
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-                                                 
-                                                 {/* Individual Reports */}
-                                                 <div className="divide-y divide-gray-100">
+return (
+                                            <div key={group.title} className="bg-white rounded-xl shadow-sm border border-[#EBE8E0] overflow-hidden">
+                                                {/* Problem Header - Clickable */}
+                                                <button 
+                                                    onClick={() => {
+                                                        setExpandedProblems(prev => {
+                                                            const newSet = new Set(prev);
+                                                            if (newSet.has(group.title)) {
+                                                                newSet.delete(group.title);
+                                                            } else {
+                                                                newSet.add(group.title);
+                                                            }
+                                                            return newSet;
+                                                        });
+                                                    }}
+                                                    className="w-full p-4 bg-gray-50/50 hover:bg-gray-100/50 transition-colors text-left"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            {group.isMastered && (
+                                                                <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs">✓</div>
+                                                            )}
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-charcoal">{group.title}</h3>
+                                                                <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                                                                    <span>{group.reports.length} attempt{group.reports.length !== 1 ? 's' : ''}</span>
+                                                                    {group.totalTime > 0 && (
+                                                                        <>
+                                                                            <span>•</span>
+                                                                            <span className="flex items-center gap-1">
+                                                                                <Clock size={10} />
+                                                                                {formatTimeSpent(group.totalTime)} total
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                    <span>•</span>
+                                                                    <span>Best: {group.bestScore}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <ChevronDown 
+                                                            size={20} 
+                                                            className={`text-gray-400 transition-transform duration-200 ${
+                                                                expandedProblems.has(group.title) ? 'rotate-180' : ''
+                                                            }`} 
+                                                        />
+                                                    </div>
+                                                </button>
+                                                
+                                                {/* Individual Reports - Collapsible */}
+                                                {expandedProblems.has(group.title) && (
+                                                <div className="divide-y divide-gray-100 border-t border-gray-100">
                                                      {group.reports
                                                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                                          .map(report => {
@@ -968,15 +996,16 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                                                                  >
                                                                                      <Trash2 size={14} />
                                                                                  </button>
-                                                                             </>
-                                                                         )}
-                                                                     </div>
-                                                                 </div>
-                                                             );
-                                                         })}
-                                                 </div>
-                                             </div>
-                                         );
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                </div>
+                                                )}
+                                            </div>
+                                        );
                                      })}
                             </div>
                          )}

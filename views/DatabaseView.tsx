@@ -21,51 +21,9 @@ import {
     fetchDueReviews, 
     fetchDueTomorrow 
 } from '../services/databaseService';
+import { getDateString, countQuestionsByDate } from '../utils/reportUtils';
 
-// Helper to get date string in YYYY-MM-DD format (LOCAL timezone)
-const getDateString = (date: Date | string): string => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  // Use local timezone instead of UTC
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Helper to count mastered questions by date from saved reports
-const countMasteredByDate = (reports: SavedReport[]): Record<string, number> => {
-  const counts: Record<string, number> = {};
-  const uniquePerDay: Record<string, Set<string>> = {};
-  
-  const relevantReports = reports.filter(r => {
-    if (r.type === 'walkie') {
-      return r.reportData?.detectedAutoScore === 'good';
-    }
-    if (r.type === 'teach') {
-      const teachingData = r.reportData?.teachingReportData;
-      return teachingData?.studentOutcome === 'can_implement' && (teachingData?.teachingScore ?? 0) >= 75;
-    }
-    return false;
-  });
-  
-  for (const report of relevantReports) {
-    const dateStr = getDateString(report.date);
-    
-    if (!uniquePerDay[dateStr]) {
-      uniquePerDay[dateStr] = new Set();
-    }
-    
-    // Only count unique problems per day
-    if (!uniquePerDay[dateStr].has(report.title)) {
-      uniquePerDay[dateStr].add(report.title);
-      counts[dateStr] = (counts[dateStr] || 0) + 1;
-    }
-  }
-  
-  return counts;
-};
-
-// Count all attempts (not just mastered) by date
+// Count all attempts (not just completed) by date
 const countAttemptsByDate = (reports: SavedReport[]): Record<string, number> => {
   const counts: Record<string, number> = {};
   
@@ -407,9 +365,13 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         todayReports.filter(r => r.status === 'passed'), [todayReports]);
     const todayRelearn = useMemo(() => 
         todayReports.filter(r => r.status === 'relearn'), [todayReports]);
-    // Count both mastered AND passed as "completed" for daily progress
-    // (passed = score >= 70, queued for review - this is still progress!)
-    const todayCompleted = todayMastered.length + todayPassed.length;
+    // Count completed problems for today using the shared utility
+    // This ensures consistency with WalkieTalkie's Daily Quest display
+    const todayCompleted = useMemo(() => {
+        const todayStr = getDateString(new Date());
+        const counts = countQuestionsByDate(savedReports);
+        return counts[todayStr] || 0;
+    }, [savedReports]);
     
     // Load spaced repetition data when Progress tab is active
     useEffect(() => {
@@ -492,8 +454,8 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         loadProgressData();
     }, [activeTab, user?.id]);
     
-    // Compute daily stats
-    const masteredByDate = useMemo(() => countMasteredByDate(savedReports), [savedReports]);
+    // Compute daily stats using shared utility for consistency
+    const completedByDate = useMemo(() => countQuestionsByDate(savedReports), [savedReports]);
     const attemptsByDate = useMemo(() => countAttemptsByDate(savedReports), [savedReports]);
     
     
@@ -1391,33 +1353,33 @@ return (
                                          const day = i + 1;
                                          const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day);
                                          const dateStr = getDateString(date);
-                                         const mastered = masteredByDate[dateStr] || 0;
+                                         const completed = completedByDate[dateStr] || 0;
                                          const attempts = attemptsByDate[dateStr] || 0;
                                          const isToday = dateStr === getDateString(new Date());
                                          const isFuture = date > new Date();
                                          
                                          return (
-                                             <div 
-                                                 key={day}
-                                                 className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all ${
-                                                     isToday ? 'ring-2 ring-gold ring-offset-2' : ''
-                                                 } ${
-                                                     mastered >= 15 ? 'bg-gold text-white' :
-                                                     mastered >= 10 ? 'bg-gold/60 text-white' :
-                                                     mastered >= 5 ? 'bg-gold/30 text-charcoal' :
-                                                     mastered > 0 ? 'bg-gold/10 text-charcoal' :
-                                                     isFuture ? 'bg-gray-50 text-gray-300' :
-                                                     'bg-gray-50 text-gray-500'
-                                                 }`}
-                                                 title={`${mastered} mastered / ${attempts} attempts`}
-                                             >
-                                                 <span className={`text-sm font-bold ${mastered >= 10 ? 'text-white' : ''}`}>{day}</span>
-                                                 {mastered > 0 && (
-                                                     <span className={`text-[9px] font-bold ${mastered >= 10 ? 'text-white/80' : 'text-gold'}`}>
-                                                         {mastered >= 15 ? '🔥' : mastered}
-                                                     </span>
-                                                 )}
-                                             </div>
+                                            <div 
+                                                key={day}
+                                                className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all ${
+                                                    isToday ? 'ring-2 ring-gold ring-offset-2' : ''
+                                                } ${
+                                                    completed >= 15 ? 'bg-gold text-white' :
+                                                    completed >= 10 ? 'bg-gold/60 text-white' :
+                                                    completed >= 5 ? 'bg-gold/30 text-charcoal' :
+                                                    completed > 0 ? 'bg-gold/10 text-charcoal' :
+                                                    isFuture ? 'bg-gray-50 text-gray-300' :
+                                                    'bg-gray-50 text-gray-500'
+                                                }`}
+                                                title={`${completed} completed / ${attempts} attempts`}
+                                            >
+                                                <span className={`text-sm font-bold ${completed >= 10 ? 'text-white' : ''}`}>{day}</span>
+                                                {completed > 0 && (
+                                                    <span className={`text-[9px] font-bold ${completed >= 10 ? 'text-white/80' : 'text-gold'}`}>
+                                                        {completed >= 15 ? '🔥' : completed}
+                                                    </span>
+                                                )}
+                                            </div>
                                          );
                                      })}
                                  </div>

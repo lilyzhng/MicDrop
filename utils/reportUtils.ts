@@ -7,17 +7,13 @@
 import { SavedReport } from '../types';
 
 // Helper to get date string (YYYY-MM-DD format) in LOCAL timezone
-export const getDateString = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-// Helper to get date string from Date or string (for report counting)
-export const getDateStringFromReport = (date: Date | string): string => {
+// Accepts both Date objects and date strings for flexibility
+export const getDateString = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return getDateString(d);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Daily stats interface for tracking study history
@@ -29,29 +25,35 @@ export interface DailyStats {
 }
 
 /**
- * Count unique questions solved per day from saved reports.
- * Only counts "mastered" completions:
- * - Walkie: detectedAutoScore === 'good'
- * - Teach: studentOutcome === 'can_implement' AND teachingScore >= 75
+ * Count unique questions completed per day from saved reports.
+ * Counts "passed" completions (score >= 70) which includes both:
+ * - Passed tier (score 70-74): queued for review
+ * - Mastered tier (score >= 75): excellent performance
+ * 
+ * This matches the criteria used in My Performance daily progress.
  */
 export const countQuestionsByDate = (reports: SavedReport[]): Record<string, number> => {
   const counts: Record<string, number> = {};
   const uniquePerDay: Record<string, Set<string>> = {};
   
-  // Only count walkie and teach reports that were "mastered"
+  // Count walkie and teach reports with score >= 70 (passed or mastered)
   const relevantReports = reports.filter(r => {
     if (r.type === 'walkie') {
-      return r.reportData?.detectedAutoScore === 'good';
+      // Score >= 70 means passed (70-74) or mastered (>= 75)
+      // detectedAutoScore 'good' = 75+, 'partial' = 70-74
+      const score = r.rating ?? 0;
+      return score >= 70;
     }
     if (r.type === 'teach') {
       const teachingData = r.reportData?.teachingReportData;
-      return teachingData?.studentOutcome === 'can_implement' && (teachingData?.teachingScore ?? 0) >= 75;
+      const teachingScore = teachingData?.teachingScore ?? r.rating ?? 0;
+      return teachingScore >= 70;
     }
     return false;
   });
   
   for (const report of relevantReports) {
-    const dateStr = getDateStringFromReport(report.date);
+    const dateStr = getDateString(report.date);
     
     if (!uniquePerDay[dateStr]) {
       uniquePerDay[dateStr] = new Set();

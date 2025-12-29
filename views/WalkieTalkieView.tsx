@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
   SpotWithTopic,
@@ -54,6 +54,8 @@ import {
   DIFFICULTY_MAP
 } from '../components/steps';
 import { countQuestionsByDate, getDailyStats } from '../utils/reportUtils';
+import { useIdleSessionTimeout } from '../hooks';
+import { IdleTimeoutWarning } from '../components/IdleTimeoutWarning';
 
 interface WalkieTalkieViewProps {
   onHome: (force: boolean) => void;
@@ -296,6 +298,31 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   };
 
   const currentProblem = problemQueue[currentQueueIdx];
+  
+  // Idle Session Timeout - auto-close after 20 minutes of inactivity
+  const handleIdleTimeout = useCallback(() => {
+    console.log('[IdleTimeout] Session closed due to inactivity');
+    // Clean up any active recording
+    if (recognitionRef.current) recognitionRef.current.stop();
+    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    stopSpeaking();
+    // Return to locations
+    setStep('locations');
+  }, []);
+  
+  // Only track idle time on steps where user input is expected (not loading/reveal screens)
+  const isAwaitingUserInput = step === 'problem' || step === 'recording' || step === 'teaching' || step === 'junior_question';
+  
+  const {
+    timeRemainingMs,
+    isWarning: isIdleWarning,
+    dismissWarning: dismissIdleWarning,
+  } = useIdleSessionTimeout({
+    timeoutMs: 20 * 60 * 1000, // 20 minutes
+    onTimeout: handleIdleTimeout,
+    enabled: isAwaitingUserInput,
+    warningBeforeMs: 2 * 60 * 1000, // Warn 2 minutes before timeout
+  });
 
   // Global progress (Hidden)
   const globalProgress = useMemo(() => {
@@ -1144,24 +1171,33 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
 
   if (step === 'problem' || step === 'recording') {
     return (
-      <ProblemStep
-        step={step}
-        currentProblem={currentProblem}
-        selectedSpot={selectedSpot}
-        sessionMode={sessionMode}
-        dailyCleared={dailyCleared}
-        dailyCap={studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap}
-        rawTranscript={rawTranscript}
-        revealHintIdx={revealHintIdx}
-        showDefinitionExpanded={showDefinitionExpanded}
-        setStep={setStep}
-        handleStartRecording={handleStartRecording}
-        handleStopRecording={handleStopRecording}
-        handleTextSubmit={handleTextSubmit}
-        setRevealHintIdx={setRevealHintIdx}
-        setUsedHints={setUsedHints}
-        setShowDefinitionExpanded={setShowDefinitionExpanded}
-      />
+      <>
+        <ProblemStep
+          step={step}
+          currentProblem={currentProblem}
+          selectedSpot={selectedSpot}
+          sessionMode={sessionMode}
+          dailyCleared={dailyCleared}
+          dailyCap={studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap}
+          rawTranscript={rawTranscript}
+          revealHintIdx={revealHintIdx}
+          showDefinitionExpanded={showDefinitionExpanded}
+          setStep={setStep}
+          handleStartRecording={handleStartRecording}
+          handleStopRecording={handleStopRecording}
+          handleTextSubmit={handleTextSubmit}
+          setRevealHintIdx={setRevealHintIdx}
+          setUsedHints={setUsedHints}
+          setShowDefinitionExpanded={setShowDefinitionExpanded}
+        />
+        {isIdleWarning && (
+          <IdleTimeoutWarning
+            timeRemainingMs={timeRemainingMs}
+            onDismiss={dismissIdleWarning}
+            onEndSession={handleIdleTimeout}
+          />
+        )}
+      </>
     );
   }
 
@@ -1189,23 +1225,32 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   // Teaching conversation screen
   if (step === 'teaching' || step === 'junior_question') {
     return (
-      <TeachingStep
-        step={step}
-        currentProblem={currentProblem}
-        teachingSession={teachingSession}
-        sessionMode={sessionMode}
-        currentQueueIdx={currentQueueIdx}
-        isTeachingRecording={isTeachingRecording}
-        teachingRawTranscript={teachingRawTranscript}
-        ttsEnabled={ttsEnabled}
-        setStep={setStep}
-        setTtsEnabled={setTtsEnabled}
-        handleStartTeachingRecording={handleStartTeachingRecording}
-        handleStopTeachingRecording={handleStopTeachingRecording}
-        handleTeachingTextSubmit={handleTeachingTextSubmit}
-        handleEndTeachingSession={handleEndTeachingSession}
-        speakJuniorResponse={speakJuniorResponse}
-      />
+      <>
+        <TeachingStep
+          step={step}
+          currentProblem={currentProblem}
+          teachingSession={teachingSession}
+          sessionMode={sessionMode}
+          currentQueueIdx={currentQueueIdx}
+          isTeachingRecording={isTeachingRecording}
+          teachingRawTranscript={teachingRawTranscript}
+          ttsEnabled={ttsEnabled}
+          setStep={setStep}
+          setTtsEnabled={setTtsEnabled}
+          handleStartTeachingRecording={handleStartTeachingRecording}
+          handleStopTeachingRecording={handleStopTeachingRecording}
+          handleTeachingTextSubmit={handleTeachingTextSubmit}
+          handleEndTeachingSession={handleEndTeachingSession}
+          speakJuniorResponse={speakJuniorResponse}
+        />
+        {isIdleWarning && (
+          <IdleTimeoutWarning
+            timeRemainingMs={timeRemainingMs}
+            onDismiss={dismissIdleWarning}
+            onEndSession={handleIdleTimeout}
+          />
+        )}
+      </>
     );
   }
 

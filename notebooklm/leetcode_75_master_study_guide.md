@@ -893,13 +893,13 @@ This comprehensive guide covers all 75 essential LeetCode problems for coding in
 
 ### Climbing Stairs
 
-**Difficulty:** Easy | **Time:** O(n) | **Space:** O(1)
+**Difficulty:** Easy | **Time:** O(n) | **Space:** O(n)
 
-**Key Pattern:** Dynamic Programming
+**Key Pattern:** Dynamic Programming with Memoization
 
-**The Insight:** Subproblem find (n-1) and (n-2), sum = n
+**The Insight:** To reach step n, compute ways(n-1) + ways(n-2) with memoization to cache results
 
-**Full Approach:** subproblem find (n-1) and (n-2), sum = n;
+**Full Approach:** Use recursion with memoization: base cases are 1 step = 1 way, 2 steps = 2 ways. For any step i, check if already cached in memo, otherwise compute dp(i-1) + dp(i-2), store in memo, and return;
 
 **Resources:**
 - [LeetCode Problem](https://leetcode.com/problems/climbing-stairs/)

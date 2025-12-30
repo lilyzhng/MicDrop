@@ -183,7 +183,7 @@ COMPLEXITY_MAP = {
     "Counting Bits": ("O(n)", "O(n)"),
     "Missing Number": ("O(n)", "O(1)"),
     "Reverse Bits": ("O(1)", "O(1)"),
-    "Climbing Stairs": ("O(n)", "O(1)"),
+    "Climbing Stairs": ("O(n)", "O(n)"),
     "Coin Change": ("O(n*m)", "O(n)"),
     "Longest Increasing Subsequence": ("O(n²)", "O(n)"),
     "Longest Common Subsequence": ("O(m*n)", "O(m*n)"),
@@ -603,5 +603,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

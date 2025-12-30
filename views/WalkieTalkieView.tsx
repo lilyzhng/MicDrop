@@ -95,7 +95,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [studyStats, setStudyStats] = useState<StudyStats | null>(null);
   const [settingsForm, setSettingsForm] = useState({
     targetDays: DEFAULT_SETTINGS.targetDays,
-    dailyCap: DEFAULT_SETTINGS.dailyCap
+    dailyCap: DEFAULT_SETTINGS.dailyCap,
+    startDate: new Date().toISOString().split('T')[0]  // YYYY-MM-DD format
   });
   const [useSpacedRepetition, setUseSpacedRepetition] = useState(true);
   
@@ -168,7 +169,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setStudySettings(settings);
       setSettingsForm({
         targetDays: settings.targetDays,
-        dailyCap: settings.dailyCap
+        dailyCap: settings.dailyCap,
+        startDate: settings.startDate.toISOString().split('T')[0]  // YYYY-MM-DD format
       });
       
       // Load progress grid to get topics with remaining problems
@@ -223,7 +225,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     
     const updated = await updateSettings(user.id, {
       targetDays: settingsForm.targetDays,
-      dailyCap: settingsForm.dailyCap
+      dailyCap: settingsForm.dailyCap,
+      startDate: new Date(settingsForm.startDate)  // Parse YYYY-MM-DD string to Date
     });
     
     if (updated) {
@@ -568,15 +571,17 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setAiReport(report);
       onSaveReport(currentProblem.title, 'walkie', report);
       
-      // Update spaced repetition progress
+      // Update spaced repetition progress with time tracking
       if (useSpacedRepetition && user?.id) {
         const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
+        const timeMinutes = Math.round(getElapsedSeconds() / 60);
         await updateProgressAfterAttempt(
           user.id,
           currentProblem.title,
           report.rating,
           currentProblem.difficulty,
-          existingProgress
+          existingProgress,
+          timeMinutes
         );
       }
       
@@ -695,7 +700,18 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         
         if (problems.length === 0) {
             console.warn("No problems found for queue in topic:", spot.topic);
-            // Fallback: try fetching without topic filter
+            
+            // If this is an "only reviews" spot (like Daily Commute), don't fallback to new problems
+            // This prevents showing new problems in Daily Commute when there are no reviews due
+            if (spot.onlyReviews) {
+                console.log('[Session] No reviews due - Daily Commute is clear!');
+                // Show a message that there are no reviews due
+                alert('🎉 No reviews due today! Check back tomorrow or practice new problems in Coffee Sanctuary.');
+                setStep('locations');
+                return;
+            }
+            
+            // Fallback: try fetching without topic filter (only for non-onlyReviews spots)
             const allowedDifficulties = DIFFICULTY_MAP[difficultyMode];
             const fallbackProblems = await buildProblemQueue(masteredIds, allowedDifficulties, batchSize);
             if (fallbackProblems.length === 0) {
@@ -878,15 +894,17 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         };
         onSaveReport(currentProblem.title, 'teach', performanceReport);
         
-        // Update spaced repetition progress
+        // Update spaced repetition progress with time tracking
         if (useSpacedRepetition && user?.id) {
           const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
+          const timeMinutes = Math.round(getElapsedSeconds() / 60);
           await updateProgressAfterAttempt(
             user.id,
             currentProblem.title,
             report.teachingScore,
             currentProblem.difficulty,
-            existingProgress
+            existingProgress,
+            timeMinutes
           );
         }
         
@@ -967,15 +985,17 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       };
       onSaveReport(currentProblem.title, 'teach', performanceReport);
       
-      // Update spaced repetition progress (use teaching score as rating)
+      // Update spaced repetition progress (use teaching score as rating) with time tracking
       if (useSpacedRepetition && user?.id) {
         const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
+        const timeMinutes = Math.round(getElapsedSeconds() / 60);
         await updateProgressAfterAttempt(
           user.id,
           currentProblem.title,
           report.teachingScore,
           currentProblem.difficulty,
-          existingProgress
+          existingProgress,
+          timeMinutes
         );
       }
       

@@ -275,11 +275,37 @@ export interface StudyStats {
   dueToday: number;
   dueTomorrow: number;
   daysLeft: number;
+  dayNumber: number;  // Current day number (based on actual study days)
   onPace: boolean;
   todaysQueue: {
     newProblems: number;
     reviews: number;
     total: number;
   };
+}
+
+// ============================================
+// Daily Activity Tracking Types
+// ============================================
+
+export interface UserDailyActivity {
+  id: string;
+  userId: string;
+  activityDate: string;  // YYYY-MM-DD format
+  problemsCompleted: string[];  // Problem titles completed today
+  problemsCount: number;
+  reviewsCompleted: string[];  // Problem titles reviewed today
+  reviewsCount: number;
+  timeSpentMinutes: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DailyActivitySummary {
+  date: string;
+  problemsCount: number;
+  reviewsCount: number;
+  totalCount: number;
+  timeSpentMinutes: number;
 }
 

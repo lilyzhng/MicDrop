@@ -98,7 +98,11 @@ export const SpotCard: React.FC<SpotCardProps> = ({
   onStartSession,
   onRefresh
 }) => {
-  const hasDueReviews = Boolean(studyStats && studyStats.dueToday > 0);
+  // For onlyReviews spots (Daily Commute), use spot.remaining which is freshly calculated
+  // For other spots, use studyStats.dueToday
+  const hasDueReviews = spot.onlyReviews 
+    ? spot.remaining > 0 
+    : Boolean(studyStats && studyStats.dueToday > 0);
   const canRefresh = !spot.isRandom && !spot.locked && spot.remaining > 0 && !spot.onlyReviews;
 
   const handleClick = () => {
@@ -151,10 +155,12 @@ export const SpotCard: React.FC<SpotCardProps> = ({
           </span>
 
           {/* Reviews Priority Badge (for Daily Commute) */}
-          {spot.reviewsPriority && studyStats && studyStats.dueToday > 0 && (
+          {/* Use spot.remaining for onlyReviews spots (it's freshly calculated), 
+              fallback to studyStats for other reviewsPriority spots */}
+          {spot.reviewsPriority && (spot.onlyReviews ? spot.remaining > 0 : (studyStats && studyStats.dueToday > 0)) && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-red-500/20 border border-red-500/40 text-red-300 animate-pulse">
               <AlertCircle size={10} className="sm:w-3 sm:h-3" />
-              {studyStats.dueToday} review{studyStats.dueToday !== 1 ? 's' : ''} due
+              {spot.onlyReviews ? spot.remaining : studyStats?.dueToday} review{(spot.onlyReviews ? spot.remaining : studyStats?.dueToday) !== 1 ? 's' : ''} due
             </span>
           )}
 
@@ -176,10 +182,12 @@ export const SpotCard: React.FC<SpotCardProps> = ({
             </span>
           )}
 
-          {/* Remaining count */}
-          <span className={`text-[9px] sm:text-[10px] font-mono ${spot.remaining === 0 ? 'text-green-400' : 'text-gray-400'}`}>
-            {spot.remaining === 0 ? '✓ Complete' : `${spot.remaining} remaining`}
-          </span>
+          {/* Remaining count - hide for onlyReviews spots since the badge already shows the count */}
+          {(!spot.onlyReviews || spot.remaining === 0) && (
+            <span className={`text-[9px] sm:text-[10px] font-mono ${spot.remaining === 0 ? 'text-green-400' : 'text-gray-400'}`}>
+              {spot.remaining === 0 ? '✓ Complete' : `${spot.remaining} remaining`}
+            </span>
+          )}
         </div>
 
         {/* Description */}

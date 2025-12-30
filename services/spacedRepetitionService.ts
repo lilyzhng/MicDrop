@@ -22,7 +22,9 @@ import {
     fetchDueTomorrow,
     upsertUserProblemProgress,
     batchUpsertUserProgress,
-    fetchAllBlindProblems
+    fetchAllBlindProblems,
+    recordProblemCompletion,
+    getStudyDaysCount
 } from './databaseService';
 
 // ============================================
@@ -166,7 +168,8 @@ export async function updateProgressAfterAttempt(
     problemTitle: string,
     score: number,
     difficulty: 'easy' | 'medium' | 'hard',
-    existingProgress: UserProblemProgress | null
+    existingProgress: UserProblemProgress | null,
+    timeMinutes: number = 0  // Time spent on this problem in minutes
 ): Promise<UserProblemProgress | null> {
     // Check if this is a first teaching attempt, a scheduled review, or an extra practice attempt
     const isInRelearnState = existingProgress && 
@@ -188,6 +191,11 @@ export async function updateProgressAfterAttempt(
     const isExtraPractice = existingProgress && !isInRelearnState && !isDueForReview;
     
     console.log(`[Spaced Repetition] Attempt type: initial=${isInitialAttempt}, scheduledReview=${isScheduledReview}, extraPractice=${isExtraPractice}`);
+    
+    // Record daily activity (except for extra practice which is just updating best score)
+    if (!isExtraPractice) {
+        await recordProblemCompletion(userId, problemTitle, isScheduledReview, timeMinutes);
+    }
     
     if (isExtraPractice && existingProgress) {
         // ========================================
@@ -340,6 +348,10 @@ export async function buildSpacedRepetitionQueue(
     const dueTomorrow = await fetchDueTomorrow(userId);
     let allProblems = await fetchAllBlindProblems();
     
+    // Get actual study days count from daily activity table
+    // Only count days on or after the configured start date
+    const studyDaysCount = await getStudyDaysCount(userId, settings.startDate);
+    
     // Apply topic filter if provided
     if (topicFilter && topicFilter !== 'all_mastered') {
         // Need to match both formatted and raw group names
@@ -441,6 +453,12 @@ export async function buildSpacedRepetitionQueue(
     // Calculate stats (for the full set, not filtered)
     const fullAllProgress = allProgress;
     const reviewsInQueue = newProblemsOnly ? 0 : Math.min(dueProblems.length, settings.dailyCap);
+    
+    // Day number: use actual study days count directly
+    // studyDaysCount is the number of days with completed problems (including today if any done today)
+    // If no study days recorded yet, fall back to calculated days passed
+    const dayNumber = studyDaysCount > 0 ? studyDaysCount : daysPassed;
+    
     const stats: StudyStats = {
         totalProblems: TOTAL_BLIND_75,
         newCount: TOTAL_BLIND_75 - fullAllProgress.length,
@@ -448,8 +466,9 @@ export async function buildSpacedRepetitionQueue(
         masteredCount: fullAllProgress.filter(p => p.status === 'mastered').length,
         dueToday: dueReviews.length,
         dueTomorrow: dueTomorrow.length,
-        daysLeft,
-        onPace: fullAllProgress.length >= (daysPassed * (TOTAL_BLIND_75 / settings.targetDays)),
+        daysLeft: Math.max(1, settings.targetDays - dayNumber + 1),
+        dayNumber,  // Current day number based on actual study activity
+        onPace: fullAllProgress.length >= (dayNumber * (TOTAL_BLIND_75 / settings.targetDays)),
         todaysQueue: {
             newProblems: Math.min(slotsForNew, newProblems.length),
             reviews: reviewsInQueue,
@@ -585,13 +604,15 @@ export async function migrateFromLocalStorage(
     console.log(`[Migration] Migrating ${masteredIds.length} mastered problems from localStorage`);
     
     // Create progress records for mastered problems
+    // NOTE: Migrated items are marked as fully mastered with no pending reviews
+    // (reviewsCompleted >= reviewsNeeded and nextReviewAt = null)
     const progressItems = masteredIds.map(title => ({
         problemTitle: title,
         status: 'mastered' as ProblemStatus,
         bestScore: 85, // Assume good performance since they were marked mastered
         reviewsNeeded: 1,
         reviewsCompleted: 1,
-        nextReviewAt: new Date() // Due for review today (first cycle in new system)
+        nextReviewAt: null // Already mastered, no review needed
     }));
     
     const success = await batchUpsertUserProgress(userId, progressItems);

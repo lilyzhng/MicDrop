@@ -561,6 +561,11 @@ export const fetchUserProgressByTitle = async (
 
 /**
  * Fetch problems due for review (next_review_at <= today)
+ * 
+ * Filters:
+ * - next_review_at <= now (due today or overdue)
+ * - status is not 'mastered' or 'graduated' (already done)
+ * - reviews_completed < reviews_needed (still needs more reviews)
  */
 export const fetchDueReviews = async (userId: string): Promise<UserProblemProgress[]> => {
     const today = new Date().toISOString();
@@ -569,7 +574,7 @@ export const fetchDueReviews = async (userId: string): Promise<UserProblemProgre
         .from('user_problem_progress')
         .select('*')
         .eq('user_id', userId)
-        .neq('status', 'graduated') // Only exclude fully graduated items
+        .not('status', 'in', '("mastered","graduated")') // Exclude completed items
         .lte('next_review_at', today)
         .order('next_review_at', { ascending: true });
 
@@ -578,7 +583,13 @@ export const fetchDueReviews = async (userId: string): Promise<UserProblemProgre
         return [];
     }
 
-    return data.map(mapDbProgressToProgress);
+    // Additional filter: only include problems where reviews are still needed
+    // This handles edge cases where status wasn't updated correctly
+    const filtered = data
+        .map(mapDbProgressToProgress)
+        .filter(p => p.reviewsCompleted < p.reviewsNeeded);
+    
+    return filtered;
 };
 
 /**
@@ -693,5 +704,205 @@ export const getProgressStats = async (userId: string): Promise<{
         masteredCount: allProgress.filter(p => p.status === 'mastered').length,
         dueToday: dueReviews.length
     };
+};
+
+// ========== DAILY ACTIVITY TRACKING ==========
+
+import { UserDailyActivity, DailyActivitySummary } from '../types/database';
+
+/**
+ * Helper to get today's date in YYYY-MM-DD format
+ */
+const getTodayDateString = (): string => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+};
+
+/**
+ * Helper to map database row to UserDailyActivity type
+ */
+const mapDbActivityToActivity = (row: any): UserDailyActivity => ({
+    id: row.id,
+    userId: row.user_id,
+    activityDate: row.activity_date,
+    problemsCompleted: row.problems_completed || [],
+    problemsCount: row.problems_count || 0,
+    reviewsCompleted: row.reviews_completed || [],
+    reviewsCount: row.reviews_count || 0,
+    timeSpentMinutes: row.time_spent_minutes || 0,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at)
+});
+
+/**
+ * Fetch today's activity for a user
+ */
+export const fetchTodayActivity = async (userId: string): Promise<UserDailyActivity | null> => {
+    const today = getTodayDateString();
+    
+    const { data, error } = await supabase
+        .from('user_daily_activity')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('activity_date', today)
+        .single();
+
+    if (error) {
+        if (error.code === 'PGRST116') {
+            return null; // No activity today yet
+        }
+        console.error('Error fetching today activity:', error);
+        return null;
+    }
+
+    return mapDbActivityToActivity(data);
+};
+
+/**
+ * Fetch all daily activity for a user (for history/stats)
+ */
+export const fetchAllDailyActivity = async (userId: string): Promise<UserDailyActivity[]> => {
+    const { data, error } = await supabase
+        .from('user_daily_activity')
+        .select('*')
+        .eq('user_id', userId)
+        .order('activity_date', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching all daily activity:', error);
+        return [];
+    }
+
+    return data.map(mapDbActivityToActivity);
+};
+
+/**
+ * Get the count of study days (days with any activity)
+ * 
+ * @param userId - User ID
+ * @param sinceDate - Optional: only count days on or after this date (for respecting start_date setting)
+ */
+export const getStudyDaysCount = async (userId: string, sinceDate?: Date): Promise<number> => {
+    let query = supabase
+        .from('user_daily_activity')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gt('problems_count', 0);  // Only count days with actual problem completions
+    
+    // If sinceDate is provided, only count activity from that date onwards
+    if (sinceDate) {
+        const sinceDateStr = sinceDate.toISOString().split('T')[0];  // YYYY-MM-DD
+        query = query.gte('activity_date', sinceDateStr);
+    }
+
+    const { count, error } = await query;
+
+    if (error) {
+        console.error('Error counting study days:', error);
+        return 0;
+    }
+
+    return count || 0;
+};
+
+/**
+ * Record a problem completion in today's activity
+ * 
+ * @param userId - User ID
+ * @param problemTitle - Title of the problem completed
+ * @param isReview - Whether this was a review (vs new problem)
+ * @param timeMinutes - Time spent on this problem in minutes
+ */
+export const recordProblemCompletion = async (
+    userId: string,
+    problemTitle: string,
+    isReview: boolean = false,
+    timeMinutes: number = 0
+): Promise<boolean> => {
+    const today = getTodayDateString();
+    
+    // First, try to get existing activity for today
+    const existing = await fetchTodayActivity(userId);
+    
+    if (existing) {
+        // Update existing record
+        const problemsCompleted = isReview 
+            ? existing.problemsCompleted 
+            : existing.problemsCompleted.includes(problemTitle) 
+                ? existing.problemsCompleted 
+                : [...existing.problemsCompleted, problemTitle];
+        
+        const reviewsCompleted = !isReview 
+            ? existing.reviewsCompleted 
+            : existing.reviewsCompleted.includes(problemTitle) 
+                ? existing.reviewsCompleted 
+                : [...existing.reviewsCompleted, problemTitle];
+        
+        const { error } = await supabase
+            .from('user_daily_activity')
+            .update({
+                problems_completed: problemsCompleted,
+                problems_count: problemsCompleted.length,
+                reviews_completed: reviewsCompleted,
+                reviews_count: reviewsCompleted.length,
+                time_spent_minutes: existing.timeSpentMinutes + timeMinutes,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id);
+
+        if (error) {
+            console.error('Error updating daily activity:', error);
+            return false;
+        }
+    } else {
+        // Create new record for today
+        const { error } = await supabase
+            .from('user_daily_activity')
+            .insert({
+                user_id: userId,
+                activity_date: today,
+                problems_completed: isReview ? [] : [problemTitle],
+                problems_count: isReview ? 0 : 1,
+                reviews_completed: isReview ? [problemTitle] : [],
+                reviews_count: isReview ? 1 : 0,
+                time_spent_minutes: timeMinutes
+            });
+
+        if (error) {
+            console.error('Error creating daily activity:', error);
+            return false;
+        }
+    }
+    
+    console.log(`[Daily Activity] Recorded: ${problemTitle} (${isReview ? 'review' : 'new'}, ${timeMinutes}min)`);
+    return true;
+};
+
+/**
+ * Get daily activity summary for the last N days
+ */
+export const getDailyActivitySummary = async (
+    userId: string,
+    days: number = 30
+): Promise<DailyActivitySummary[]> => {
+    const { data, error } = await supabase
+        .from('user_daily_activity')
+        .select('activity_date, problems_count, reviews_count, time_spent_minutes')
+        .eq('user_id', userId)
+        .order('activity_date', { ascending: false })
+        .limit(days);
+
+    if (error) {
+        console.error('Error fetching activity summary:', error);
+        return [];
+    }
+
+    return data.map(row => ({
+        date: row.activity_date,
+        problemsCount: row.problems_count || 0,
+        reviewsCount: row.reviews_count || 0,
+        totalCount: (row.problems_count || 0) + (row.reviews_count || 0),
+        timeSpentMinutes: row.time_spent_minutes || 0
+    }));
 };
 

@@ -69,8 +69,8 @@ interface LocationsStepProps {
   setShowStats: (show: boolean) => void;
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
-  settingsForm: { targetDays: number; dailyCap: number };
-  setSettingsForm: (form: { targetDays: number; dailyCap: number }) => void;
+  settingsForm: { targetDays: number; dailyCap: number; startDate: string };
+  setSettingsForm: (form: { targetDays: number; dailyCap: number; startDate: string }) => void;
   handleSaveSettings: () => Promise<void>;
   useSpacedRepetition: boolean;
   setUseSpacedRepetition: (use: boolean) => void;
@@ -471,18 +471,33 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
                 </p>
               </div>
 
-              {/* Current Status */}
-              {studySettings && (
-                <div className="p-4 bg-gold/5 rounded-xl border border-gold/20">
-                  <div className="text-xs font-bold text-gold uppercase tracking-widest mb-2">Current Plan</div>
-                  <div className="text-sm text-gray-300">
-                    Started: {new Date(studySettings.startDate).toLocaleDateString()}
-                  </div>
-                  <div className="text-sm text-gray-300">
-                    Target: {studySettings.targetDays} days • Cap: {studySettings.dailyCap}/day
-                  </div>
+              {/* Start Date */}
+              <div>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
+                  <Calendar size={12} className="inline mr-2" />
+                  Study Start Date
+                </label>
+                <input
+                  type="date"
+                  value={settingsForm.startDate}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, startDate: e.target.value })}
+                  className="w-full px-4 py-3 bg-charcoal border border-white/10 rounded-xl text-white focus:outline-none focus:border-gold/50 transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Day 1 of your study plan
+                </p>
+              </div>
+
+              {/* Plan Summary - shows what will be saved */}
+              <div className="p-4 bg-gold/5 rounded-xl border border-gold/20">
+                <div className="text-xs font-bold text-gold uppercase tracking-widest mb-2">Plan Summary</div>
+                <div className="text-sm text-gray-300">
+                  Started: {new Date(settingsForm.startDate + 'T00:00:00').toLocaleDateString()}
                 </div>
-              )}
+                <div className="text-sm text-gray-300">
+                  Target: {settingsForm.targetDays} days • Cap: {settingsForm.dailyCap}/day
+                </div>
+              </div>
             </div>
 
             <div className="p-6 sm:p-8 border-t border-white/5 flex gap-3">

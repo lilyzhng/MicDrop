@@ -19,7 +19,8 @@ import {
 import { 
     fetchAllUserProgress, 
     fetchDueReviews, 
-    fetchDueTomorrow 
+    fetchDueTomorrow,
+    getStudyDaysCount 
 } from '../services/databaseService';
 import { getDateString, countQuestionsByDate } from '../utils/reportUtils';
 
@@ -380,12 +381,16 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         const loadProgressData = async () => {
             setIsLoadingProgress(true);
             try {
-                const [settings, allProgress, dueReviews, dueTomorrowData, grid] = await Promise.all([
-                    getSettingsWithDefaults(user.id),
+                // First get settings to know the start date
+                const settings = await getSettingsWithDefaults(user.id);
+                
+                // Then fetch everything else, including study days count filtered by start date
+                const [allProgress, dueReviews, dueTomorrowData, grid, studyDaysCount] = await Promise.all([
                     fetchAllUserProgress(user.id),
                     fetchDueReviews(user.id),
                     fetchDueTomorrow(user.id),
-                    getProgressGrid(user.id)
+                    getProgressGrid(user.id),
+                    getStudyDaysCount(user.id, settings.startDate)  // Only count days since start date
                 ]);
                 
                 // Calculate study stats
@@ -402,7 +407,11 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 
                 // Calculate difference in days (add 1 to include today as Day 1)
                 const daysPassed = Math.floor((todayMidnight.getTime() - startMidnight.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                const daysLeft = Math.max(1, settings.targetDays - daysPassed + 1);
+                
+                // Use actual study days count directly (includes today if any problems done today)
+                // Fall back to calculated days if no study activity recorded yet
+                const dayNumber = studyDaysCount > 0 ? studyDaysCount : daysPassed;
+                const daysLeft = Math.max(1, settings.targetDays - dayNumber + 1);
                 
                 const newCount = 75 - allProgress.length;
                 const learningCount = allProgress.filter(p => p.status === 'learning').length;
@@ -425,7 +434,8 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                     dueToday: dueReviews.length,
                     dueTomorrow: dueTomorrowData.length,
                     daysLeft,
-                    onPace: allProgress.filter(p => p.status !== 'new').length >= (daysPassed * (75 / settings.targetDays)),
+                    dayNumber,  // Actual study day number based on activity
+                    onPace: allProgress.filter(p => p.status !== 'new').length >= (dayNumber * (75 / settings.targetDays)),
                     todaysQueue: {
                         newProblems: Math.max(0, newProblemCount),
                         reviews: reviewCount,
@@ -987,7 +997,7 @@ return (
                                              <span className="text-sm font-bold uppercase tracking-widest text-gold">Study Plan</span>
                                              <span className="text-gray-600">•</span>
                                              <span className="text-sm font-medium text-gray-300">
-                                                 Day {Math.max(1, targetDays - studyStats.daysLeft + 1)} of {targetDays}
+                                                 Day {studyStats.dayNumber || 1} of {targetDays}
                                              </span>
                                          </div>
                                          <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${

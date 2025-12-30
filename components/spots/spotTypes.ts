@@ -5,9 +5,16 @@
  * - The Daily Commute (reviews only)
  * - The Coffee Sanctuary (new problems only)
  * - The Mysterious Forest (mixed/random)
+ * 
+ * Priority System:
+ * - p=0: Daily new questions goal (Coffee Sanctuary) - highest priority
+ * - p=1: Daily reviews (Daily Commute) - lower priority
  */
 
 import { StudyStats } from '../../types/database';
+
+// Daily new problems goal - pass at least 5 new questions per day
+export const DAILY_NEW_GOAL = 5;
 
 // Base spot definition (static data)
 export interface PowerSpot {
@@ -28,6 +35,9 @@ export interface SpotWithTopic extends PowerSpot {
   topicDisplay: string;  // Formatted display name
   remaining: number;  // For newProblemsOnly: problems with no progress. Otherwise: problems not mastered.
   locked: boolean;  // Whether the topic is locked (user has entered this spot today)
+  // Daily new goal tracking (for newProblemsOnly spots like Coffee Sanctuary)
+  dailyNewCompleted?: number;  // How many new problems completed today
+  dailyNewRemaining?: number;  // How many more needed to hit DAILY_NEW_GOAL
 }
 
 // Saved spot topic assignments (persisted per day)

@@ -4,7 +4,7 @@
  * Static definitions for the three practice locations.
  */
 
-import { PowerSpot, SavedDayAssignments, SavedSpotAssignment } from './spotTypes';
+import { PowerSpot, SavedDayAssignments, SavedSpotAssignment, DAILY_NEW_GOAL } from './spotTypes';
 
 // LocalStorage key for spot assignments
 export const SPOT_ASSIGNMENTS_KEY = 'walkie_talkie_spot_assignments';
@@ -162,11 +162,13 @@ export interface ProgressGridGroup {
  * @param progressGrid - Array of topic groups with problem progress
  * @param lockedAssignments - Array of spots that are locked to specific topics
  * @param dueReviewCount - Number of due reviews (for Daily Commute spot)
+ * @param dailyNewCompleted - Number of new problems completed today (for Coffee Sanctuary daily goal)
  */
 export const assignTopicsToSpots = (
   progressGrid: ProgressGridGroup[],
   lockedAssignments: SavedSpotAssignment[],
-  dueReviewCount: number = 0
+  dueReviewCount: number = 0,
+  dailyNewCompleted: number = 0
 ): import('./spotTypes').SpotWithTopic[] => {
   // Helper to count NEW problems (no progress at all) in a topic group
   const countNewProblems = (group: ProgressGridGroup) => 
@@ -191,6 +193,9 @@ export const assignTopicsToSpots = (
   
   let topicIdx = 0;
   let topicIdxNewOnly = 0;
+  
+  // Calculate daily new goal progress
+  const dailyNewRemaining = Math.max(0, DAILY_NEW_GOAL - dailyNewCompleted);
   
   return POWER_SPOTS.map((spot) => {
     const isNewProblemsOnly = spot.newProblemsOnly === true;
@@ -222,7 +227,8 @@ export const assignTopicsToSpots = (
         locked: false,
         reviewsPriority: spot.reviewsPriority,
         onlyReviews: spot.onlyReviews || false,
-        newProblemsOnly: isNewProblemsOnly
+        newProblemsOnly: isNewProblemsOnly,
+        ...(isNewProblemsOnly && { dailyNewCompleted, dailyNewRemaining })
       };
     }
     
@@ -268,7 +274,9 @@ export const assignTopicsToSpots = (
             locked: false, // Unlocked now
             reviewsPriority: spot.reviewsPriority,
             onlyReviews: spot.onlyReviews || false,
-            newProblemsOnly: isNewProblemsOnly
+            newProblemsOnly: isNewProblemsOnly,
+            dailyNewCompleted,
+            dailyNewRemaining
           };
         } else {
           // All topics exhausted
@@ -281,7 +289,9 @@ export const assignTopicsToSpots = (
             locked: false,
             reviewsPriority: spot.reviewsPriority,
             onlyReviews: spot.onlyReviews || false,
-            newProblemsOnly: isNewProblemsOnly
+            newProblemsOnly: isNewProblemsOnly,
+            dailyNewCompleted,
+            dailyNewRemaining
           };
         }
       }
@@ -295,7 +305,8 @@ export const assignTopicsToSpots = (
         locked: true,
         reviewsPriority: spot.reviewsPriority,
         onlyReviews: spot.onlyReviews || false,
-        newProblemsOnly: isNewProblemsOnly
+        newProblemsOnly: isNewProblemsOnly,
+        ...(isNewProblemsOnly && { dailyNewCompleted, dailyNewRemaining })
       };
     }
     
@@ -327,7 +338,8 @@ export const assignTopicsToSpots = (
         locked: false,
         reviewsPriority: spot.reviewsPriority,
         onlyReviews: spot.onlyReviews || false,
-        newProblemsOnly: isNewProblemsOnly
+        newProblemsOnly: isNewProblemsOnly,
+        ...(isNewProblemsOnly && { dailyNewCompleted, dailyNewRemaining })
       };
     } else {
       return {
@@ -339,7 +351,8 @@ export const assignTopicsToSpots = (
         locked: false,
         reviewsPriority: spot.reviewsPriority,
         onlyReviews: spot.onlyReviews || false,
-        newProblemsOnly: isNewProblemsOnly
+        newProblemsOnly: isNewProblemsOnly,
+        ...(isNewProblemsOnly && { dailyNewCompleted, dailyNewRemaining })
       };
     }
   });

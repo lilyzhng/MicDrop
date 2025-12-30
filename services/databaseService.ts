@@ -711,11 +711,14 @@ export const getProgressStats = async (userId: string): Promise<{
 import { UserDailyActivity, DailyActivitySummary } from '../types/database';
 
 /**
- * Helper to get today's date in YYYY-MM-DD format
+ * Helper to get today's date in YYYY-MM-DD format (local timezone)
  */
 const getTodayDateString = (): string => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 };
 
 /**
@@ -739,6 +742,7 @@ const mapDbActivityToActivity = (row: any): UserDailyActivity => ({
  */
 export const fetchTodayActivity = async (userId: string): Promise<UserDailyActivity | null> => {
     const today = getTodayDateString();
+    console.log('[fetchTodayActivity] Querying for date:', today);
     
     const { data, error } = await supabase
         .from('user_daily_activity')
@@ -749,12 +753,18 @@ export const fetchTodayActivity = async (userId: string): Promise<UserDailyActiv
 
     if (error) {
         if (error.code === 'PGRST116') {
+            console.log('[fetchTodayActivity] No activity found for today');
             return null; // No activity today yet
         }
         console.error('Error fetching today activity:', error);
         return null;
     }
 
+    console.log('[fetchTodayActivity] Found activity:', {
+        activity_date: data.activity_date,
+        problems_count: data.problems_count,
+        problems_completed: data.problems_completed
+    });
     return mapDbActivityToActivity(data);
 };
 

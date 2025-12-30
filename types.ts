@@ -206,8 +206,7 @@ export interface BlindProblem {
   keyIdea: string;
   detailedHint?: string; // More thorough walkthrough of problem-solving approach
   definition?: string; // Data structure/concept definitions (shown first before hints)
-  skeleton: string;
-  solution?: string; // Complete Python solution (for final teaching report)
+  solution: string; // Complete Python solution
   timeComplexity: string;
   spaceComplexity: string;
   steps: string[];

@@ -20,8 +20,7 @@ export interface Database {
           key_idea: string
           detailed_hint: string | null
           definition: string | null
-          skeleton: string
-          solution: string | null
+          solution: string
           time_complexity: string
           space_complexity: string
           steps: string[]
@@ -43,8 +42,7 @@ export interface Database {
           key_idea: string
           detailed_hint?: string | null
           definition?: string | null
-          skeleton: string
-          solution?: string | null
+          solution: string
           time_complexity: string
           space_complexity: string
           steps?: string[]
@@ -66,8 +64,7 @@ export interface Database {
           key_idea?: string
           detailed_hint?: string | null
           definition?: string | null
-          skeleton?: string
-          solution?: string | null
+          solution?: string
           time_complexity?: string
           space_complexity?: string
           steps?: string[]

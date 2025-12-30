@@ -14,7 +14,7 @@ import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSessio
 import { UserStudySettings, StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
 import { analyzeWalkieSession } from '../services/analysisService';
-import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews } from '../services/databaseService';
+import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity } from '../services/databaseService';
 import { 
   getJuniorResponse, 
   getJuniorSummary, 
@@ -181,6 +181,16 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       const dueReviews = await fetchDueReviews(user.id);
       const dueReviewCount = dueReviews.length;
       
+      // Fetch today's activity for daily new goal tracking (Coffee Sanctuary)
+      const todayActivity = await fetchTodayActivity(user.id);
+      const dailyNewCompleted = todayActivity?.problemsCount || 0;
+      console.log('[LoadSpots] Today activity:', { 
+        todayActivity, 
+        dailyNewCompleted,
+        problemsCompleted: todayActivity?.problemsCompleted,
+        activityDate: todayActivity?.activityDate
+      });
+      
     // Get locked assignments from today
     const lockedAssignments = getLockedSpotAssignments(user.id);
     console.log('[LoadSpots] Raw locked assignments:', lockedAssignments);
@@ -196,8 +206,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     console.log('[LoadSpots] Filtered locked assignments:', lockedOnly);
       
       // Assign topics: locked spots keep their topics, unlocked spots get random topics
-      const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount);
-      console.log('[LoadSpots] Assigned spots:', assignedSpots.map(s => ({ id: s.id, name: s.name, topic: s.topic, locked: s.locked })));
+      const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount, dailyNewCompleted);
+      console.log('[LoadSpots] Assigned spots:', assignedSpots.map(s => ({ id: s.id, name: s.name, topic: s.topic, locked: s.locked, dailyNewCompleted: s.dailyNewCompleted, dailyNewRemaining: s.dailyNewRemaining })));
       
       setSpotsWithTopics(assignedSpots);
     } catch (error) {

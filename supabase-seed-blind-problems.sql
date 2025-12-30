@@ -10,7 +10,7 @@
 -- ========================================
 
 -- 1. Two Sum
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Two Sum',
     'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target. You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.',
@@ -33,7 +33,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -43,7 +43,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 2. Best Time to Buy and Sell Stock
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Best Time to Buy and Sell Stock',
     'You are given an array prices where prices[i] is the price of a given stock on the ith day. You want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock. Return the maximum profit you can achieve from this transaction. If you cannot achieve any profit, return 0.',
@@ -51,7 +51,6 @@ VALUES (
     '["1 <= prices.length <= 10^5", "0 <= prices[i] <= 10^4"]',
     'Two Pointers',
     'Use two pointers: left (buy day) and right (sell day). If profitable, update max_profit. If not profitable, move left to right (found a new minimum). Always advance right.',
-    E'def maxProfit(prices: List[int]) -> int:\n    left, right = 0, 1\n    max_profit = 0\n\n    while right < len(prices):\n        # if profitable, update max_profit\n        # else, move left to right (new minimum)\n        # always advance right\n        pass\n    \n    return max_profit',
     E'def maxProfit(prices: List[int]) -> int:\n    left, right = 0, 1\n    max_profit = 0\n\n    while right < len(prices):\n        # if profitable\n        if prices[left] < prices[right]:\n            # update profit\n            profit = prices[right] - prices[left]\n            # update max_profit\n            max_profit = max(max_profit, profit)\n        else:\n            # update left pointer\n            left = right\n        # update right pointer\n        right += 1\n    \n    return max_profit',
     'O(n)',
     'O(1)',
@@ -67,7 +66,6 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
     solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
@@ -78,7 +76,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 3. Contains Duplicate
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Contains Duplicate',
     'Given an integer array nums, return true if any value appears at least twice in the array, and return false if every element is distinct.',
@@ -101,7 +99,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -111,7 +109,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 4. Product of Array Except Self
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Product of Array Except Self',
     'Given an integer array nums, return an array answer such that answer[i] is equal to the product of all the elements of nums except nums[i]. The algorithm must run in O(n) time and without using the division operation.',
@@ -134,7 +132,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -144,7 +142,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 5. Maximum Subarray
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Maximum Subarray',
     'Given an integer array nums, find the subarray with the largest sum, and return its sum.',
@@ -167,7 +165,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -177,7 +175,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 6. Maximum Product Subarray
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Maximum Product Subarray',
     'Given an integer array nums, find a subarray that has the largest product, and return the product.',
@@ -200,7 +198,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -210,7 +208,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 7. Find Minimum in Rotated Sorted Array
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Find Minimum in Rotated Sorted Array',
     'Suppose an array of length n sorted in ascending order is rotated between 1 and n times. Given the sorted rotated array nums of unique elements, return the minimum element of this array. You must write an algorithm that runs in O(log n) time.',
@@ -233,7 +231,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -243,7 +241,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 8. Search in Rotated Sorted Array
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Search in Rotated Sorted Array',
     'Given the array nums after rotation and an integer target, return the index of target if it is in nums, or -1 if it is not in nums. You must write an algorithm with O(log n) runtime complexity.',
@@ -266,7 +264,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -276,7 +274,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 9. 3Sum
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     '3Sum',
     'Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i != k, and j != k, and nums[i] + nums[j] + nums[k] == 0. Notice that the solution set must not contain duplicate triplets.',
@@ -299,7 +297,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -309,7 +307,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 10. Container With Most Water
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Container With Most Water',
     'You are given an integer array height of length n. There are n vertical lines drawn such that the two endpoints of the ith line are (i, 0) and (i, height[i]). Find two lines that together with the x-axis form a container, such that the container contains the most water. Return the maximum amount of water a container can store.',
@@ -332,7 +330,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -346,7 +344,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 11. Sum of Two Integers
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Sum of Two Integers',
     'Given two integers a and b, return the sum of the two integers without using the operators + and -.',
@@ -369,7 +367,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -379,7 +377,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 12. Number of 1 Bits
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Number of 1 Bits',
     'Write a function that takes the binary representation of an unsigned integer and returns the number of ''1'' bits it has (also known as the Hamming weight).',
@@ -402,7 +400,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -412,7 +410,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 13. Counting Bits
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Counting Bits',
     'Given an integer n, return an array ans of length n + 1 such that for each i (0 <= i <= n), ans[i] is the number of 1''s in the binary representation of i.',
@@ -435,7 +433,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -445,7 +443,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 14. Missing Number
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Missing Number',
     'Given an array nums containing n distinct numbers in the range [0, n], return the only number in the range that is missing from the array.',
@@ -468,7 +466,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -478,7 +476,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 15. Reverse Bits
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Reverse Bits',
     'Reverse bits of a given 32 bits unsigned integer.',
@@ -501,7 +499,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -515,7 +513,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 16. Climbing Stairs
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Climbing Stairs',
     'You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?',
@@ -538,7 +536,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -548,7 +546,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 17. Coin Change
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Coin Change',
     'You are given an integer array coins representing coins of different denominations and an integer amount representing a total amount of money. Return the fewest number of coins needed to make up that amount. If that amount cannot be made up by any combination, return -1.',
@@ -571,7 +569,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -581,7 +579,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 18. Longest Increasing Subsequence
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Increasing Subsequence',
     'Given an integer array nums, return the length of the longest strictly increasing subsequence.',
@@ -604,7 +602,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -614,7 +612,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 19. Longest Common Subsequence
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Common Subsequence',
     'Given two strings text1 and text2, return the length of their longest common subsequence. If there is no common subsequence, return 0.',
@@ -637,7 +635,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -647,7 +645,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 20. Word Break
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Word Break',
     'Given a string s and a dictionary of strings wordDict, return true if s can be segmented into a space-separated sequence of one or more dictionary words.',
@@ -670,7 +668,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -680,7 +678,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 21. Combination Sum
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Combination Sum',
     'Given an array of distinct integers candidates and a target integer target, return a list of all unique combinations of candidates where the chosen numbers sum to target. You may return the combinations in any order. The same number may be chosen an unlimited number of times.',
@@ -703,7 +701,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -713,7 +711,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 22. House Robber
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'House Robber',
     'You are a professional robber planning to rob houses along a street. Each house has a certain amount of money stashed. Adjacent houses have security systems connected - if two adjacent houses are broken into on the same night, the police will be alerted. Given an integer array nums representing the amount of money of each house, return the maximum amount of money you can rob without alerting the police.',
@@ -736,7 +734,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -746,7 +744,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 23. House Robber II
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'House Robber II',
     'You are a professional robber planning to rob houses arranged in a circle. Each house has a certain amount of money. Adjacent houses have security systems that will alert police if both are robbed. Given an integer array nums representing the amount of money in each house, return the maximum amount you can rob without alerting police.',
@@ -769,7 +767,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -779,7 +777,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 24. Decode Ways
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Decode Ways',
     'A message containing letters from A-Z can be encoded into numbers using the mapping: A=1, B=2, ..., Z=26. Given a string s containing only digits, return the number of ways to decode it.',
@@ -802,7 +800,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -812,7 +810,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 25. Unique Paths
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Unique Paths',
     'There is a robot on an m x n grid. The robot starts at the top-left corner and tries to move to the bottom-right corner. The robot can only move either down or right at any point. Given the dimensions m and n, return the number of possible unique paths.',
@@ -835,7 +833,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -845,7 +843,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 26. Jump Game
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Jump Game',
     'You are given an integer array nums. You are initially positioned at the array''s first index, and each element represents your maximum jump length at that position. Return true if you can reach the last index, or false otherwise.',
@@ -868,7 +866,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -882,7 +880,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 27. Clone Graph
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Clone Graph',
     'Given a reference of a node in a connected undirected graph, return a deep copy (clone) of the graph. Each node contains a value and a list of its neighbors.',
@@ -905,7 +903,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -915,7 +913,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 28. Course Schedule
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Course Schedule',
     'There are a total of numCourses courses you have to take, labeled from 0 to numCourses - 1. You are given an array prerequisites where prerequisites[i] = [ai, bi] indicates that you must take course bi first if you want to take course ai. Return true if you can finish all courses.',
@@ -938,7 +936,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -948,7 +946,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 29. Pacific Atlantic Water Flow
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Pacific Atlantic Water Flow',
     'Given an m x n matrix of heights, the Pacific ocean touches the left and top edges, and the Atlantic ocean touches the right and bottom edges. Water can flow from a cell to adjacent cells (up, down, left, right) if the adjacent cell''s height is less than or equal to the current cell''s height. Return a list of coordinates where water can flow to both oceans.',
@@ -971,7 +969,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -981,7 +979,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 30. Number of Islands
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Number of Islands',
     'Given an m x n 2D binary grid which represents a map of ''1''s (land) and ''0''s (water), return the number of islands. An island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically.',
@@ -1004,7 +1002,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1014,7 +1012,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 31. Longest Consecutive Sequence
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Consecutive Sequence',
     'Given an unsorted array of integers nums, return the length of the longest consecutive elements sequence. You must write an algorithm that runs in O(n) time.',
@@ -1037,7 +1035,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1047,7 +1045,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 32. Alien Dictionary (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Alien Dictionary',
     'There is a new alien language that uses the English alphabet, but the order of letters is unknown. You are given a list of strings words from the alien language''s dictionary, where the strings are sorted lexicographically by the rules of this new language. Return a string of the unique letters in the new language sorted in lexicographically increasing order. If there is no valid order, return empty string.',
@@ -1070,7 +1068,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1080,7 +1078,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 33. Graph Valid Tree (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Graph Valid Tree',
     'Given n nodes labeled from 0 to n-1 and a list of undirected edges, write a function to check whether these edges make up a valid tree. A valid tree has exactly n-1 edges, is connected, and has no cycles.',
@@ -1103,7 +1101,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1113,7 +1111,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 34. Number of Connected Components (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Number of Connected Components in an Undirected Graph',
     'You have a graph of n nodes. You are given an integer n and an array edges where edges[i] = [ai, bi] indicates an undirected edge between nodes ai and bi. Return the number of connected components in the graph.',
@@ -1136,7 +1134,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1150,7 +1148,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 35. Insert Interval
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Insert Interval',
     'You are given an array of non-overlapping intervals where intervals[i] = [starti, endi] represent the start and end of the ith interval. The intervals are sorted by starti. Insert newInterval into intervals such that intervals is still sorted and non-overlapping. Merge overlapping intervals if necessary.',
@@ -1173,7 +1171,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1183,7 +1181,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 36. Merge Intervals
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Merge Intervals',
     'Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals and return an array of the non-overlapping intervals that cover all the intervals in the input.',
@@ -1206,7 +1204,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1216,7 +1214,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 37. Non-overlapping Intervals
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Non-overlapping Intervals',
     'Given an array of intervals intervals where intervals[i] = [starti, endi], return the minimum number of intervals you need to remove to make the rest of the intervals non-overlapping.',
@@ -1239,7 +1237,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1249,7 +1247,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 38. Meeting Rooms (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Meeting Rooms',
     'Given an array of meeting time intervals where intervals[i] = [starti, endi], determine if a person could attend all meetings (i.e., no two meetings overlap).',
@@ -1272,7 +1270,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1282,7 +1280,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 39. Meeting Rooms II (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Meeting Rooms II',
     'Given an array of meeting time intervals where intervals[i] = [starti, endi], return the minimum number of conference rooms required.',
@@ -1305,7 +1303,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1319,7 +1317,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 40. Reverse Linked List
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Reverse Linked List',
     'Given the head of a singly linked list, reverse the list and return the reversed list.',
@@ -1342,7 +1340,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1352,7 +1350,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 41. Linked List Cycle
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Linked List Cycle',
     'Given head, the head of a linked list, determine if the linked list has a cycle in it. Return true if there is a cycle, false otherwise.',
@@ -1375,7 +1373,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1385,7 +1383,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 42. Merge Two Sorted Lists
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Merge Two Sorted Lists',
     'You are given the heads of two sorted linked lists list1 and list2. Merge the two lists into one sorted list. The list should be made by splicing together the nodes of the first two lists. Return the head of the merged linked list.',
@@ -1408,7 +1406,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1418,7 +1416,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 43. Merge K Sorted Lists
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Merge K Sorted Lists',
     'You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.',
@@ -1441,7 +1439,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1451,7 +1449,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 44. Remove Nth Node From End of List
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Remove Nth Node From End of List',
     'Given the head of a linked list, remove the nth node from the end of the list and return its head.',
@@ -1474,7 +1472,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1484,7 +1482,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 45. Reorder List
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Reorder List',
     'You are given the head of a singly linked list: L0 → L1 → ... → Ln-1 → Ln. Reorder it to: L0 → Ln → L1 → Ln-1 → L2 → Ln-2 → ... You may not modify the values, only the nodes themselves.',
@@ -1507,7 +1505,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1521,7 +1519,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 46. Set Matrix Zeroes
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Set Matrix Zeroes',
     'Given an m x n integer matrix, if an element is 0, set its entire row and column to 0. You must do it in place.',
@@ -1544,7 +1542,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1554,7 +1552,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 47. Spiral Matrix
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Spiral Matrix',
     'Given an m x n matrix, return all elements of the matrix in spiral order.',
@@ -1577,7 +1575,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1587,7 +1585,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 48. Rotate Image
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Rotate Image',
     'You are given an n x n 2D matrix representing an image. Rotate the image by 90 degrees clockwise. You have to rotate the image in-place.',
@@ -1610,7 +1608,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1620,7 +1618,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 49. Word Search
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Word Search',
     'Given an m x n grid of characters board and a string word, return true if word exists in the grid. The word can be constructed from letters of sequentially adjacent cells (horizontally or vertically), where the same cell may not be used more than once.',
@@ -1643,7 +1641,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1657,7 +1655,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 50. Longest Substring Without Repeating Characters
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Substring Without Repeating Characters',
     'Given a string s, find the length of the longest substring without repeating characters.',
@@ -1680,7 +1678,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1690,7 +1688,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 51. Longest Repeating Character Replacement
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Repeating Character Replacement',
     'You are given a string s and an integer k. You can choose any character of the string and change it to any other uppercase English character. You can perform this operation at most k times. Return the length of the longest substring containing the same letter you can get after performing the above operations.',
@@ -1713,7 +1711,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1723,7 +1721,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 52. Minimum Window Substring
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Minimum Window Substring',
     'Given two strings s and t, return the minimum window substring of s such that every character in t (including duplicates) is included in the window. If there is no such substring, return the empty string.',
@@ -1746,7 +1744,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1756,7 +1754,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 53. Valid Anagram
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Valid Anagram',
     'Given two strings s and t, return true if t is an anagram of s, and false otherwise. An anagram is a word formed by rearranging the letters of another word, using all the original letters exactly once.',
@@ -1779,7 +1777,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1789,7 +1787,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 54. Group Anagrams
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Group Anagrams',
     'Given an array of strings strs, group the anagrams together. You can return the answer in any order.',
@@ -1812,7 +1810,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1822,7 +1820,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 55. Valid Parentheses
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Valid Parentheses',
     'Given a string s containing just the characters ''('', '')'', ''{'', ''}'', ''['', '']'', determine if the input string is valid. An input string is valid if: Open brackets are closed by the same type of brackets. Open brackets are closed in the correct order. Every close bracket has a corresponding open bracket.',
@@ -1845,7 +1843,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1855,7 +1853,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 56. Valid Palindrome
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Valid Palindrome',
     'A phrase is a palindrome if, after converting all uppercase letters to lowercase and removing all non-alphanumeric characters, it reads the same forward and backward. Given a string s, return true if it is a palindrome, or false otherwise.',
@@ -1878,7 +1876,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1888,7 +1886,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 57. Longest Palindromic Substring
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Longest Palindromic Substring',
     'Given a string s, return the longest palindromic substring in s.',
@@ -1911,7 +1909,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1921,7 +1919,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 58. Palindromic Substrings
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Palindromic Substrings',
     'Given a string s, return the number of palindromic substrings in it. A string is a palindrome when it reads the same backward as forward. A substring is a contiguous sequence of characters within the string.',
@@ -1944,7 +1942,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1954,7 +1952,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 59. Encode and Decode Strings (Premium)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Encode and Decode Strings',
     'Design an algorithm to encode a list of strings to a string. The encoded string is then sent over the network and decoded back to the original list of strings.',
@@ -1977,7 +1975,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -1991,7 +1989,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 60. Maximum Depth of Binary Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Maximum Depth of Binary Tree',
     'Given the root of a binary tree, return its maximum depth. A binary tree''s maximum depth is the number of nodes along the longest path from the root node down to the farthest leaf node.',
@@ -2014,7 +2012,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2024,7 +2022,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 61. Same Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Same Tree',
     'Given the roots of two binary trees p and q, write a function to check if they are the same or not. Two binary trees are considered the same if they are structurally identical and the nodes have the same value.',
@@ -2047,7 +2045,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2057,7 +2055,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 62. Invert Binary Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Invert Binary Tree',
     'Given the root of a binary tree, invert the tree, and return its root.',
@@ -2080,7 +2078,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2090,7 +2088,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 63. Binary Tree Maximum Path Sum
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Binary Tree Maximum Path Sum',
     'A path in a binary tree is a sequence of nodes where each pair of adjacent nodes has an edge. A path sum is the sum of node values in the path. Given the root of a binary tree, return the maximum path sum of any non-empty path.',
@@ -2113,7 +2111,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2123,7 +2121,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 64. Binary Tree Level Order Traversal
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Binary Tree Level Order Traversal',
     'Given the root of a binary tree, return the level order traversal of its nodes'' values. (i.e., from left to right, level by level).',
@@ -2146,7 +2144,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2156,7 +2154,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 65. Serialize and Deserialize Binary Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Serialize and Deserialize Binary Tree',
     'Design an algorithm to serialize a binary tree to a string and deserialize that string back to the original tree structure.',
@@ -2179,7 +2177,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2189,7 +2187,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 66. Subtree of Another Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Subtree of Another Tree',
     'Given the roots of two binary trees root and subRoot, return true if there is a subtree of root with the same structure and node values as subRoot.',
@@ -2212,7 +2210,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2222,7 +2220,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 67. Construct Binary Tree from Preorder and Inorder Traversal
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Construct Binary Tree from Preorder and Inorder Traversal',
     'Given two integer arrays preorder and inorder where preorder is the preorder traversal and inorder is the inorder traversal of the same tree, construct and return the binary tree.',
@@ -2245,7 +2243,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2255,7 +2253,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 68. Validate Binary Search Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Validate Binary Search Tree',
     'Given the root of a binary tree, determine if it is a valid binary search tree (BST). A valid BST has: left subtree only contains nodes less than root, right subtree only contains nodes greater than root, and both subtrees are also valid BSTs.',
@@ -2278,7 +2276,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2288,7 +2286,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 69. Kth Smallest Element in a BST
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Kth Smallest Element in a BST',
     'Given the root of a binary search tree and an integer k, return the kth smallest value (1-indexed) of all the values of the nodes in the tree.',
@@ -2311,7 +2309,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2321,7 +2319,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 70. Lowest Common Ancestor of a Binary Search Tree
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Lowest Common Ancestor of a Binary Search Tree',
     'Given a binary search tree (BST), find the lowest common ancestor (LCA) of two given nodes p and q. The LCA is the lowest node that has both p and q as descendants (where a node can be a descendant of itself).',
@@ -2344,7 +2342,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2354,7 +2352,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 71. Implement Trie (Prefix Tree)
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Implement Trie (Prefix Tree)',
     'A trie (prefix tree) is a tree data structure used to efficiently store and retrieve keys in a dataset of strings. Implement the Trie class with insert, search, and startsWith methods.',
@@ -2377,7 +2375,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2387,7 +2385,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 72. Design Add and Search Words Data Structure
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Design Add and Search Words Data Structure',
     'Design a data structure that supports adding new words and finding if a string matches any previously added string. The search word can contain dots ''.'' where dots can match any letter.',
@@ -2410,7 +2408,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2420,7 +2418,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 73. Word Search II
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Word Search II',
     'Given an m x n board of characters and a list of strings words, return all words found in the board. Each word must be constructed from letters of sequentially adjacent cells (horizontally or vertically), where the same cell may not be used more than once in a word.',
@@ -2443,7 +2441,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2457,7 +2455,7 @@ ON CONFLICT (title) DO UPDATE SET
 -- ========================================
 
 -- 74. Top K Frequent Elements
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Top K Frequent Elements',
     'Given an integer array nums and an integer k, return the k most frequent elements. You may return the answer in any order.',
@@ -2480,7 +2478,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,
@@ -2490,7 +2488,7 @@ ON CONFLICT (title) DO UPDATE SET
     leetcode_number = EXCLUDED.leetcode_number;
 
 -- 75. Find Median from Data Stream
-INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, skeleton, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
+INSERT INTO public.blind_problems (title, prompt, example, constraints, pattern, key_idea, solution, time_complexity, space_complexity, steps, expected_edge_cases, topics, difficulty, leetcode_number)
 VALUES (
     'Find Median from Data Stream',
     'The median is the middle value in an ordered list. If the list has an even count, the median is the average of the two middle values. Design a data structure that supports adding integers and finding the median.',
@@ -2513,7 +2511,7 @@ ON CONFLICT (title) DO UPDATE SET
     constraints = EXCLUDED.constraints,
     pattern = EXCLUDED.pattern,
     key_idea = EXCLUDED.key_idea,
-    skeleton = EXCLUDED.skeleton,
+    solution = EXCLUDED.solution,
     time_complexity = EXCLUDED.time_complexity,
     space_complexity = EXCLUDED.space_complexity,
     steps = EXCLUDED.steps,

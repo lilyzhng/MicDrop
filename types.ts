@@ -156,6 +156,57 @@ export interface PerformanceReport {
   refinedTranscript?: string;
   // Time tracking
   timeSpentSeconds?: number; // Time spent on this problem in seconds
+  // Coding interview specific fields
+  codingRubric?: {
+    problemUnderstanding: number; // 0-25
+    solutionApproach: number; // 0-25
+    functionalCorrectness: number; // 0-20 (bugs, edge cases, logic)
+    codeHygiene: number; // 0-5 (readability, style)
+    communication: number | null; // 0-25, null if not assessed
+  };
+  codingQuestion?: string;
+  solutionCode?: string;
+  correctedSolution?: string; // AI-generated corrected version of the code
+  codeLanguage?: string;
+  formattedProblemStatement?: {
+    title?: string;
+    sections: Array<{
+      type: 'heading' | 'paragraph' | 'code' | 'example' | 'list' | 'constraint';
+      content: string;
+      items?: string[];
+      language?: string;
+      label?: string;
+    }>;
+  };
+  codeIssues?: Array<{
+    title: string; // "Missing null check"
+    type: 'correctness' | 'edge-case' | 'complexity' | 'style';
+    severity: 'critical' | 'major' | 'minor';
+    impact: {
+      correctness?: string; // "Causes IndexError on empty input"
+      runtime?: string; // "O(n²) instead of O(n)"
+      robustness?: string; // "Crashes on null"
+      maintainability?: string; // "Variable name 'x' unclear"
+    };
+    evidence: {
+      lineNumbers: number[];
+      codeSnippet: string;
+    };
+    fix: string; // Exact code change suggestion
+  }>;
+  problemSolvingTimeline?: Array<{
+    timestamp: string; // "02:15" or "unknown"
+    moment: string; // max 100 chars
+    category: 'clarification' | 'approach' | 'coding_start' | 'coding_main' | 'debugging' | 'testing';
+    evidence: string; // quote from transcript
+  }>;
+  nextTimeHabits?: string[]; // Top 3 behavior changes
+  // Interpretation Layer - bridges summary to evidence
+  interpretationLayer?: {
+    primaryFailureMode: string; // 1 sentence: what went wrong
+    biggestImpactFix: string; // 1 sentence: highest leverage change
+    overallSignal: string; // e.g., "Struggles with hash invariants"
+  };
 }
 
 export interface SavedItem {
@@ -182,7 +233,7 @@ export interface SavedReport {
     id: string;
     date: string;
     title: string; // Context string or Script name
-    type: 'coach' | 'walkie' | 'hot-take' | 'teach' | 'readiness';
+    type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
     rating: number;
     reportData: PerformanceReport;
 }
@@ -328,4 +379,23 @@ export interface ExplainSession {
   problemId: string;
   transcript: string;
   readinessReport?: ReadinessReport;
+}
+
+// --- Custom Interview Questions Types ---
+
+export interface CustomInterviewQuestion {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  solutionCode: string;
+  language: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  topics?: string[];
+  company?: string;
+  interviewRound?: string;
+  notes?: string;
+  reportId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

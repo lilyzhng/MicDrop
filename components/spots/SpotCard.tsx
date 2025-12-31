@@ -16,7 +16,9 @@ import {
   Coffee,
   Trees,
   Train,
-  Zap
+  Zap,
+  Building2,
+  HeartHandshake
 } from 'lucide-react';
 import { SpotCardProps, SpotWithTopic, DAILY_NEW_GOAL } from './spotTypes';
 
@@ -30,6 +32,10 @@ const getSpotIcon = (icon: string) => {
       return <Trees size={iconSize} className="sm:w-8 sm:h-8" />;
     case 'train':
       return <Train size={iconSize} className="sm:w-8 sm:h-8" />;
+    case 'building':
+      return <Building2 size={iconSize} className="sm:w-8 sm:h-8" />;
+    case 'playground':
+      return <HeartHandshake size={iconSize} className="sm:w-8 sm:h-8" />;
     default:
       return <Target size={iconSize} className="sm:w-8 sm:h-8" />;
   }
@@ -93,12 +99,20 @@ export const SpotCard: React.FC<SpotCardProps> = ({
   spot,
   studyStats,
   onStartSession,
-  onRefresh
+  onRefresh,
+  companies = [],
+  isLoadingCompanies = false,
+  onCompanySelect
 }) => {
-  const canRefresh = !spot.isRandom && !spot.locked && spot.remaining > 0 && !spot.onlyReviews;
+  const canRefresh = !spot.isRandom && !spot.locked && spot.remaining > 0 && !spot.onlyReviews && !spot.isCompanySpecific;
+  const canCycleCompany = spot.isCompanySpecific && companies.length > 0 && !isLoadingCompanies;
 
   const handleClick = () => {
-    if (spot.remaining > 0) {
+    // For company-specific spots, only proceed if a company is selected
+    if (spot.isCompanySpecific && !spot.selectedCompanyId) {
+      return; // Company must be selected first
+    }
+    if (spot.remaining > 0 || spot.isCompanySpecific) {
       onStartSession(spot);
     }
   };
@@ -106,6 +120,22 @@ export const SpotCard: React.FC<SpotCardProps> = ({
   const handleRefresh = (e: React.MouseEvent) => {
     if (onRefresh) {
       onRefresh(spot.id, e);
+    }
+  };
+
+  const handleCompanyCycle = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger spot click
+    if (companies.length === 0) return;
+    
+    const currentIndex = spot.selectedCompanyId 
+      ? companies.findIndex(c => c.id === spot.selectedCompanyId)
+      : -1;
+    
+    const nextIndex = (currentIndex + 1) % companies.length;
+    const nextCompany = companies[nextIndex];
+    
+    if (nextCompany && onCompanySelect) {
+      onCompanySelect(spot.id, nextCompany.id, nextCompany.name);
     }
   };
 
@@ -134,7 +164,7 @@ export const SpotCard: React.FC<SpotCardProps> = ({
 
         {/* Topic Tag Row */}
         <div className="flex items-center gap-2 mb-1 sm:mb-1.5 flex-wrap">
-          {/* 1. Shuffle button - at the front for unlocked, non-random spots */}
+          {/* 1. Shuffle button - at the front for unlocked, non-random spots OR company cycle button */}
           {canRefresh && (
             <button
               onClick={handleRefresh}
@@ -144,27 +174,55 @@ export const SpotCard: React.FC<SpotCardProps> = ({
               <RefreshCw size={10} className="sm:w-3 sm:h-3" />
             </button>
           )}
+          
+          {/* Company cycle button for Himmel Park */}
+          {canCycleCompany && (
+            <button
+              onClick={handleCompanyCycle}
+              className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-gray-400 hover:bg-blue-500/20 hover:border-blue-500/30 hover:text-blue-300 transition-all"
+              title="Change company"
+            >
+              <RefreshCw size={10} className="sm:w-3 sm:h-3" />
+            </button>
+          )}
 
-          {/* 2. Topic badge */}
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${getTopicTagStyles(spot)}`}>
-            {spot.isRandom ? (
-              <Sparkles size={10} className="sm:w-3 sm:h-3" />
-            ) : spot.locked ? (
-              <Lock size={10} className="sm:w-3 sm:h-3" />
-            ) : (
+          {/* 2. Topic badge - hide for company-specific spots (they show company name instead) */}
+          {!spot.isCompanySpecific && (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${getTopicTagStyles(spot)}`}>
+              {spot.isRandom ? (
+                <Sparkles size={10} className="sm:w-3 sm:h-3" />
+              ) : spot.locked ? (
+                <Lock size={10} className="sm:w-3 sm:h-3" />
+              ) : (
+                <Target size={10} className="sm:w-3 sm:h-3" />
+              )}
+              {spot.topicDisplay}
+            </span>
+          )}
+          
+          {/* 2b. Company badge for Himmel Park - shows selected company */}
+          {spot.isCompanySpecific && spot.selectedCompanyName && (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${getTopicTagStyles(spot)}`}>
               <Target size={10} className="sm:w-3 sm:h-3" />
-            )}
-            {spot.topicDisplay}
-          </span>
+              {spot.selectedCompanyName}
+            </span>
+          )}
 
-          {/* 3. Remaining count for this topic - show for non-reviews spots */}
-          {!spot.onlyReviews && (
+          {/* 3. Remaining count for this topic - show for non-reviews, non-company-specific spots */}
+          {!spot.onlyReviews && !spot.isCompanySpecific && (
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium ${
               spot.remaining === 0 
                 ? 'bg-green-500/20 border border-green-500/30 text-green-300' 
                 : 'bg-gray-500/20 border border-gray-500/30 text-gray-300'
             }`}>
               {spot.remaining === 0 ? '✓ topic done' : `${spot.remaining} in topic`}
+            </span>
+          )}
+          
+          {/* 3b. Question count for Himmel Park - shows when company is selected */}
+          {spot.isCompanySpecific && spot.selectedCompanyId && spot.remaining > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-gray-500/20 border border-gray-500/30 text-gray-300">
+              {spot.remaining} question{spot.remaining !== 1 ? 's' : ''} due
             </span>
           )}
 

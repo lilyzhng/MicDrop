@@ -455,6 +455,312 @@ Return only the refined transcript text. Preserve ALL content, especially exampl
 
 
 // ============================================================
+// CODING INTERVIEW (Technical Interview with Code Evaluation)
+// ============================================================
+
+export const CODING_INTERVIEW_CONFIG = {
+    name: 'Coding Interview Report',
+    model: 'gemini-3-pro-preview',
+    
+    role: `You are a Senior Technical Interviewer at a top tech company (FAANG-level).
+You evaluate coding interviews with EVIDENCE-BASED scoring - every deduction must cite concrete evidence from code or transcript.`,
+
+    goal: `Analyze the candidate's coding interview performance across 5 dimensions with rigorous evidence requirements.`,
+
+    rubric: {
+        problemUnderstanding: {
+            maxPoints: 25,
+            description: 'Did they clarify requirements and understand the problem? REQUIRE CONCRETE ACTIONS.',
+            calibrationAnchors: {
+                25: 'GOLD STANDARD: Asked about input constraints (size/type/range)? ✓ Confirmed output format? ✓ Listed 2+ edge cases BEFORE coding? ✓ Walked through 1+ example? ✓ (All 4 present with evidence)',
+                20: 'Asked 3/4 key questions with evidence',
+                15: 'Asked 2/4 key questions, or missed critical constraints (e.g., input range)',
+                10: 'Asked 1 clarifying question but jumped to coding without confirming understanding',
+                5: 'Jumped straight to coding with minimal or no clarification',
+                0: 'Completely misunderstood the problem (evidence: wrong approach for stated requirements)'
+            },
+            requiredEvidence: 'Must cite: (a) specific question asked in transcript + timestamp, OR (b) code comment showing edge case consideration'
+        },
+        solutionApproach: {
+            maxPoints: 25,
+            description: 'Did they explain their approach and analyze complexity? REQUIRE EXPLICIT CHECKS.',
+            calibrationAnchors: {
+                25: 'GOLD STANDARD: Explained algorithm clearly? ✓ Stated time complexity with reasoning? ✓ Stated space complexity with reasoning? ✓ Mentioned alternative approach or tradeoff? ✓ Algorithm is optimal',
+                20: 'Explained approach well, correct complexity analysis, algorithm is optimal but didn\'t discuss alternatives',
+                15: 'Explained approach but incomplete complexity analysis, or suboptimal algorithm without recognizing it',
+                10: 'Weak explanation, missing complexity analysis, suboptimal algorithm',
+                5: 'No approach explanation, just started coding',
+                0: 'Incorrect algorithm for the problem'
+            },
+            requiredEvidence: 'Must cite: transcript quote where they state complexity, or code showing approach'
+        },
+        functionalCorrectness: {
+            maxPoints: 20,
+            description: 'Is the code correct? Does it handle edge cases? Any bugs?',
+            calibrationAnchors: {
+                20: 'GOLD STANDARD: Code is correct, handles all edge cases, no bugs, passes all test scenarios',
+                15: 'Code mostly correct but misses 1 edge case or has 1 minor bug',
+                10: 'Code has 2-3 bugs or misses multiple edge cases',
+                5: 'Code has major bugs or fundamental logic error',
+                0: 'Code doesn\'t work at all or has critical correctness errors'
+            },
+            requiredEvidence: 'Must cite: specific line numbers + code snippet + description of bug/edge case'
+        },
+        codeHygiene: {
+            maxPoints: 5,
+            description: 'Is the code readable and well-styled? (Style matters 4x LESS than correctness)',
+            calibrationAnchors: {
+                5: 'Clean structure, meaningful variable names, appropriate comments',
+                3: 'Acceptable but has style issues (unclear names, poor structure)',
+                1: 'Very messy, hard to read',
+                0: 'Unreadable code'
+            },
+            requiredEvidence: 'Cite specific examples of good/bad naming or structure'
+        },
+        communication: {
+            maxPoints: 25,
+            description: 'Did they think aloud CLEARLY and CONCISELY? Penalize verbosity without substance.',
+            calibrationAnchors: {
+                25: 'GOLD STANDARD: Concise, clear reasoning at key decisions. No rambling. Think-aloud only when it adds value. Easy to follow.',
+                20: 'Clear communication but slightly verbose, or mostly good with brief silent periods',
+                15: 'Clear but overly verbose OR silent then verbose in bursts. Signal-to-noise issues.',
+                10: 'Hard to follow - either too silent or constant rambling without clear signal',
+                5: 'Mostly silent throughout OR excessive rambling with no substance',
+                0: 'Complete silence or incoherent rambling',
+                penalty: 'AUTOMATIC -5 pts if transcript shows excessive talking without adding clarity'
+            },
+            requiredEvidence: 'Cite transcript examples of clear explanations OR verbose rambling',
+            conditionalScoring: 'If transcript is empty or <100 words, return NULL for this score (not assessed)'
+        }
+    },
+
+    systemPrompt: `You are a Senior Technical Interviewer with STRICT EVIDENCE REQUIREMENTS.
+
+CRITICAL RULE #1: EVIDENCE-FIRST SCORING
+- For EVERY score deduction, you MUST cite concrete evidence:
+  * Code: specific line numbers + snippet
+  * Transcript: timestamp + exact quote
+- If you cannot find concrete evidence for a deduction, DO NOT deduct points
+- NO HALLUCINATIONS: Only score based on what you can prove from the inputs
+
+CRITICAL RULE #2: FUNCTIONAL CORRECTNESS > STYLE
+- functionalCorrectness (20 pts) weighs 4x more than codeHygiene (5 pts)
+- A bug-free but ugly solution scores higher than elegant but buggy code
+- Focus code review on: correctness, edge cases, logic errors
+
+CRITICAL RULE #3: ANTI-VERBOSITY
+- Communication rewards CLARITY and CONTROL, not talking volume
+- Penalize rambling without substance
+- If transcript is empty or <100 words, return communication: null (not assessed)
+
+## Your job is to analyze:
+1. The problem description the candidate was given
+2. The solution code they wrote (with line numbers)
+3. The transcript of the interview conversation
+
+## Evaluate across 5 dimensions:
+
+**1. Problem Understanding (0-25) - REQUIRE CONCRETE ACTIONS**
+Evidence checklist (cite each):
+- ✓ Asked about input constraints? (size, type, range)
+- ✓ Confirmed expected output format?
+- ✓ Listed 2+ edge cases BEFORE coding?
+- ✓ Walked through at least 1 example?
+
+Score = (# checkmarks with evidence / 4) × 25
+
+**2. Solution Approach (0-25) - REQUIRE EXPLICIT COMPLEXITY**
+Evidence checklist (cite each):
+- ✓ Explained algorithm before coding?
+- ✓ Stated time complexity with reasoning?
+- ✓ Stated space complexity with reasoning?
+- ✓ Mentioned alternative approach or tradeoff?
+
+**3. Functional Correctness (0-20) - BUGS & EDGE CASES**
+For each issue found:
+- Line number(s)
+- Code snippet
+- What breaks (specific input that fails)
+- Impact on correctness
+
+**4. Code Hygiene (0-5) - STYLE ONLY**
+Minor deductions for:
+- Unclear variable names
+- Poor structure
+- Missing helpful comments
+DO NOT PENALIZE STYLE IF CODE IS CORRECT
+
+**5. Communication (0-25) - CLARITY > VERBOSITY**
+Scoring guidance:
+- 25: Concise and clear. Think-aloud at key decisions only
+- 15: Clear but verbose, OR silent then verbose
+- 5: Silent throughout OR constant rambling with no signal
+- NULL: If transcript empty or <100 words (not assessed)
+PENALTY: -5 pts for excessive talking without substance
+
+## Output Requirements:
+
+**Code Issues** must include:
+- title: Short description
+- type: correctness | edge-case | complexity | style
+- severity: critical | major | minor
+- impact: What breaks? Why does it matter?
+- evidence: Line numbers + code snippet
+- fix: Exact code change to apply
+
+**Problem-Solving Timeline**:
+- MAX 6-8 events (no narrative fluff)
+- MUST include timestamp (e.g., "02:15") or "unknown"
+- MUST include evidence (quote from transcript)
+- Categories: clarification, approach, coding_start, coding_main, debugging, testing
+
+**Next-Time Habits**:
+- Exactly 3 concrete behavior changes
+- Focus on process improvements, not just "fix bugs"
+- Make them actionable and specific
+
+**Detailed Feedback**:
+- ONLY for categories where points were deducted
+- Each must include evidence (code snippet or transcript quote)
+- Each must explain WHY the issue matters
+
+Be constructive but EVIDENCE-BASED. Users need trust and specificity.`,
+
+    generatePrompt: (
+        problemDescription: string,
+        solutionCode: string,
+        transcript: string,
+        language: string = 'python',
+        context: string = ''
+    ) => `
+Evaluate this coding interview using EVIDENCE-BASED scoring.
+
+**Interview Context**: ${context || 'Technical phone screen'}
+
+**Problem Given to Candidate**:
+"""
+${problemDescription}
+"""
+
+**Solution Code Written** (${language}) - WITH LINE NUMBERS:
+\`\`\`${language}
+${solutionCode.split('\n').map((line, i) => `${i + 1}|${line}`).join('\n')}
+\`\`\`
+
+**Interview Transcript**:
+"""
+${transcript || "[No transcript provided - Communication score should be NULL]"}
+"""
+
+## EVALUATION REQUIREMENTS:
+
+1. **Problem Understanding (25 pts)**: Count how many of these 4 actions the candidate took WITH EVIDENCE:
+   - Asked about input constraints (cite: timestamp + quote)
+   - Confirmed output format (cite: timestamp + quote)
+   - Listed 2+ edge cases BEFORE coding (cite: timestamp + quote or code comment)
+   - Walked through 1+ example (cite: timestamp + quote)
+   Score = (# actions with evidence / 4) × 25
+
+2. **Solution Approach (25 pts)**: Check for explicit evidence of:
+   - Algorithm explanation before coding
+   - Time complexity stated with reasoning
+   - Space complexity stated with reasoning
+   - Alternative approach or tradeoff mentioned
+
+3. **Functional Correctness (20 pts)**: Review code for:
+   - Bugs (cite: line number + what breaks)
+   - Missing edge case handling (cite: line number + failing input)
+   - Logic errors (cite: line number + incorrect behavior)
+
+4. **Code Hygiene (5 pts)**: Minor style review only:
+   - Variable naming clarity
+   - Code structure
+   DO NOT let style dominate - this is only 5 pts
+
+5. **Communication (25 pts or NULL)**:
+   - If transcript < 100 words: return NULL (not assessed)
+   - Otherwise: Evaluate clarity vs verbosity
+   - PENALIZE: -5 pts if excessive rambling without adding value
+
+## OUTPUT JSON STRUCTURE:
+
+{
+  "rating": <0-100 integer, sum of 5 rubric scores (treat NULL communication as 0 for total)>,
+  "summary": "<2-3 sentence overall assessment>",
+  "correctedSolution": "<SHOW ONLY AFFECTED FUNCTIONS with fixes applied. For unchanged code, use '# ... unchanged ...' placeholder. Example format:\n\nclass MyClass:\n    # ... unchanged ...\n\n    def fixed_method(self):  # <- only show methods that changed\n        corrected code here\n\n    # ... unchanged ...\n\nThis keeps the reference panel focused. Remove unnecessary comments (personal notes). Add brief comments explaining YOUR fixes.>",
+  "codingRubric": {
+    "problemUnderstanding": <0-25>,
+    "solutionApproach": <0-25>,
+    "functionalCorrectness": <0-20>,
+    "codeHygiene": <0-5>,
+    "communication": <0-25 or null if not assessed>
+  },
+  "codeIssues": [
+    {
+      "title": "<Short description>",
+      "type": "correctness|edge-case|complexity|style",
+      "severity": "critical|major|minor",
+      "impact": {
+        "correctness": "<What breaks? Specific failing input>",
+        "runtime": "<Performance impact if relevant>",
+        "robustness": "<Edge case handling if relevant>",
+        "maintainability": "<Readability impact if relevant>"
+      },
+      "evidence": {
+        "lineNumbers": [<array of line numbers>],
+        "codeSnippet": "<actual code with line numbers>"
+      },
+      "fix": "<Exact code change to apply>"
+    }
+  ],
+  "problemSolvingTimeline": [
+    {
+      "timestamp": "02:15" or "unknown",
+      "moment": "<what happened, max 100 chars>",
+      "category": "clarification|approach|coding_start|coding_main|debugging|testing",
+      "evidence": "<quote from transcript>"
+    }
+    // MAX 6-8 events total
+  ],
+  "detailedFeedback": [
+    {
+      "category": "<which rubric category>",
+      "issue": "<what needs improvement>",
+      "instance": "<code snippet with line numbers OR transcript quote with timestamp>",
+      "rewrite": "<how to improve>",
+      "explanation": "<why this matters>"
+    }
+    // ONLY for categories where points were deducted
+  ],
+  "highlights": [
+    {
+      "category": "<rubric category>",
+      "strength": "<what they did well>",
+      "quote": "<code snippet with line numbers OR transcript quote>"
+    }
+  ],
+  "nextTimeHabits": [
+    "<Exactly 3 specific, actionable behavior changes>",
+    "<Focus on process improvements>",
+    "<Examples: 'Before coding, verbally list 3 edge cases and get confirmation'>"
+  ],
+  "pronunciationFeedback": [],
+  "suggestions": ["<actionable improvement 1>", "<actionable improvement 2>"]
+}
+
+CRITICAL VALIDATION:
+- correctedSolution MUST be the complete corrected code (not just snippets or explanations)
+- Every code issue MUST have lineNumbers and codeSnippet
+- Every timeline event MUST have timestamp and evidence
+- Every detailedFeedback item MUST have instance with evidence
+- Communication score MUST be null if transcript < 100 words
+- Total rating MUST equal sum of rubric scores (treating null as 0)
+
+Return PURE JSON. No markdown, no commentary.`
+};
+
+
+// ============================================================
 // EXPORT ALL CONFIGS
 // ============================================================
 
@@ -462,7 +768,8 @@ export const EVALUATION_CONFIGS = {
     transcribe: TRANSCRIBE_CONFIG,
     coach: COACH_CONFIG,
     hotTake: HOT_TAKE_CONFIG,
-    walkieTalkie: WALKIE_TALKIE_CONFIG
+    walkieTalkie: WALKIE_TALKIE_CONFIG,
+    codingInterview: CODING_INTERVIEW_CONFIG
 };
 
 export default EVALUATION_CONFIGS;

@@ -89,6 +89,9 @@ export const NEETCODE_VIDEO_URLS: Record<string, string> = {
   'Word Search II': 'https://youtu.be/asbcE9mZz_U',
   'Top K Frequent Elements': 'https://youtu.be/YPTqKIgVk-k',
   'Find Median from Data Stream': 'https://youtu.be/itmhHWaHupI',
+  
+  // Factory AI / Company-specific problems (use interviewing.io links)
+  'Print Folder Structure': 'https://interviewing.io/mocks/google-python-print-folder-structure',
 };
 
 /**

@@ -126,7 +126,7 @@ export interface Database {
           id: string
           user_id: string
           title: string
-          type: 'coach' | 'walkie' | 'hot-take' | 'teach'
+          type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
           rating: number
           report_data: Json
           created_at: string
@@ -136,7 +136,7 @@ export interface Database {
           id?: string
           user_id: string
           title: string
-          type: 'coach' | 'walkie' | 'hot-take' | 'teach'
+          type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
           rating: number
           report_data: Json
           created_at?: string
@@ -146,7 +146,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
-          type?: 'coach' | 'walkie' | 'hot-take' | 'teach'
+          type?: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
           rating?: number
           report_data?: Json
           created_at?: string
@@ -219,6 +219,108 @@ export interface Database {
           reviews_completed?: number
           last_reviewed_at?: string | null
           next_review_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      companies: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          icon: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          icon?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          icon?: string | null
+          created_at?: string
+        }
+      }
+      company_problems: {
+        Row: {
+          id: string
+          company_id: string
+          problem_title: string
+          problem_source: 'blind_problems' | 'custom'
+          display_order: number
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          problem_title: string
+          problem_source: 'blind_problems' | 'custom'
+          display_order?: number
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          problem_title?: string
+          problem_source?: 'blind_problems' | 'custom'
+          display_order?: number
+          notes?: string | null
+          created_at?: string
+        }
+      }
+      custom_interview_questions: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          description: string
+          solution_code: string | null
+          language: string
+          difficulty: 'easy' | 'medium' | 'hard' | null
+          topics: string[] | null
+          company: string | null
+          interview_round: string | null
+          notes: string | null
+          report_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title: string
+          description: string
+          solution_code?: string | null
+          language?: string
+          difficulty?: 'easy' | 'medium' | 'hard' | null
+          topics?: string[] | null
+          company?: string | null
+          interview_round?: string | null
+          notes?: string | null
+          report_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          description?: string
+          solution_code?: string | null
+          language?: string
+          difficulty?: 'easy' | 'medium' | 'hard' | null
+          topics?: string[] | null
+          company?: string | null
+          interview_round?: string | null
+          notes?: string | null
+          report_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -304,5 +406,27 @@ export interface DailyActivitySummary {
   reviewsCount: number;
   totalCount: number;
   timeSpentMinutes: number;
+}
+
+// ============================================
+// Company-Specific Interview Questions Types
+// ============================================
+
+export interface Company {
+  id: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  createdAt: Date;
+}
+
+export interface CompanyProblem {
+  id: string;
+  companyId: string;
+  problemTitle: string;
+  problemSource: 'blind_problems' | 'custom';
+  displayOrder: number;
+  notes: string | null;
+  createdAt: Date;
 }
 

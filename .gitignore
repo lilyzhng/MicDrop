@@ -1,3 +1,8 @@
+# ignore cache
+__pycache__
+
+# ignore all sql
+*.sql
 # Logs
 logs
 *.log

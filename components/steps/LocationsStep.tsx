@@ -64,6 +64,11 @@ interface LocationsStepProps {
   startSpotSession: (spot: SpotWithTopic) => void;
   handleRefreshSingleSpot: (spotId: string, e: React.MouseEvent) => void;
   
+  // Company selection (for Himmel Park)
+  companies?: Array<{id: string; name: string; description: string | null; icon: string | null}>;
+  isLoadingCompanies?: boolean;
+  onCompanySelect?: (spotId: string, companyId: string, companyName: string) => void;
+  
   // Modals
   showStats: boolean;
   setShowStats: (show: boolean) => void;
@@ -94,6 +99,9 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
   isLoadingSpots,
   startSpotSession,
   handleRefreshSingleSpot,
+  companies = [],
+  isLoadingCompanies = false,
+  onCompanySelect,
   showStats,
   setShowStats,
   showSettings,
@@ -243,6 +251,9 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
               studyStats={studyStats}
               onStartSession={startSpotSession}
               onRefresh={handleRefreshSingleSpot}
+              companies={companies}
+              isLoadingCompanies={isLoadingCompanies}
+              onCompanySelect={onCompanySelect}
             />
           ))
         )}

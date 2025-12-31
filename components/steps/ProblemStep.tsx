@@ -120,10 +120,10 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                        target="_blank" 
                        rel="noopener noreferrer"
                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
-                       title="Watch NeetCode video solution"
+                       title={getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? "Watch NeetCode video solution" : "View problem discussion & solution"}
                      >
                        <ExternalLink size={10} className="sm:w-3 sm:h-3" />
-                       <span>NeetCode Video</span>
+                       <span>{getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? 'NeetCode Video' : 'Video Solution'}</span>
                      </a>
                    )}
                 </div>

@@ -1,16 +1,18 @@
 
 import React, { useState, useRef } from 'react';
-import { Home, Upload, Check, ArrowRight, Loader2, Download, Flame } from 'lucide-react';
+import { Home, Upload, Check, ArrowRight, Loader2, Flame, Code } from 'lucide-react';
 import { PerformanceReport, SavedItem } from '../types';
 import { getAudioMimeType } from '../utils';
-import { analyzeStage1_Transcribe, analyzeStage2_Coach } from '../services/analysisService';
+import { analyzeStage1_Transcribe, analyzeStage2_Coach, analyzeStage2_CodingInterview } from '../services/analysisService';
 import PerformanceReportComponent from '../components/PerformanceReport';
+
+type InterviewReportType = 'system-coding' | 'role-fit';
 
 interface AnalysisViewProps {
     onHome: (force: boolean) => void;
     isSaved: (title: string, content: string) => boolean;
     onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
-    onSaveReport: (title: string, type: 'coach', report: PerformanceReport) => void;
+    onSaveReport: (title: string, type: InterviewReportType, report: PerformanceReport) => void;
 }
 
 // Type for persisted file info (without base64 to keep it small)
@@ -100,6 +102,60 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
         }
     });
     
+    // Interview type selection state (for categorizing the report)
+    const [interviewType, setInterviewType] = useState<InterviewReportType>(() => {
+        try {
+            const saved = sessionStorage.getItem('coach_interviewType');
+            return (saved as InterviewReportType) || 'role-fit';
+        } catch {
+            return 'role-fit';
+        }
+    });
+    
+    // Coding Interview specific state
+    const [isCodingInterview, setIsCodingInterview] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_isCodingInterview') === 'true';
+        } catch {
+            return false;
+        }
+    });
+    const [codingQuestion, setCodingQuestion] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_codingQuestion') || "";
+        } catch {
+            return "";
+        }
+    });
+    const [codingSolution, setCodingSolution] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_codingSolution') || "";
+        } catch {
+            return "";
+        }
+    });
+    const [codingLanguage, setCodingLanguage] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_codingLanguage') || "python";
+        } catch {
+            return "python";
+        }
+    });
+    const [codingCompany, setCodingCompany] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_codingCompany') || "";
+        } catch {
+            return "";
+        }
+    });
+    const [codingRound, setCodingRound] = useState(() => {
+        try {
+            return sessionStorage.getItem('coach_codingRound') || "";
+        } catch {
+            return "";
+        }
+    });
+    
     // File selection state
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [persistedAudioBlob, setPersistedAudioBlob] = useState<Blob | null>(null);
@@ -139,6 +195,64 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
             console.error('Failed to save manualTranscript to session storage', e);
         }
     }, [manualTranscript]);
+    
+    // Persist interview type selection
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_interviewType', interviewType);
+        } catch (e) {
+            console.error('Failed to save interviewType to session storage', e);
+        }
+    }, [interviewType]);
+    
+    // Persist coding interview fields
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_isCodingInterview', isCodingInterview.toString());
+        } catch (e) {
+            console.error('Failed to save isCodingInterview to session storage', e);
+        }
+    }, [isCodingInterview]);
+    
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_codingQuestion', codingQuestion);
+        } catch (e) {
+            console.error('Failed to save codingQuestion to session storage', e);
+        }
+    }, [codingQuestion]);
+    
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_codingSolution', codingSolution);
+        } catch (e) {
+            console.error('Failed to save codingSolution to session storage', e);
+        }
+    }, [codingSolution]);
+    
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_codingLanguage', codingLanguage);
+        } catch (e) {
+            console.error('Failed to save codingLanguage to session storage', e);
+        }
+    }, [codingLanguage]);
+    
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_codingCompany', codingCompany);
+        } catch (e) {
+            console.error('Failed to save codingCompany to session storage', e);
+        }
+    }, [codingCompany]);
+    
+    React.useEffect(() => {
+        try {
+            sessionStorage.setItem('coach_codingRound', codingRound);
+        } catch (e) {
+            console.error('Failed to save codingRound to session storage', e);
+        }
+    }, [codingRound]);
 
     // Rehydrate selected audio from IndexedDB (survives reloads/tab discards/navigation).
     React.useEffect(() => {
@@ -166,6 +280,13 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
             sessionStorage.removeItem('coach_uploadContext');
             sessionStorage.removeItem('coach_manualTranscript');
             sessionStorage.removeItem('coach_fileInfo');
+            sessionStorage.removeItem('coach_isCodingInterview');
+            sessionStorage.removeItem('coach_codingQuestion');
+            sessionStorage.removeItem('coach_codingSolution');
+            sessionStorage.removeItem('coach_codingLanguage');
+            sessionStorage.removeItem('coach_codingCompany');
+            sessionStorage.removeItem('coach_codingRound');
+            sessionStorage.removeItem('coach_interviewType');
         } catch (e) {
             console.error('Failed to clear session storage', e);
         }
@@ -173,7 +294,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
     };
 
     const handleHomeClick = () => {
-        const hasData = !!(selectedFile || persistedFileInfo || manualTranscript.trim() || uploadContext.trim() || transcriptionResult || performanceReport);
+        const hasData = !!(selectedFile || persistedFileInfo || manualTranscript.trim() || uploadContext.trim() || transcriptionResult || performanceReport || codingQuestion.trim() || codingSolution.trim());
         if (hasData && !performanceReport) {
             if (!window.confirm("Are you sure you want to go back? Current progress will be lost.")) return;
         }
@@ -214,6 +335,18 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
             alert("Please upload an audio file or paste a transcript.");
             return;
         }
+        
+        // Validate coding interview fields if enabled
+        if (isCodingInterview) {
+            if (!codingQuestion.trim()) {
+                alert("Please enter the coding question/problem description.");
+                return;
+            }
+            if (!codingSolution.trim()) {
+                alert("Please paste your solution code.");
+                return;
+            }
+        }
 
         // Check file size - use persisted info if actual file is not available
         const fileSize = selectedFile?.size ?? persistedFileInfo?.size ?? persistedAudioBlob?.size ?? 0;
@@ -245,8 +378,45 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
 
             // LOGIC BRANCHING
             
+            // Path C: Coding Interview -> Transcribe (if audio) then analyze as coding interview
+            if (isCodingInterview) {
+                let transcript = manualTranscript.trim();
+                
+                // Transcribe if audio provided and no manual transcript
+                if (!transcript && base64Audio) {
+                    setAnalysisStep('transcribing');
+                    const transcribed = await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext || codingQuestion);
+                    transcript = transcribed || '';
+                    setTranscriptionResult(transcript);
+                }
+                
+                // Analyze as coding interview
+                setAnalysisStep('analyzing');
+                const contextStr = `${codingCompany ? `${codingCompany} - ` : ''}${codingRound || 'Technical Interview'}`;
+                const report = await analyzeStage2_CodingInterview(
+                    base64Audio,
+                    transcript || '',
+                    codingQuestion,
+                    codingSolution,
+                    contextStr,
+                    codingLanguage,
+                    mimeType
+                );
+                
+                report.refinedTranscript = transcript || '';
+                setPerformanceReport(report);
+                
+                await new Promise(resolve => setTimeout(resolve, 0));
+                
+                const reportTitle = codingCompany ? 
+                    `${codingCompany} - ${codingQuestion.split('\n')[0].substring(0, 50)}` :
+                    codingQuestion.split('\n')[0].substring(0, 50);
+                // Use system-coding type for coding interviews, otherwise use selected interview type
+                await onSaveReport(reportTitle, isCodingInterview ? 'system-coding' : interviewType, report);
+                clearSessionData();
+            }
             // Path A: Manual Transcript provided -> Skip Stage 1, Go straight to Stage 2
-            if (manualTranscript.trim()) {
+            else if (manualTranscript.trim()) {
                 setAnalysisStep('analyzing');
                 setTranscriptionResult(manualTranscript); // Treat manual as the result
                 
@@ -254,19 +424,20 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                 // Store transcript in report for later retrieval
                 report.refinedTranscript = manualTranscript;
                 setPerformanceReport(report);
-                await onSaveReport(uploadContext || "Coach Session", 'coach', report);
+                await onSaveReport(uploadContext || "Coach Session", interviewType, report);
                 clearSessionData();
             } 
             // Path B: Audio Only -> Run Stage 1 (Transcribe) -> Automatically Run Stage 2 (Coach)
             else if (base64Audio) {
                 // Phase 1: Transcribe
                 setAnalysisStep('transcribing');
-                const transcript = await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext);
+                const transcribed = await analyzeStage1_Transcribe(base64Audio, mimeType, uploadContext);
+                const transcript = transcribed || '';
                 setTranscriptionResult(transcript);
 
                 // Phase 2: Coach (Automatic Transition)
                 setAnalysisStep('analyzing');
-                const report = await analyzeStage2_Coach(base64Audio, transcript, uploadContext, mimeType);
+                const report = await analyzeStage2_Coach(base64Audio, transcript, uploadContext || '', mimeType);
                 
                 // Store transcript in report for later retrieval
                 report.refinedTranscript = transcript;
@@ -277,7 +448,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                 // Wait a tick to ensure state is updated
                 await new Promise(resolve => setTimeout(resolve, 0));
                 
-                await onSaveReport(uploadContext || "Coach Session", 'coach', report);
+                await onSaveReport(uploadContext || "Coach Session", interviewType, report);
                 clearSessionData();
             } else {
                 throw new Error("No input provided");
@@ -336,17 +507,39 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
         // console.log("Coach state changed", { isAnalyzing, analysisStep });
     }, [isAnalyzing, analysisStep, performanceReport, transcriptionResult, selectedFile, persistedFileInfo, persistedAudioBlob]);
 
+    // Determine if we're viewing a coding report
+    // Check both: 1) report has codingRubric data, OR 2) user selected coding interview mode and has a report
+    const isViewingCodingReport = !!performanceReport?.codingRubric || (isCodingInterview && !!performanceReport);
+
+    // DEBUG: Log the values to understand why dark theme might not be showing
+    console.log('[DEBUG] Dark Theme Check:', {
+        isCodingInterview,
+        hasPerformanceReport: !!performanceReport,
+        hasCodingRubric: !!performanceReport?.codingRubric,
+        codingRubricValue: performanceReport?.codingRubric,
+        isViewingCodingReport,
+        expectedBackground: isViewingCodingReport ? 'bg-charcoal (dark)' : 'bg-cream (light)'
+    });
+
     return (
-      <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
+      <div className={`absolute inset-0 ${isViewingCodingReport ? 'bg-charcoal' : 'bg-cream'} text-charcoal flex flex-col font-sans overflow-hidden`}>
            {/* Header */}
-           <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-50 shrink-0">
+           <div className={`h-20 border-b flex items-center justify-between px-8 z-50 shrink-0 ${
+               isViewingCodingReport ? 'bg-black border-white/5' : 'bg-white border-[#E6E6E6]'
+           }`}>
                 <div className="flex items-center gap-4">
-                    <button onClick={handleHomeClick} className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors">
-                        <Home size={18} className="text-gray-500" />
+                    <button onClick={handleHomeClick} className={`w-10 h-10 rounded-full border flex items-center justify-center transition-colors ${
+                        isViewingCodingReport 
+                            ? 'border-white/10 hover:bg-white/5 bg-white/5' 
+                            : 'border-gray-200 hover:bg-gray-50'
+                    }`}>
+                        <Home size={18} className={isViewingCodingReport ? "text-gray-400" : "text-gray-500"} />
                     </button>
                     <div>
                         <div className="text-[10px] font-bold text-gold uppercase tracking-widest">MicDrop</div>
-                        <h2 className="text-xl font-serif font-bold text-charcoal flex items-center gap-2">
+                        <h2 className={`text-xl font-serif font-bold flex items-center gap-2 ${
+                            isViewingCodingReport ? 'text-white' : 'text-charcoal'
+                        }`}>
                            <Flame size={18} className="text-gold" /> The Coach
                         </h2>
                     </div>
@@ -354,7 +547,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
            </div>
 
            {/* Content */}
-           <div className="flex-1 overflow-y-auto p-8 relative min-h-0">
+           <div className={`flex-1 overflow-y-auto relative min-h-0 ${isViewingCodingReport ? 'p-8' : 'p-8'}`}>
                 {!performanceReport ? (
                     isAnalyzing ? (
                         <div className="max-w-4xl mx-auto pb-20">
@@ -378,30 +571,141 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                             </div>
                             
                             <div className="space-y-8">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Context & Roles (Optional)</label>
-                                    <textarea 
-                                        className="w-full h-24 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50"
-                                        placeholder="e.g., 'Technical Interview for Senior ML Engineer role. Recruiter is Joe, I am Lily.'"
-                                        value={uploadContext}
-                                        onChange={(e) => setUploadContext(e.target.value)}
-                                    />
+                                {/* Coding Interview Toggle */}
+                                <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-100">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isCodingInterview}
+                                            onChange={(e) => setIsCodingInterview(e.target.checked)}
+                                            className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 focus:ring-offset-0 cursor-pointer"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                            <Code size={18} className="text-purple-600" />
+                                            <span className="font-bold text-charcoal">This is a Coding Interview</span>
+                                        </div>
+                                    </label>
+                                    {isCodingInterview && (
+                                        <p className="text-xs text-gray-600 mt-2 ml-8">
+                                            We'll evaluate your problem-solving approach, code quality, and technical communication.
+                                        </p>
+                                    )}
                                 </div>
 
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Transcript (Optional)</label>
-                                    <textarea 
-                                        className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder:text-gray-300"
-                                        placeholder="Paste existing transcript here to skip the transcription step..."
-                                        value={manualTranscript}
-                                        onChange={(e) => setManualTranscript(e.target.value)}
-                                    />
-                                </div>
+                                {/* Conditional Fields for Coding Interview */}
+                                {isCodingInterview && (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Problem Description *</label>
+                                            <textarea 
+                                                className="w-full h-40 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-purple-500 resize-none focus:ring-1 focus:ring-purple-500/50 font-mono"
+                                                placeholder="Paste the coding question/problem statement here..."
+                                                value={codingQuestion}
+                                                onChange={(e) => setCodingQuestion(e.target.value)}
+                                            />
+                                        </div>
 
-                                <div 
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all ${(selectedFile || persistedAudioBlob) ? 'border-green-400 bg-green-50/50' : 'border-gray-200 hover:border-gold/50 hover:bg-gray-50'}`}
-                                >
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Your Solution Code *</label>
+                                            <textarea 
+                                                className="w-full h-64 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-purple-500 resize-none focus:ring-1 focus:ring-purple-500/50 font-mono"
+                                                placeholder="Paste your solution code here..."
+                                                value={codingSolution}
+                                                onChange={(e) => setCodingSolution(e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Language</label>
+                                                <select 
+                                                    className="w-full bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-3 text-sm text-charcoal outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50"
+                                                    value={codingLanguage}
+                                                    onChange={(e) => setCodingLanguage(e.target.value)}
+                                                >
+                                                    <option value="python">Python</option>
+                                                    <option value="javascript">JavaScript</option>
+                                                    <option value="typescript">TypeScript</option>
+                                                    <option value="java">Java</option>
+                                                    <option value="cpp">C++</option>
+                                                    <option value="c">C</option>
+                                                    <option value="go">Go</option>
+                                                    <option value="rust">Rust</option>
+                                                    <option value="swift">Swift</option>
+                                                    <option value="kotlin">Kotlin</option>
+                                                </select>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Company (Optional)</label>
+                                                <input 
+                                                    type="text"
+                                                    className="w-full bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-3 text-sm text-charcoal outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50"
+                                                    placeholder="e.g., Google"
+                                                    value={codingCompany}
+                                                    onChange={(e) => setCodingCompany(e.target.value)}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Round (Optional)</label>
+                                                <input 
+                                                    type="text"
+                                                    className="w-full bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-3 text-sm text-charcoal outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50"
+                                                    placeholder="e.g., Phone Screen"
+                                                    value={codingRound}
+                                                    onChange={(e) => setCodingRound(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {!isCodingInterview && (
+                                    <>
+                                        
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Context & Roles (Optional)</label>
+                                            <textarea 
+                                                className="w-full h-24 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50"
+                                                placeholder="e.g., 'Technical Interview for Senior ML Engineer role. Recruiter is Joe, I am Lily.'"
+                                                value={uploadContext}
+                                                onChange={(e) => setUploadContext(e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Transcript (Optional)</label>
+                                            <textarea 
+                                                className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-gold resize-none focus:ring-1 focus:ring-gold/50 placeholder:text-gray-300"
+                                                placeholder="Paste existing transcript here to skip the transcription step..."
+                                                value={manualTranscript}
+                                                onChange={(e) => setManualTranscript(e.target.value)}
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {isCodingInterview && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Transcript (Optional)</label>
+                                        <textarea 
+                                            className="w-full h-32 bg-[#FAF9F6] border border-[#E6E6E6] rounded-xl p-4 text-sm text-charcoal outline-none focus:border-purple-500 resize-none focus:ring-1 focus:ring-purple-500/50 placeholder:text-gray-300"
+                                            placeholder="Paste existing transcript here to skip the transcription step..."
+                                            value={manualTranscript}
+                                            onChange={(e) => setManualTranscript(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+                                
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                                        {isCodingInterview ? 'Interview Recording (Optional)' : 'Interview Audio'}
+                                    </label>
+                                    <div 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-4 cursor-pointer transition-all ${(selectedFile || persistedAudioBlob) ? 'border-green-400 bg-green-50/50' : 'border-gray-200 hover:border-gold/50 hover:bg-gray-50'}`}
+                                    >
                                     <input type="file" accept="audio/*" className="hidden" ref={fileInputRef} onChange={handleFileSelect} />
                                     {(selectedFile || persistedAudioBlob || persistedFileInfo) ? (
                                         <>
@@ -440,14 +744,17 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ onHome, isSaved, onToggleSa
                                         </>
                                     )}
                                 </div>
+                                </div>
 
                                 {/* Unified Action Button */}
-                                {(selectedFile || persistedAudioBlob || manualTranscript.trim()) && (
+                                {(selectedFile || persistedAudioBlob || manualTranscript.trim() || (isCodingInterview && codingQuestion.trim() && codingSolution.trim())) && (
                                     <button 
                                         onClick={startUnifiedAnalysis}
-                                        className="w-full py-4 bg-charcoal text-white rounded-xl font-bold hover:bg-black transition-colors shadow-lg flex items-center justify-center gap-2"
+                                        className={`w-full py-4 ${isCodingInterview ? 'bg-purple-600 hover:bg-purple-700' : 'bg-charcoal hover:bg-black'} text-white rounded-xl font-bold transition-colors shadow-lg flex items-center justify-center gap-2`}
                                     >
-                                        {manualTranscript.trim() ? (
+                                        {isCodingInterview ? (
+                                            <>Analyze Coding Interview <Code size={18} /></>
+                                        ) : manualTranscript.trim() ? (
                                             <>Start Coach Analysis <Flame size={18} /></>
                                         ) : (
                                             <>Start Full Analysis <ArrowRight size={18} /></>

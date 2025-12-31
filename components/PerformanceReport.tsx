@@ -1,11 +1,11 @@
 
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Award, PenTool, Quote, Lightbulb, Bookmark, ThumbsUp, Star, Ear, AlertCircle, Mic2, FileText, MessageCircleQuestion, Target, Sparkles, Zap, History, MessageSquare } from 'lucide-react';
+import { Download, Award, PenTool, Quote, Lightbulb, Bookmark, ThumbsUp, Star, Ear, AlertCircle, Mic2, FileText, MessageCircleQuestion, Target, Sparkles, Zap, History, MessageSquare, Code, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { PerformanceReport as ReportType, SavedItem } from '../types';
 import html2canvas from 'html2canvas';
 
-type ReportDisplayType = 'coach' | 'walkie' | 'hot-take';
+type ReportDisplayType = 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
 
 interface PerformanceReportProps {
     report: ReportType;
@@ -19,9 +19,12 @@ interface PerformanceReportProps {
 
 // Report display configuration
 const REPORT_CONFIG: Record<ReportDisplayType, { title: string; subtitle: string; icon: string }> = {
-    'coach': { title: 'Interview Report', subtitle: 'Stage 2: The Coach', icon: 'award' },
     'hot-take': { title: 'Tech Drill Report', subtitle: 'Hot Take Protocol', icon: 'zap' },
-    'walkie': { title: 'LeetCode Report', subtitle: 'Algorithm Analysis', icon: 'code' }
+    'walkie': { title: 'LeetCode Report', subtitle: 'Algorithm Analysis', icon: 'code' },
+    'teach': { title: 'Teaching Report', subtitle: 'Teach Mode', icon: 'graduation-cap' },
+    'readiness': { title: 'Explain Report', subtitle: 'Readiness Check', icon: 'layers' },
+    'system-coding': { title: 'System Coding Report', subtitle: 'System Design Implementation', icon: 'code' },
+    'role-fit': { title: 'Role Fit Report', subtitle: 'Role Fit / Why Me', icon: 'award' }
 };
 
 // Helper to create report data context for saving
@@ -32,16 +35,23 @@ const createReportContext = (report: ReportType, transcript?: string, context?: 
 });
 
 const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportType, transcript, context, isSaved, onToggleSave, onDone }) => {
-    const { rating, summary, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite, flipTheTable, hotTakeRubric, hotTakeMasterRewrite, hotTakeHistory, hotTakeRounds, mentalModelChecklist, missingEdgeCases, rubricScores } = report;
+    const { rating, summary, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite, flipTheTable, hotTakeRubric, hotTakeMasterRewrite, hotTakeHistory, hotTakeRounds, mentalModelChecklist, missingEdgeCases, rubricScores, codingRubric, codeIssues, problemSolvingTimeline, codingQuestion, solutionCode, correctedSolution, codeLanguage, formattedProblemStatement, nextTimeHabits, interpretationLayer } = report;
     const [showRewrite, setShowRewrite] = useState(false);
     const [activeHotTakeRound, setActiveHotTakeRound] = useState<'round1' | 'round2'>('round1');
+    const [showProblemStatement, setShowProblemStatement] = useState(false);
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const reportRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+    
+    const toggleSection = (section: string) => {
+        setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
     // Determine report type: explicit prop > auto-detect from content
     const isHotTake = !!hotTakeRubric || !!hotTakeRounds;
     const isWalkie = !!rubricScores || !!mentalModelChecklist || !!missingEdgeCases;
-    const effectiveReportType: ReportDisplayType = reportType || (isHotTake ? 'hot-take' : isWalkie ? 'walkie' : 'coach');
+    const isCoding = !!codingRubric;
+    const effectiveReportType: ReportDisplayType = reportType || (isCoding ? 'system-coding' : isHotTake ? 'hot-take' : isWalkie ? 'walkie' : 'role-fit');
     const reportConfig = REPORT_CONFIG[effectiveReportType];
     
     // Determine active data for Hot Take
@@ -64,12 +74,29 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
         return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
     };
 
+    // Remove consistent leading whitespace from code (dedent)
+    const dedentCode = (code: string | undefined): string => {
+        if (!code) return '';
+        const lines = code.split('\n');
+        // Find minimum indentation (ignoring empty lines)
+        const minIndent = lines
+            .filter(line => line.trim().length > 0)
+            .reduce((min, line) => {
+                const match = line.match(/^(\s*)/);
+                const indent = match ? match[1].length : 0;
+                return Math.min(min, indent);
+            }, Infinity);
+        // Remove that indentation from all lines
+        if (minIndent === Infinity || minIndent === 0) return code.trim();
+        return lines.map(line => line.slice(minIndent)).join('\n').trim();
+    };
+
     const downloadReportAsImage = async () => {
         if (!reportRef.current) return;
         try {
             const canvas = await html2canvas(reportRef.current, {
                 scale: 2,
-                backgroundColor: null,
+                backgroundColor: isCoding ? '#1a1a1a' : '#FAF9F6',
                 useCORS: true,
                 windowWidth: 1920
             });
@@ -107,30 +134,102 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
     };
 
     return (
-        <div ref={reportRef} className="bg-cream min-h-full">
+        <div ref={reportRef} className="min-h-full">
             {/* Header - Mobile responsive */}
-            <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className={`mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
                 <div>
                      <div className="flex items-center gap-2 text-gold text-[10px] sm:text-xs font-bold tracking-widest uppercase mb-1 sm:mb-2">
                         <Award size={12} className="sm:w-3.5 sm:h-3.5" /> {reportConfig.subtitle}
                      </div>
-                     <h2 className="text-2xl sm:text-4xl font-serif font-bold text-charcoal">{reportConfig.title}</h2>
+                     <h2 className={`text-2xl sm:text-4xl font-serif font-bold ${isCoding ? 'text-gray-200' : 'text-charcoal'}`}>{reportConfig.title}</h2>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:gap-3">
-                     {(transcript || hotTakeHistory || hotTakeRounds) && (
-                        <button onClick={downloadTranscript} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-200 rounded-full text-xs sm:text-sm font-medium hover:bg-gray-50 text-charcoal flex items-center gap-1.5 sm:gap-2">
+                    {(transcript || hotTakeHistory || hotTakeRounds) && (
+                        <button onClick={downloadTranscript} className={`px-3 sm:px-4 py-1.5 sm:py-2 border rounded-full text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 ${
+                            isCoding ? 'bg-[#252525] border-[#333] hover:bg-[#2a2a2a] text-gray-400' : 'bg-white border-gray-200 hover:bg-gray-50 text-charcoal'
+                        }`}>
                             <FileText size={12} className="sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Download</span> Transcript
                         </button>
-                     )}
-                     <button onClick={downloadReportAsImage} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white border border-gray-200 rounded-full text-xs sm:text-sm font-medium hover:bg-gray-50 text-charcoal flex items-center gap-1.5 sm:gap-2">
+                    )}
+                    <button onClick={downloadReportAsImage} className={`px-3 sm:px-4 py-1.5 sm:py-2 border rounded-full text-xs sm:text-sm font-medium flex items-center gap-1.5 sm:gap-2 ${
+                        isCoding ? 'bg-[#252525] border-[#333] hover:bg-[#2a2a2a] text-gray-400' : 'bg-white border-gray-200 hover:bg-gray-50 text-charcoal'
+                    }`}>
                         <Download size={12} className="sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Export</span> Image
-                     </button>
-                     <button onClick={() => onDone(true)} className="px-4 sm:px-6 py-1.5 sm:py-2 bg-charcoal text-white rounded-full text-xs sm:text-sm font-bold hover:bg-black">
+                    </button>
+                    <button onClick={() => onDone(true)} className={`px-4 sm:px-6 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold ${
+                        isCoding ? 'bg-gold text-[#1a1a1a] hover:bg-gold/90' : 'bg-charcoal text-white hover:bg-black'
+                    }`}>
                         Done
-                     </button>
+                    </button>
                 </div>
             </div>
             
+            {/* PROBLEM STATEMENT - Collapsed by default, anchors the report */}
+            {codingQuestion && isCoding && (
+                <div className="mb-6 sm:mb-8">
+                    <button 
+                        onClick={() => setShowProblemStatement(!showProblemStatement)}
+                        className="w-full flex items-center justify-between p-3 sm:p-4 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl hover:bg-[#252525] transition-colors group"
+                    >
+                        <div className="flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
+                            <FileText size={14} /> Problem Statement
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500">
+                            <span className="text-[10px] opacity-60">{showProblemStatement ? 'Hide' : 'Show'}</span>
+                            {showProblemStatement ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                    </button>
+                    {showProblemStatement && (
+                        <div className="mt-2 bg-[#1e1e1e] rounded-xl p-4 sm:p-6 border border-[#2a2a2a] animate-in fade-in slide-in-from-top-2 duration-200">
+                            {formattedProblemStatement ? (
+                                <div className="space-y-3">
+                                    {formattedProblemStatement.title && (
+                                        <h3 className="text-base font-bold text-gray-200 mb-3">{formattedProblemStatement.title}</h3>
+                                    )}
+                                    {formattedProblemStatement.sections.map((section, idx) => {
+                                        switch (section.type) {
+                                            case 'heading':
+                                                return <h4 key={idx} className="text-sm font-bold text-gray-300 mt-4 mb-2 first:mt-0">{section.content}</h4>;
+                                            case 'paragraph':
+                                                return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
+                                            case 'code':
+                                                return <pre key={idx} className="bg-[#0a0a0a] p-3 rounded-lg border border-[#1e1e1e] overflow-x-auto"><code className="text-xs font-mono text-gray-300">{section.content}</code></pre>;
+                                            case 'example':
+                                                return (
+                                                    <div key={idx} className="bg-[#252525] border-l-2 border-gray-600 p-3 rounded-r-lg">
+                                                        {section.label && <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{section.label}</p>}
+                                                        <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{section.content}</pre>
+                                                    </div>
+                                                );
+                                            case 'list':
+                                            case 'constraint':
+                                                return (
+                                                    <div key={idx} className="space-y-1 ml-2">
+                                                        {section.items && section.items.length > 0 ? (
+                                                            section.items.map((item, itemIdx) => (
+                                                                <div key={itemIdx} className="flex items-start gap-2">
+                                                                    <span className="text-gray-500 mt-1">•</span>
+                                                                    <p className="text-sm text-gray-400">{item}</p>
+                                                                </div>
+                                                            ))
+                                                        ) : (
+                                                            <p className="text-sm text-gray-400">{section.content}</p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            default:
+                                                return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
+                                        }
+                                    })}
+                                </div>
+                            ) : (
+                                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{codingQuestion}</pre>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* HOT TAKE TABS - Mobile responsive */}
             {hotTakeRounds && (
                 <div className="flex justify-center mb-6 sm:mb-8">
@@ -152,17 +251,19 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             )}
 
             {/* Executive Summary Card - Mobile responsive */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-sm border border-[#EBE8E0] mb-6 sm:mb-8 flex flex-col sm:flex-row gap-5 sm:gap-8 items-center sm:items-start animate-in fade-in duration-300" key={activeHotTakeRound}>
+            <div className={`rounded-2xl sm:rounded-3xl p-5 sm:p-8 mb-6 sm:mb-8 flex flex-col sm:flex-row gap-5 sm:gap-8 items-center sm:items-start animate-in fade-in duration-300 ${
+                isCoding ? 'bg-[#1e1e1e] border border-[#2a2a2a]' : 'bg-white border border-[#EBE8E0]'
+            }`} key={activeHotTakeRound}>
                  <div className="shrink-0 relative w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#C7A965 ${isHotTake ? calculatedScore : rating}%, #F0EBE0 ${isHotTake ? calculatedScore : rating}% 100%)` }}></div>
-                      <div className="absolute inset-1.5 sm:inset-2 bg-white rounded-full flex flex-col items-center justify-center z-10">
-                          <span className="text-2xl sm:text-4xl font-serif font-bold text-charcoal">{isHotTake ? calculatedScore : rating}</span>
-                          <span className="text-[8px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-widest">/ 100</span>
+                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#C7A965 ${isHotTake ? calculatedScore : rating}%, ${isCoding ? '#2a2a2a' : '#F0EBE0'} ${isHotTake ? calculatedScore : rating}% 100%)` }}></div>
+                      <div className={`absolute inset-1.5 sm:inset-2 rounded-full flex flex-col items-center justify-center z-10 ${isCoding ? 'bg-[#1e1e1e]' : 'bg-white'}`}>
+                          <span className={`text-2xl sm:text-4xl font-serif font-bold ${isCoding ? 'text-gold' : 'text-charcoal'}`}>{isHotTake ? calculatedScore : rating}</span>
+                          <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest ${isCoding ? 'text-gray-500' : 'text-gray-400'}`}>/ 100</span>
                       </div>
                  </div>
                  <div className="flex-1 text-center sm:text-left">
-                      <h3 className="text-lg sm:text-xl font-serif font-bold text-charcoal mb-2 sm:mb-3">Executive Summary</h3>
-                      <p className="text-gray-600 leading-relaxed whitespace-pre-line text-sm sm:text-base">{isHotTake ? displayedSummary : summary}</p>
+                      <h3 className={`text-lg sm:text-xl font-serif font-bold mb-2 sm:mb-3 ${isCoding ? 'text-gray-200' : 'text-charcoal'}`}>Executive Summary</h3>
+                      <p className={`leading-relaxed whitespace-pre-line text-sm sm:text-base ${isCoding ? 'text-gray-400' : 'text-gray-600'}`}>{isHotTake ? displayedSummary : summary}</p>
                       
                       {coachingRewrite && !isHotTake && (
                         <div className="mt-6">
@@ -201,6 +302,41 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                  </div>
             </div>
 
+            {/* INTERPRETATION LAYER - Bridges summary to evidence */}
+            {isCoding && interpretationLayer && (
+                <div className="mb-6 sm:mb-8 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-4 sm:p-6">
+                    <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertCircle size={12} className="text-red-400" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest">Primary Failure Mode</span>
+                                <p className="text-sm text-gray-300 mt-1">{interpretationLayer.primaryFailureMode}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                <Target size={12} className="text-emerald-400" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest">Highest Impact Fix</span>
+                                <p className="text-sm text-gray-300 mt-1">{interpretationLayer.biggestImpactFix}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                                <Sparkles size={12} className="text-blue-400" />
+                            </div>
+                            <div>
+                                <span className="text-[10px] font-bold text-blue-400/80 uppercase tracking-widest">Overall Signal</span>
+                                <p className="text-sm text-gray-300 mt-1">{interpretationLayer.overallSignal}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* --- HOT TAKE SPECIFIC SECTIONS --- */}
             
             {/* 1. Hot Take Rubric - Mobile responsive */}
@@ -224,6 +360,350 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                              ))}
                          </div>
                      </div>
+                </div>
+            )}
+
+            {/* Coding Interview Rubric */}
+            {codingRubric && isCoding && (
+                <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                     <div className="mb-3 sm:mb-4 flex items-center gap-2 text-gray-400 text-[10px] sm:text-xs font-bold tracking-widest uppercase">
+                        <Star size={12} className="sm:w-3.5 sm:h-3.5" /> Coding Interview Rubric
+                     </div>
+                     <div className="bg-[#1e1e1e] rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-[#2a2a2a]">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-x-12 sm:gap-y-8">
+                             {/* 1. Problem Understanding */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                                    <span className="text-gray-400">Problem Understanding</span>
+                                    <span className="text-gold">
+                                        {codingRubric.problemUnderstanding} / 25
+                                    </span>
+                                </div>
+                                <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                    <div className="h-full bg-gold" style={{ width: `${(codingRubric.problemUnderstanding / 25) * 100}%` }}></div>
+                                </div>
+                                <p className="text-[8px] sm:text-[9px] text-gray-500/70">Understand before you code</p>
+                            </div>
+                            
+                            {/* 2. Communication */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                                    <span className="text-gray-400">Communication</span>
+                                    {codingRubric.communication === null ? (
+                                        <span className="text-gray-500">Not Assessed</span>
+                                    ) : (
+                                        <span className="text-gold">
+                                            {codingRubric.communication} / 25
+                                        </span>
+                                    )}
+                                </div>
+                                {codingRubric.communication !== null ? (
+                                    <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                        <div className="h-full bg-gold" style={{ width: `${(codingRubric.communication / 25) * 100}%` }}></div>
+                                    </div>
+                                ) : (
+                                    <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                        <div className="h-full bg-[#333] w-full"></div>
+                                    </div>
+                                )}
+                                <p className="text-[8px] sm:text-[9px] text-gray-500/70">
+                                    {codingRubric.communication === null 
+                                        ? 'No transcript provided' 
+                                        : 'Think out loud with your interviewer'}
+                                </p>
+                            </div>
+                            
+                            {/* 3. Algorithm & Complexity */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                                    <span className="text-gray-400">Algorithm & Complexity</span>
+                                    <span className="text-gold">
+                                        {codingRubric.solutionApproach} / 25
+                                    </span>
+                                </div>
+                                <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                    <div className="h-full bg-gold" style={{ width: `${(codingRubric.solutionApproach / 25) * 100}%` }}></div>
+                                </div>
+                                <p className="text-[8px] sm:text-[9px] text-gray-500/70">Pseudocode first, explain your approach</p>
+                            </div>
+                            
+                            {/* 4. Edge Cases & Bugs */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                                    <span className="text-gray-400">Edge Cases & Bugs</span>
+                                    <span className="text-gold">
+                                        {codingRubric.functionalCorrectness} / 20
+                                    </span>
+                                </div>
+                                <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                    <div className="h-full bg-gold" style={{ width: `${(codingRubric.functionalCorrectness / 20) * 100}%` }}></div>
+                                </div>
+                                <p className="text-[8px] sm:text-[9px] text-gray-500/70">Don't break on corners</p>
+                            </div>
+                            
+                            {/* 5. Code Quality */}
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider sm:tracking-widest">
+                                    <span className="text-gray-400">Code Quality</span>
+                                    <span className="text-gold">
+                                        {codingRubric.codeHygiene} / 5
+                                    </span>
+                                </div>
+                                <div className="h-1.5 sm:h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
+                                    <div className="h-full bg-gold" style={{ width: `${(codingRubric.codeHygiene / 5) * 100}%` }}></div>
+                                </div>
+                                <p className="text-[8px] sm:text-[9px] text-gray-500/70">Write code humans like</p>
+                            </div>
+                         </div>
+                     </div>
+                </div>
+            )}
+
+            {/* Problem Solving Timeline - Collapsible with phase summary */}
+            {problemSolvingTimeline && problemSolvingTimeline.length > 0 && isCoding && (() => {
+                // Group timeline by phases
+                const phases = problemSolvingTimeline.reduce((acc, moment) => {
+                    const phase = moment.category === 'clarification' ? 'Clarification' :
+                                  moment.category === 'approach' ? 'Approach' :
+                                  (moment.category === 'coding_start' || moment.category === 'coding_main') ? 'Coding' :
+                                  moment.category === 'debugging' ? 'Debugging' : 'Other';
+                    if (!acc[phase]) acc[phase] = [];
+                    acc[phase].push(moment);
+                    return acc;
+                }, {} as Record<string, typeof problemSolvingTimeline>);
+                
+                const phaseOrder = ['Clarification', 'Approach', 'Coding', 'Debugging', 'Other'];
+                const orderedPhases = phaseOrder.filter(p => phases[p] && phases[p].length > 0);
+                
+                return (
+                    <div className="mb-8 sm:mb-12">
+                        <button 
+                            onClick={() => toggleSection('timeline')}
+                            className="w-full flex items-center justify-between p-3 sm:p-4 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl hover:bg-[#252525] transition-colors"
+                        >
+                            <div className="flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
+                                <History size={14} /> Problem-Solving Timeline
+                                <span className="text-gray-600 font-normal normal-case">({problemSolvingTimeline.length} events)</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-gray-500">
+                                {/* Phase summary pills */}
+                                <div className="hidden sm:flex gap-1.5">
+                                    {orderedPhases.map(phase => (
+                                        <span key={phase} className={`text-[9px] px-2 py-0.5 rounded-full ${
+                                            phase === 'Clarification' ? 'bg-blue-500/10 text-blue-400/70' :
+                                            phase === 'Approach' ? 'bg-purple-500/10 text-purple-400/70' :
+                                            phase === 'Coding' ? 'bg-emerald-500/10 text-emerald-400/70' :
+                                            phase === 'Debugging' ? 'bg-amber-500/10 text-amber-400/70' :
+                                            'bg-gray-500/10 text-gray-400/70'
+                                        }`}>
+                                            {phase}
+                                        </span>
+                                    ))}
+                                </div>
+                                {expandedSections.timeline ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </div>
+                        </button>
+                        {expandedSections.timeline && (
+                            <div className="mt-2 bg-[#1e1e1e] rounded-xl p-4 sm:p-6 border border-[#2a2a2a] animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="space-y-3">
+                                    {problemSolvingTimeline.map((moment, i) => (
+                                        <div key={i} className="flex gap-3 items-start">
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                                                moment.category === 'clarification' ? 'bg-blue-500/10 text-blue-400/60' :
+                                                moment.category === 'approach' ? 'bg-purple-500/10 text-purple-400/60' :
+                                                (moment.category === 'coding_start' || moment.category === 'coding_main') ? 'bg-emerald-500/10 text-emerald-400/60' :
+                                                moment.category === 'debugging' ? 'bg-amber-500/10 text-amber-400/60' :
+                                                'bg-gray-500/10 text-gray-400/60'
+                                            }`}>
+                                                {moment.category === 'clarification' ? <MessageCircleQuestion size={12} /> :
+                                                 moment.category === 'approach' ? <Lightbulb size={12} /> :
+                                                 (moment.category === 'coding_start' || moment.category === 'coding_main') ? <Code size={12} /> :
+                                                 moment.category === 'debugging' ? <AlertCircle size={12} /> :
+                                                 <CheckCircle size={12} />}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{moment.timestamp}</span>
+                                                </div>
+                                                <p className="text-sm text-gray-300">{moment.moment}</p>
+                                                {moment.evidence && (
+                                                    <p className="text-xs text-gray-500/70 italic mt-1 truncate">"{moment.evidence.substring(0, 80)}..."</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
+            {/* Code Review Section - Collapsible */}
+            {codeIssues && codeIssues.length > 0 && solutionCode && isCoding && (
+                <div className="mb-8 sm:mb-12">
+                    <button 
+                        onClick={() => toggleSection('codeReview')}
+                        className="w-full flex items-center justify-between p-3 sm:p-4 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl hover:bg-[#252525] transition-colors"
+                    >
+                        <div className="flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
+                            <Code size={14} /> Code Review
+                            <span className="text-gray-600 font-normal normal-case">({codeIssues.length} issues)</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-500">
+                            {expandedSections.codeReview ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                    </button>
+                    {expandedSections.codeReview && (
+                        <div className="mt-2 bg-[#1e1e1e] rounded-xl p-4 sm:p-6 border border-[#2a2a2a] animate-in fade-in slide-in-from-top-2 duration-200">
+                            {/* Side-by-Side Code Comparison - neutral backgrounds */}
+                            <div className="mb-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {/* Your Solution - darker, muted */}
+                                    <div className="flex flex-col">
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            Your Solution ({codeLanguage || 'code'})
+                                        </h4>
+                                        <div className="flex-1 bg-[#0a0a0a] p-4 rounded-lg overflow-x-auto border border-[#1e1e1e]">
+                                            <pre className="text-xs font-mono max-h-96 overflow-y-auto">
+                                                <code className="text-gray-400">{dedentCode(solutionCode)}</code>
+                                            </pre>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Corrected Solution - slightly brighter, accent title */}
+                                    <div className="flex flex-col">
+                                        <h4 className="text-xs font-bold text-emerald-400/80 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                            <CheckCircle size={12} /> Corrected Solution
+                                        </h4>
+                                        <div className="flex-1 bg-[#0f0f0f] p-4 rounded-lg overflow-x-auto border border-[#252525]">
+                                            <pre className="text-xs font-mono max-h-96 overflow-y-auto">
+                                                <code className="text-gray-200">{dedentCode(correctedSolution || solutionCode)}</code>
+                                            </pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Code Issues - Two-column layout with collapsible evidence */}
+                            <div className="space-y-4">
+                                {codeIssues.map((issue, i) => {
+                                    const isEvidenceExpanded = expandedSections[`evidence-${i}`];
+                                    
+                                    // Generate diagnosis text from impact or use a default
+                                    const diagnosisText = issue.impact?.correctness || 
+                                        issue.impact?.runtime || 
+                                        issue.impact?.robustness ||
+                                        `${issue.title} affects code correctness.`;
+                                    
+                                    return (
+                                        <div 
+                                            key={i} 
+                                            className="rounded mb-3"
+                                            style={{
+                                                background: '#111111',
+                                                borderLeft: `5px solid ${
+                                                    issue.severity === 'critical' ? '#ff453a' :
+                                                    issue.severity === 'major' ? '#ff9f0a' :
+                                                    '#ffd60a'
+                                                }`,
+                                                borderTop: '1px solid #222222',
+                                                borderRight: '1px solid #222222',
+                                                borderBottom: '1px solid #222222',
+                                            }}
+                                        >
+                                            {/* Header row */}
+                                            <div className="px-4 py-2 border-b border-[#222222] flex items-center gap-2">
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                                                    issue.severity === 'critical' ? 'text-red-400' :
+                                                    issue.severity === 'major' ? 'text-amber-400' :
+                                                    'text-yellow-400'
+                                                }`}>
+                                                    {issue.severity}
+                                                </span>
+                                                <span className="text-gray-600">·</span>
+                                                <span className="text-[10px] text-gray-500 uppercase tracking-widest">{issue.type}</span>
+                                            </div>
+                                            
+                                            {/* Title */}
+                                            <div className="px-4 py-3 border-b border-[#222222]">
+                                                <h5 className="text-sm font-bold text-gray-200">{issue.title}</h5>
+                                            </div>
+                                            
+                                            {/* Two-column: Diagnosis | Fix */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#222222]">
+                                                {/* Diagnosis */}
+                                                <div className="p-4">
+                                                    <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Diagnosis</h6>
+                                                    <p className="text-sm text-gray-400 leading-relaxed">{diagnosisText}</p>
+                                                </div>
+                                                
+                                                {/* Fix */}
+                                                <div className="p-4">
+                                                    <h6 className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-widest mb-2">Fix</h6>
+                                                    <ul className="space-y-1.5">
+                                                        {issue.fix.split(/\.\s+(?=[A-Z`])/).filter((s: string) => s.trim()).map((step: string, idx: number) => (
+                                                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                                                                <span className="text-emerald-400/50 mt-0.5">•</span>
+                                                                <span>{step.trim().endsWith('.') ? step.trim() : step.trim() + '.'}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Evidence - collapsible */}
+                                            {issue.evidence && (
+                                                <div className="border-t border-[#222222]">
+                                                    <button
+                                                        onClick={() => toggleSection(`evidence-${i}`)}
+                                                        className="w-full px-4 py-2 flex items-center justify-between text-gray-500 hover:text-gray-400 hover:bg-[#1a1a1a] transition-colors"
+                                                    >
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                                            <Code size={12} />
+                                                            Evidence
+                                                            {issue.evidence.lineNumbers && issue.evidence.lineNumbers.length > 0 && (
+                                                                <span className="text-gray-600 font-normal">
+                                                                    (Lines {issue.evidence.lineNumbers.join(', ')})
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                        {isEvidenceExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                                    </button>
+                                                    {isEvidenceExpanded && (
+                                                        <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                                                            <pre className="text-xs font-mono text-gray-400 bg-[#0a0a0a] p-3 rounded overflow-x-auto border border-[#1e1e1e]">
+                                                                {issue.evidence.codeSnippet}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            {/* Next Actions - Simple, at the end, 3 bullets max */}
+            {nextTimeHabits && nextTimeHabits.length > 0 && isCoding && (
+                <div className="mb-8 sm:mb-12">
+                    <div className="mb-3 flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
+                        <Target size={14} /> Next Actions
+                    </div>
+                    <div className="bg-[#1e1e1e] rounded-xl p-4 sm:p-5 border border-[#2a2a2a]">
+                        <div className="space-y-3">
+                            {nextTimeHabits.slice(0, 3).map((habit, i) => (
+                                <div key={i} className="flex items-start gap-3">
+                                    <span className="text-gold font-bold">{i + 1}.</span>
+                                    <p className="text-sm text-gray-300 flex-1">{habit}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -369,106 +849,112 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                 </div>
             )}
 
-            {/* Areas for Improvement - Mobile responsive */}
-            <div className="mb-3 sm:mb-4 flex items-center gap-2 text-charcoal text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-8 sm:mt-12">
-                <Lightbulb size={12} className="sm:w-3.5 sm:h-3.5" /> Areas for Improvement
-            </div>
-            
-            <div className="space-y-4 sm:space-y-6">
-                {detailedFeedback?.map((item, i) => {
-                    const saved = isSaved(item.issue, item.instance);
-                    return (
-                        <div key={i} className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-8 shadow-sm border border-[#EBE8E0] relative group">
-                            <button 
-                                onClick={() => onToggleSave({
-                                    type: 'improvement',
-                                    category: item.category,
-                                    title: item.issue,
-                                    content: item.instance,
-                                    rewrite: item.rewrite,
-                                    explanation: item.explanation,
-                                    question: item.question || context,
-                                    humanRewrite: item.rewrite,
-                                    reportData: createReportContext(report, transcript, context)
-                                })}
-                                className={`absolute top-3 right-3 sm:top-6 sm:right-6 p-1.5 sm:p-2 rounded-full transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
-                                title={saved ? "Remove from database" : "Save to database"}
-                            >
-                                <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]" fill={saved ? "currentColor" : "none"} />
-                            </button>
-                            
-                            {/* Practice Button */}
-                            <button 
-                                onClick={() => navigate('/hot-take', { 
-                                    state: { 
-                                        practiceQuestion: { 
-                                            title: item.question || item.issue, 
-                                            context: item.question ? `Practice improving: ${item.issue}` : item.instance,
-                                            source: context
-                                        } 
-                                    } 
-                                })}
-                                className="absolute top-3 right-10 sm:top-6 sm:right-16 p-1.5 sm:p-2 rounded-full text-gray-300 hover:text-gold hover:bg-gold/10 transition-all"
-                                title="Practice this question in Hot Take"
-                            >
-                                <Zap size={16} className="sm:w-[18px] sm:h-[18px]" />
-                            </button>
+            {/* Areas for Improvement - Mobile responsive (Skip for coding reports - codeIssues handles this) */}
+            {!isCoding && detailedFeedback && detailedFeedback.length > 0 && (
+                <>
+                    <div className="mb-3 sm:mb-4 flex items-center gap-2 text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-8 sm:mt-12 text-charcoal">
+                        <Lightbulb size={12} className="sm:w-3.5 sm:h-3.5" /> Areas for Improvement
+                    </div>
+                    
+                    <div className="space-y-4 sm:space-y-6">
+                        {detailedFeedback.map((item, i) => {
+                            const saved = isSaved(item.issue, item.instance);
+                            return (
+                                <div key={i} className="rounded-xl sm:rounded-2xl p-4 sm:p-8 shadow-sm relative group bg-white border border-[#EBE8E0]">
+                                    <button 
+                                        onClick={() => onToggleSave({
+                                            type: 'improvement',
+                                            category: item.category,
+                                            title: item.issue,
+                                            content: item.instance,
+                                            rewrite: item.rewrite,
+                                            explanation: item.explanation,
+                                            question: item.question || context,
+                                            humanRewrite: item.rewrite,
+                                            reportData: createReportContext(report, transcript, context)
+                                        })}
+                                        className={`absolute top-3 right-3 sm:top-6 sm:right-6 p-1.5 sm:p-2 rounded-full transition-all ${
+                                            saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'
+                                        }`}
+                                        title={saved ? "Remove from database" : "Save to database"}
+                                    >
+                                        <Bookmark size={16} className="sm:w-[18px] sm:h-[18px]" fill={saved ? "currentColor" : "none"} />
+                                    </button>
+                                    
+                                    {/* Practice Button */}
+                                    <button 
+                                        onClick={() => navigate('/hot-take', { 
+                                            state: { 
+                                                practiceQuestion: { 
+                                                    title: item.question || item.issue, 
+                                                    context: item.question ? `Practice improving: ${item.issue}` : item.instance,
+                                                    source: context
+                                                } 
+                                            } 
+                                        })}
+                                        className="absolute top-3 right-10 sm:top-6 sm:right-16 p-1.5 sm:p-2 rounded-full transition-all text-gray-300 hover:text-gold hover:bg-gold/10"
+                                        title="Practice this question in Hot Take"
+                                    >
+                                        <Zap size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                    </button>
 
-                            <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                                <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400"></div>
-                                <span className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
-                            </div>
-                            
-                            {/* Question Context */}
-                            {item.question && (
-                                <div className="mb-3 sm:mb-4 mr-16 sm:mr-8">
-                                    <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 sm:mb-2">Interview Question</h5>
-                                    <p className="text-gray-600 text-xs sm:text-sm italic">"{item.question}"</p>
-                                </div>
-                            )}
+                                    <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400"></div>
+                                        <span className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                    </div>
+                                    
+                                    {/* Question Context */}
+                                    {item.question && (
+                                        <div className="mb-3 sm:mb-4 mr-16 sm:mr-8">
+                                            <h5 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1 sm:mb-2 text-gray-400">Interview Question</h5>
+                                            <p className="text-xs sm:text-sm italic text-gray-600">"{item.question}"</p>
+                                        </div>
+                                    )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                                <div className="bg-[#FAF9F6] p-4 sm:p-6 rounded-lg sm:rounded-xl border-l-4 border-gray-200">
-                                    <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3">What You Said</h5>
-                                    <p className="text-charcoal font-serif text-base sm:text-lg leading-relaxed mb-2 sm:mb-3">"{item.instance}"</p>
-                                    <div className="pt-2 sm:pt-3 border-t border-gray-200">
-                                        <h6 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">The Issue</h6>
-                                        <p className="text-xs sm:text-sm text-gray-600">{item.issue}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                        <div className="p-4 sm:p-6 rounded-lg sm:rounded-xl border-l-4 bg-[#FAF9F6] border-gray-200">
+                                            <h5 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-2 sm:mb-3 text-gray-400">What You Said</h5>
+                                            <p className="font-serif text-base sm:text-lg leading-relaxed mb-2 sm:mb-3 text-charcoal">"{item.instance}"</p>
+                                            <div className="pt-2 sm:pt-3 border-t border-gray-200">
+                                                <h6 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1 text-gray-400">The Issue</h6>
+                                                <p className="text-xs sm:text-sm text-gray-600">{item.issue}</p>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 sm:p-6 rounded-lg sm:rounded-xl border-l-4 bg-green-50/50 border-green-400">
+                                            <h5 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2 text-green-600">
+                                            <PenTool size={10} className="sm:w-3 sm:h-3"/> The Human Rewrite
+                                            </h5>
+                                            <div className="font-serif text-base sm:text-lg leading-relaxed mb-3 sm:mb-4 text-charcoal">
+                                            "{item.rewrite}"
+                                            </div>
+                                            <div className="pt-3 sm:pt-4 border-t border-green-200/50">
+                                                <h6 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest mb-1 text-green-600">Why this works</h6>
+                                                <p className="text-xs sm:text-sm italic text-green-800">{item.explanation}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="bg-green-50/50 p-4 sm:p-6 rounded-lg sm:rounded-xl border-l-4 border-green-400">
-                                    <h5 className="text-[9px] sm:text-[10px] font-bold text-green-600 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1.5 sm:gap-2">
-                                    <PenTool size={10} className="sm:w-3 sm:h-3"/> The Human Rewrite
-                                    </h5>
-                                    <div className="text-charcoal font-serif text-base sm:text-lg leading-relaxed mb-3 sm:mb-4">
-                                    "{item.rewrite}"
-                                    </div>
-                                    <div className="pt-3 sm:pt-4 border-t border-green-200/50">
-                                        <h6 className="text-[9px] sm:text-[10px] font-bold text-green-600 uppercase tracking-widest mb-1">Why this works</h6>
-                                        <p className="text-xs sm:text-sm text-green-800 italic">{item.explanation}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
 
             {/* Highlights - Mobile responsive */}
             {highlights && highlights.length > 0 && (
                 <>
-                    <div className="mb-3 sm:mb-4 flex items-center gap-2 text-charcoal text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-8 sm:mt-12">
-                        <ThumbsUp size={12} className="sm:w-3.5 sm:h-3.5" /> Key Strengths & Highlights
+                    <div className={`mb-3 sm:mb-4 flex items-center gap-2 text-[10px] sm:text-xs font-bold tracking-widest uppercase mt-8 sm:mt-12 ${
+                        isCoding ? 'text-gray-400' : 'text-charcoal'
+                    }`}>
+                        <ThumbsUp size={12} className="sm:w-3.5 sm:h-3.5" /> Key Strengths
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         {highlights.map((item, i) => {
                             const saved = isSaved(item.strength, item.quote);
                             return (
-                                <div key={i} className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-[#EBE8E0] relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 p-2 sm:p-4 opacity-5">
-                                        <Star size={60} className="sm:w-20 sm:h-20" />
-                                    </div>
-                                    
+                                <div key={i} className={`rounded-xl p-4 sm:p-5 relative group ${
+                                    isCoding ? 'bg-[#1e1e1e] border border-[#2a2a2a]' : 'bg-white border border-[#EBE8E0]'
+                                }`}>
                                     <button 
                                         onClick={() => onToggleSave({
                                             type: 'highlight',
@@ -478,31 +964,20 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                                             question: item.question || context,
                                             reportData: createReportContext(report, transcript, context)
                                         })}
-                                        className={`absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 sm:p-2 rounded-full z-10 transition-all ${saved ? 'text-gold bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'}`}
+                                        className={`absolute top-3 right-3 p-1.5 rounded-full z-10 transition-all ${
+                                            saved ? 'text-gold bg-gold/10' : isCoding ? 'text-gray-600 hover:text-gold hover:bg-gold/10' : 'text-gray-300 hover:text-charcoal hover:bg-gray-50'
+                                        }`}
                                         title={saved ? "Remove from database" : "Save to database"}
                                     >
-                                        <Bookmark size={14} className="sm:w-4 sm:h-4" fill={saved ? "currentColor" : "none"} />
+                                        <Bookmark size={14} fill={saved ? "currentColor" : "none"} />
                                     </button>
 
-                                    <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
-                                        <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                                            <Star size={10} className="sm:w-3 sm:h-3" fill="#C7A965" />
-                                        </div>
-                                        <span className="text-[9px] sm:text-[10px] font-bold text-gold uppercase tracking-widest">{item.category}</span>
+                                    <div className="flex items-center gap-1.5 mb-2">
+                                        <span className={`text-[9px] font-bold uppercase tracking-widest ${isCoding ? 'text-gray-500' : 'text-gray-400'}`}>{item.category}</span>
                                     </div>
                                     
-                                    {/* Question Context */}
-                                    {item.question && (
-                                        <div className="mb-2 sm:mb-3 mr-8 sm:mr-6">
-                                            <h5 className="text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Interview Question</h5>
-                                            <p className="text-gray-600 text-[10px] sm:text-xs italic">"{item.question}"</p>
-                                        </div>
-                                    )}
-                                    
-                                    <h4 className="text-sm sm:text-md font-bold text-charcoal mb-2 pr-8 sm:pr-6">{item.strength}</h4>
-                                    <div className="bg-[#FAF9F6] p-3 sm:p-4 rounded-lg sm:rounded-xl mt-3 sm:mt-4">
-                                        <p className="text-charcoal font-serif text-xs sm:text-sm">"{item.quote}"</p>
-                                    </div>
+                                    <h4 className={`text-sm font-bold mb-2 pr-6 ${isCoding ? 'text-gray-200' : 'text-charcoal'}`}>{item.strength}</h4>
+                                    <p className={`text-xs leading-relaxed ${isCoding ? 'text-gray-400' : 'text-gray-600'}`}>"{item.quote}"</p>
                                 </div>
                             );
                         })}

@@ -11,10 +11,10 @@ import {
   assignTopicsToSpots
 } from '../components/spots';
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport } from '../types';
-import { UserStudySettings, StudyStats } from '../types/database';
+import { UserStudySettings, StudyStats, Company } from '../types/database';
 import { supabase } from '../config/supabase';
 import { analyzeWalkieSession } from '../services/analysisService';
-import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity } from '../services/databaseService';
+import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount } from '../services/databaseService';
 import { 
   getJuniorResponse, 
   getJuniorSummary, 
@@ -105,6 +105,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [isLoadingSpots, setIsLoadingSpots] = useState(true);
   
+  // Company-specific state (for Himmel Park)
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+  
   // Store progress grid for refresh functionality
   const [progressGridData, setProgressGridData] = useState<Awaited<ReturnType<typeof getProgressGrid>>>([]);
   
@@ -156,6 +161,30 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       }
       return spot;
     }));
+  };
+  
+  // Handle company selection for Himmel Park
+  const handleCompanySelect = async (spotId: string, companyId: string, companyName: string) => {
+    try {
+      // Fetch problem count for this company
+      const count = await getCompanyProblemsCount(companyId);
+      
+      // Update the spot with selected company
+      setSpotsWithTopics(prev => prev.map(spot => {
+        if (spot.id === spotId) {
+          return {
+            ...spot,
+            selectedCompanyId: companyId,
+            selectedCompanyName: companyName,
+            topicDisplay: companyName,
+            remaining: count
+          };
+        }
+        return spot;
+      }));
+    } catch (error) {
+      console.error('Error updating company selection:', error);
+    }
   };
   
   // Load settings and assign topics to spots
@@ -221,6 +250,34 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   useEffect(() => {
     loadSettingsAndTopics();
   }, [loadSettingsAndTopics]);
+  
+  // Load companies for Himmel Park
+  useEffect(() => {
+    const loadCompanies = async () => {
+      setIsLoadingCompanies(true);
+      try {
+        const companiesData = await fetchCompanies();
+        setCompanies(companiesData);
+      } catch (error) {
+        console.error('Error loading companies:', error);
+      } finally {
+        setIsLoadingCompanies(false);
+      }
+    };
+    loadCompanies();
+  }, []);
+  
+  // Auto-select first company for Himmel Park when companies load
+  useEffect(() => {
+    if (companies.length > 0 && spotsWithTopics.length > 0) {
+      const himmelPark = spotsWithTopics.find(s => s.isCompanySpecific);
+      if (himmelPark && !himmelPark.selectedCompanyId) {
+        // Auto-select first company
+        const firstCompany = companies[0];
+        handleCompanySelect(himmelPark.id, firstCompany.id, firstCompany.name);
+      }
+    }
+  }, [companies, spotsWithTopics]);
 
   // Reload when returning to locations
   useEffect(() => {
@@ -649,6 +706,15 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   };
 
   const startSpotSession = async (spot: SpotWithTopic) => {
+    // For company-specific spots (Himmel Park), ensure a company is selected
+    if (spot.isCompanySpecific) {
+      if (!spot.selectedCompanyId) {
+        console.warn('[StartSession] No company selected for Himmel Park');
+        return; // Company selection should happen in LocationsStep
+      }
+      setSelectedCompany(companies.find(c => c.id === spot.selectedCompanyId) || null);
+    }
+    
     // Set the selected topic for this session
     setSelectedTopic(spot.topic);
     setSelectedSpot(spot);
@@ -657,8 +723,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     // Lock this spot's topic for non-random spots (Daily Commute and Coffee Sanctuary)
     // This ensures the topic persists when the page is refreshed
     // Users can still manually refresh a spot's topic before entering using the refresh button
-    console.log('[StartSession] Spot:', { id: spot.id, name: spot.name, topic: spot.topic, isRandom: spot.isRandom });
-    if (!spot.isRandom && user?.id) {
+    console.log('[StartSession] Spot:', { id: spot.id, name: spot.name, topic: spot.topic, isRandom: spot.isRandom, isCompanySpecific: spot.isCompanySpecific });
+    if (!spot.isRandom && !spot.isCompanySpecific && user?.id) {
       console.log('[StartSession] Locking spot', spot.id, 'with topic', spot.topic);
       lockSpotAssignment(user.id, spot.id, spot.topic, spot.topicDisplay);
       
@@ -671,13 +737,20 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     try {
         let problems: BlindProblem[] = [];
         
-        // Calculate remaining problems for today's goal
-        const dailyGoal = studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap;
-        const completedToday = dailyCleared;
-        const remainingToday = Math.max(0, dailyGoal - completedToday);
-        
-        // Cap batch size at remaining daily goal or a reasonable max
-        const batchSize = Math.min(remainingToday, 10);
+        // For company-specific spots, use company problem queue
+        if (spot.isCompanySpecific && spot.selectedCompanyId) {
+          const batchSize = 10; // All problems for the company
+          problems = await buildCompanyProblemQueue(spot.selectedCompanyId, batchSize);
+          console.log(`[Company Session] Loaded ${problems.length} problems for company ${spot.selectedCompanyName}`);
+        } else {
+          // Normal flow for other spots
+          // Calculate remaining problems for today's goal
+          const dailyGoal = studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap;
+          const completedToday = dailyCleared;
+          const remainingToday = Math.max(0, dailyGoal - completedToday);
+          
+          // Cap batch size at remaining daily goal or a reasonable max
+          const batchSize = Math.min(remainingToday, 10);
         
         if (batchSize === 0) {
             console.log('[Session] Daily goal already reached!');
@@ -707,6 +780,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
             const allowedDifficulties = DIFFICULTY_MAP[difficultyMode];
             problems = await buildProblemQueue(masteredIds, allowedDifficulties, batchSize);
         }
+        } // End of non-company-specific flow
         
         if (problems.length === 0) {
             console.warn("No problems found for queue in topic:", spot.topic);
@@ -1155,6 +1229,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         isLoadingSpots={isLoadingSpots}
         startSpotSession={startSpotSession}
         handleRefreshSingleSpot={handleRefreshSingleSpot}
+        companies={companies}
+        isLoadingCompanies={isLoadingCompanies}
+        onCompanySelect={handleCompanySelect}
         showStats={showStats}
         setShowStats={setShowStats}
         showSettings={showSettings}

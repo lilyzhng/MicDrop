@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
 import { PerformanceReport, HotTakeGlobalContext, HotTakePreference, HotTakeQuestion, BlindProblem } from '../types';
-import { TRANSCRIBE_CONFIG, COACH_CONFIG, HOT_TAKE_CONFIG, WALKIE_TALKIE_CONFIG } from '../config/evaluationPrompts';
+import { TRANSCRIBE_CONFIG, COACH_CONFIG, HOT_TAKE_CONFIG, WALKIE_TALKIE_CONFIG, CODING_INTERVIEW_CONFIG } from '../config/evaluationPrompts';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -374,4 +374,300 @@ export const regenerateHotTakeFollowUp = async (
         contents: prompt
     });
     return response.text || "Could you elaborate on that point?";
+};
+
+// ========== CODING INTERVIEW FUNCTIONS ==========
+
+// Validation helper for coding interview reports
+function validateCodingReport(report: any): boolean {
+    try {
+        // Check required top-level fields
+        if (typeof report.rating !== 'number' || report.rating < 0 || report.rating > 100) return false;
+        if (typeof report.summary !== 'string') return false;
+        
+        // Check rubric structure
+        const rubric = report.codingRubric;
+        if (!rubric) return false;
+        if (typeof rubric.problemUnderstanding !== 'number' || rubric.problemUnderstanding < 0 || rubric.problemUnderstanding > 25) return false;
+        if (typeof rubric.solutionApproach !== 'number' || rubric.solutionApproach < 0 || rubric.solutionApproach > 25) return false;
+        if (typeof rubric.functionalCorrectness !== 'number' || rubric.functionalCorrectness < 0 || rubric.functionalCorrectness > 20) return false;
+        if (typeof rubric.codeHygiene !== 'number' || rubric.codeHygiene < 0 || rubric.codeHygiene > 5) return false;
+        if (rubric.communication !== null && (typeof rubric.communication !== 'number' || rubric.communication < 0 || rubric.communication > 25)) return false;
+        
+        // Check arrays exist
+        if (!Array.isArray(report.codeIssues)) return false;
+        if (!Array.isArray(report.problemSolvingTimeline)) return false;
+        if (!Array.isArray(report.nextTimeHabits)) return false;
+        if (!Array.isArray(report.highlights)) return false;
+        
+        // Validate code issues structure
+        for (const issue of report.codeIssues) {
+            if (!issue.title || !issue.type || !issue.severity || !issue.evidence || !issue.fix) return false;
+            if (!issue.evidence.lineNumbers || !Array.isArray(issue.evidence.lineNumbers)) return false;
+            if (!issue.evidence.codeSnippet) return false;
+        }
+        
+        // Validate timeline structure
+        for (const event of report.problemSolvingTimeline) {
+            if (!event.timestamp || !event.moment || !event.category || !event.evidence) return false;
+        }
+        
+        return true;
+    } catch (e) {
+        console.error('Validation error:', e);
+        return false;
+    }
+}
+
+const CODING_REPORT_SCHEMA = {
+    type: GeminiType.OBJECT,
+    properties: {
+        rating: { type: GeminiType.INTEGER, description: "Total score 0-100, sum of the 5 rubric scores (null communication counts as 0)" },
+        summary: { type: GeminiType.STRING, description: "2-3 sentence overall assessment" },
+        suggestions: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+        correctedSolution: { type: GeminiType.STRING, description: "ONLY show affected functions/methods with fixes. Use '# ... unchanged ...' for unmodified code. Remove personal notes. Add brief comments explaining fixes." },
+        codingRubric: {
+            type: GeminiType.OBJECT,
+            description: "Rubric scores for coding interview - split code quality into correctness + hygiene",
+            properties: {
+                problemUnderstanding: { type: GeminiType.INTEGER, description: "0-25: Did they clarify requirements with concrete evidence?" },
+                solutionApproach: { type: GeminiType.INTEGER, description: "0-25: Did they explain approach and analyze complexity?" },
+                functionalCorrectness: { type: GeminiType.INTEGER, description: "0-20: Is the code correct? Any bugs or edge case issues?" },
+                codeHygiene: { type: GeminiType.INTEGER, description: "0-5: Readability and style only (4x less weight than correctness)" },
+                communication: { type: GeminiType.INTEGER, description: "0-25 or null if transcript <100 words: Clear and concise explanation?" }
+            },
+            required: ["problemUnderstanding", "solutionApproach", "functionalCorrectness", "codeHygiene", "communication"]
+        },
+        codeIssues: {
+            type: GeminiType.ARRAY,
+            description: "List of code problems found with evidence",
+            items: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    title: { type: GeminiType.STRING, description: "Short description of issue" },
+                    type: { type: GeminiType.STRING, description: "correctness, edge-case, complexity, or style" },
+                    severity: { type: GeminiType.STRING, description: "critical, major, or minor" },
+                    impact: { 
+                        type: GeminiType.OBJECT,
+                        properties: {
+                            correctness: { type: GeminiType.STRING, description: "What breaks? Specific failing input" },
+                            runtime: { type: GeminiType.STRING, description: "Performance impact" },
+                            robustness: { type: GeminiType.STRING, description: "Edge case handling" },
+                            maintainability: { type: GeminiType.STRING, description: "Readability impact" }
+                        }
+                    },
+                    evidence: {
+                        type: GeminiType.OBJECT,
+                        properties: {
+                            lineNumbers: { type: GeminiType.ARRAY, items: { type: GeminiType.INTEGER } },
+                            codeSnippet: { type: GeminiType.STRING, description: "Actual code with line numbers" }
+                        },
+                        required: ["lineNumbers", "codeSnippet"]
+                    },
+                    fix: { type: GeminiType.STRING, description: "Exact code change to apply" }
+                },
+                required: ["title", "type", "severity", "impact", "evidence", "fix"]
+            }
+        },
+        problemSolvingTimeline: {
+            type: GeminiType.ARRAY,
+            description: "Key moments from interview, MAX 6-8 events",
+            items: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    timestamp: { type: GeminiType.STRING, description: "MM:SS format or 'unknown'" },
+                    moment: { type: GeminiType.STRING, description: "What happened, max 100 chars" },
+                    category: { type: GeminiType.STRING, description: "clarification, approach, coding_start, coding_main, debugging, or testing" },
+                    evidence: { type: GeminiType.STRING, description: "Quote from transcript" }
+                },
+                required: ["timestamp", "moment", "category", "evidence"]
+            }
+        },
+        highlights: {
+            type: GeminiType.ARRAY,
+            description: "What they did well",
+            items: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    category: { type: GeminiType.STRING, description: "Which rubric category" },
+                    strength: { type: GeminiType.STRING, description: "What they did well" },
+                    quote: { type: GeminiType.STRING, description: "Code snippet with line numbers OR transcript quote" }
+                },
+                required: ["category", "strength", "quote"]
+            }
+        },
+        nextTimeHabits: {
+            type: GeminiType.ARRAY,
+            description: "Exactly 3 specific, actionable behavior changes for next time",
+            items: { type: GeminiType.STRING }
+        },
+        pronunciationFeedback: { 
+            type: GeminiType.ARRAY, 
+            description: "Specific drills to fix delivery issues (if audio provided)",
+            items: { 
+                type: GeminiType.OBJECT,
+                properties: {
+                    phrase: { type: GeminiType.STRING, description: "The original phrase spoken" },
+                    issue: { type: GeminiType.STRING, description: "e.g. 'Rushed technical term', 'Monotone'" },
+                    practiceDrill: { type: GeminiType.STRING, description: "Visual guide using CAPS and ... for rhythm" },
+                    reason: { type: GeminiType.STRING, description: "Why this emphasis matters" }
+                },
+                required: ["phrase", "issue", "practiceDrill", "reason"]
+            } 
+        }
+    },
+    required: ["rating", "summary", "correctedSolution", "codingRubric", "codeIssues", "problemSolvingTimeline", "highlights", "nextTimeHabits", "suggestions"]
+};
+
+export const analyzeStage2_CodingInterview = async (
+    base64Audio: string | null,
+    transcript: string,
+    questionDescription: string,
+    solutionCode: string,
+    context: string,
+    language: string = 'python',
+    mimeType: string = 'audio/mp3',
+    maxRetries: number = 2
+): Promise<PerformanceReport> => {
+    const prompt = CODING_INTERVIEW_CONFIG.generatePrompt(
+        questionDescription,
+        solutionCode,
+        transcript,
+        language,
+        context
+    );
+
+    let lastError: Error | null = null;
+    
+    // Retry logic for robustness
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await ai.models.generateContent({
+                model: CODING_INTERVIEW_CONFIG.model,
+                contents: prompt,
+                config: {
+                    systemInstruction: CODING_INTERVIEW_CONFIG.systemPrompt,
+                    responseMimeType: "application/json",
+                    responseSchema: CODING_REPORT_SCHEMA
+                }
+            });
+
+            const report = JSON.parse(response.text);
+            
+            // Validate the response structure
+            if (!validateCodingReport(report)) {
+                throw new Error('Response validation failed: Missing required fields or invalid structure');
+            }
+            
+            // Add the coding-specific fields to the report
+            report.codingQuestion = questionDescription;
+            report.solutionCode = solutionCode;
+            report.correctedSolution = report.correctedSolution || solutionCode; // Fallback to original if not generated
+            report.codeLanguage = language;
+            
+            // Format the problem statement for better display
+            try {
+                report.formattedProblemStatement = await formatProblemStatement(questionDescription);
+            } catch (formatError) {
+                console.warn('Failed to format problem statement, using raw text:', formatError);
+                report.formattedProblemStatement = null; // Will fall back to raw text in UI
+            }
+            
+            console.log(`✓ Coding interview analysis succeeded on attempt ${attempt + 1}`);
+            return report as PerformanceReport;
+            
+        } catch (error: any) {
+            lastError = error;
+            console.warn(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error.message);
+            
+            if (attempt < maxRetries) {
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+            }
+        }
+    }
+    
+    // All retries failed
+    console.error('All retry attempts failed for coding interview analysis');
+    throw lastError || new Error('Coding interview analysis failed after all retries');
+};
+
+// ========== PROBLEM STATEMENT FORMATTER ==========
+
+interface ProblemSection {
+    type: 'heading' | 'paragraph' | 'code' | 'example' | 'list' | 'constraint';
+    content: string;
+    items?: string[]; // For lists
+    language?: string; // For code blocks
+    label?: string; // For examples (e.g., "Example 1", "Input", "Output")
+}
+
+interface FormattedProblemStatement {
+    title?: string;
+    sections: ProblemSection[];
+}
+
+const PROBLEM_FORMATTER_SCHEMA = {
+    type: GeminiType.OBJECT,
+    properties: {
+        title: { type: GeminiType.STRING, description: "Main problem title if present" },
+        sections: {
+            type: GeminiType.ARRAY,
+            description: "Ordered sections of the problem statement",
+            items: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    type: { 
+                        type: GeminiType.STRING, 
+                        description: "heading | paragraph | code | example | list | constraint" 
+                    },
+                    content: { type: GeminiType.STRING, description: "Main content text" },
+                    items: { 
+                        type: GeminiType.ARRAY, 
+                        items: { type: GeminiType.STRING },
+                        description: "Array of items for lists or constraints"
+                    },
+                    language: { type: GeminiType.STRING, description: "Programming language for code blocks" },
+                    label: { type: GeminiType.STRING, description: "Label like 'Example 1', 'Input', 'Output'" }
+                },
+                required: ["type", "content"]
+            }
+        }
+    },
+    required: ["sections"]
+};
+
+export const formatProblemStatement = async (rawProblem: string): Promise<FormattedProblemStatement> => {
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: `You are a problem statement formatter. Parse this coding problem and structure it into semantic sections.
+
+**Problem Text:**
+${rawProblem}
+
+**Instructions:**
+- Identify the main title if present
+- Break down into semantic sections
+- Detect headings (Description, Examples, Constraints, etc.)
+- Identify code blocks and their language
+- Separate examples with their inputs/outputs
+- Extract constraint lists
+- Preserve exact code and example formatting
+
+**Section Types:**
+- heading: Section titles like "Description:", "Examples:", "Constraints:"
+- paragraph: Regular descriptive text
+- code: Code snippets (detect language)
+- example: Example inputs/outputs with labels
+- list: Bulleted or numbered lists
+- constraint: Constraint items
+
+Return structured JSON with semantic sections that can be beautifully rendered.`,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: PROBLEM_FORMATTER_SCHEMA
+        }
+    });
+
+    return JSON.parse(response.text);
 };

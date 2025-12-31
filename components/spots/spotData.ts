@@ -10,16 +10,17 @@ import { PowerSpot, SavedDayAssignments, SavedSpotAssignment, DAILY_NEW_GOAL } f
 export const SPOT_ASSIGNMENTS_KEY = 'walkie_talkie_spot_assignments';
 
 /**
- * The three power spots - practice locations
+ * The four power spots - practice locations
  * 
- * 1. The Daily Commute - Review-only, handles all due reviews
- * 2. The Coffee Sanctuary - New problems only, focused topic practice
- * 3. The Mysterious Forest - Mixed random challenges
+ * 1. Daily Commute - Review-only, handles all due reviews
+ * 2. Coffee Sanctuary - New problems only, focused topic practice
+ * 3. Himmel Park - Company-specific interview preparation
+ * 4. Mysterious Forest - Mixed random challenges
  */
 export const POWER_SPOTS: PowerSpot[] = [
   { 
     id: 'spot3', 
-    name: 'The Daily Commute', 
+    name: 'Daily Commute', 
     ritual: 'Transit', 
     icon: 'train', 
     description: 'Never miss your daily reviews!',
@@ -30,7 +31,7 @@ export const POWER_SPOTS: PowerSpot[] = [
   },
   { 
     id: 'spot2', 
-    name: 'The Coffee Sanctuary', 
+    name: 'Coffee Sanctuary', 
     ritual: 'Deep Focus', 
     icon: 'coffee', 
     description: 'A warm brew and focused topic practice.',
@@ -40,8 +41,20 @@ export const POWER_SPOTS: PowerSpot[] = [
     newProblemsOnly: true
   },
   { 
+    id: 'spot4', 
+    name: 'Himmel Park', 
+    ritual: 'Interview Prep', 
+    icon: 'playground', 
+    description: '',
+    isRandom: false,
+    reviewsPriority: false,
+    onlyReviews: false,
+    newProblemsOnly: false,
+    isCompanySpecific: true
+  },
+  { 
     id: 'spot1', 
-    name: 'The Mysterious Forest', 
+    name: 'Mysterious Forest', 
     ritual: 'Adventure', 
     icon: 'forest', 
     description: 'Venture into the unknown with mixed challenges.',
@@ -199,6 +212,22 @@ export const assignTopicsToSpots = (
   
   return POWER_SPOTS.map((spot) => {
     const isNewProblemsOnly = spot.newProblemsOnly === true;
+    
+    // Handle company-specific spots (e.g. Himmel Park)
+    // These don't use topic assignments - they use company selection instead
+    if (spot.isCompanySpecific) {
+      return {
+        ...spot,
+        topic: 'company_specific',
+        topicDisplay: 'Select Company',
+        remaining: 0, // Will be set after company selection
+        isRandom: false,
+        locked: false,
+        reviewsPriority: false,
+        onlyReviews: false,
+        newProblemsOnly: false
+      };
+    }
     
     // Handle "Only Reviews" spots (e.g. Daily Commute)
     if (spot.onlyReviews) {

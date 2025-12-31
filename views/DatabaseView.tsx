@@ -67,13 +67,14 @@ const formatTimeSpent = (seconds: number | undefined): string => {
 
 
 // Report type configuration for display
-type ReportTypeFilter = 'all' | 'coach' | 'hot-take' | 'walkie' | 'teach' | 'readiness';
+type ReportTypeFilter = 'all' | 'hot-take' | 'walkie' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
 const REPORT_TYPE_CONFIG: Record<Exclude<ReportTypeFilter, 'all'>, { label: string; title: string; color: string; icon: React.ReactNode }> = {
-    'coach': { label: 'Interview', title: 'Interview Reports', color: 'gold', icon: <Award size={12} /> },
     'hot-take': { label: 'Tech Drill', title: 'Tech Drill Reports', color: 'purple-500', icon: <Zap size={12} /> },
     'walkie': { label: 'LeetCode', title: 'LeetCode Reports', color: 'blue-500', icon: <Code2 size={12} /> },
     'teach': { label: 'Teach', title: 'Teaching Reports', color: 'emerald-500', icon: <GraduationCap size={12} /> },
-    'readiness': { label: 'Explain', title: 'Explain (Readiness) Reports', color: 'teal-500', icon: <Layers size={12} /> }
+    'readiness': { label: 'Explain', title: 'Explain (Readiness) Reports', color: 'teal-500', icon: <Layers size={12} /> },
+    'system-coding': { label: 'System Coding', title: 'System Coding Reports', color: 'orange-500', icon: <Code2 size={12} /> },
+    'role-fit': { label: 'Role Fit', title: 'Role Fit / Why Me Reports', color: 'pink-500', icon: <Award size={12} /> }
 };
 
 interface DatabaseViewProps {
@@ -533,11 +534,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     // Count reports by type
     const reportCounts = {
         all: savedReports.length,
-        coach: savedReports.filter(r => r.type === 'coach').length,
         'hot-take': savedReports.filter(r => r.type === 'hot-take').length,
         walkie: savedReports.filter(r => r.type === 'walkie').length,
         teach: savedReports.filter(r => r.type === 'teach').length,
-        readiness: savedReports.filter(r => r.type === 'readiness').length
+        readiness: savedReports.filter(r => r.type === 'readiness').length,
+        'system-coding': savedReports.filter(r => r.type === 'system-coding').length,
+        'role-fit': savedReports.filter(r => r.type === 'role-fit').length
     };
     
     // Count unique problems
@@ -664,24 +666,41 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         const teachingSession = displayReport.reportData.teachingSession;
         const readinessData = displayReport.reportData.readinessReportData;
         
+        // Check if this is a coding interview report
+        const isCodingReport = !!displayReport.reportData?.codingRubric;
+        
+        // DEBUG: Log for troubleshooting
+        console.log('[DEBUG] DatabaseView Dark Theme Check:', {
+            isCodingReport,
+            hasCodingRubric: !!displayReport.reportData?.codingRubric,
+            codingRubricValue: displayReport.reportData?.codingRubric,
+            reportType: displayReport.type
+        });
+        
         return (
-            <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden relative">
+            <div className={`h-full ${isCodingReport ? 'bg-charcoal' : 'bg-cream'} text-charcoal flex flex-col font-sans overflow-hidden relative`}>
                 {/* Re-evaluation Loading Overlay */}
                 {isReEvaluating && (
                     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                        <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-md">
+                        <div className={`${isCodingReport ? 'bg-[#1a1a1a] border border-[#333]' : 'bg-white'} rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 max-w-md`}>
                             <Loader2 size={48} className="text-indigo-600 animate-spin" />
-                            <h3 className="text-xl font-bold text-charcoal">Re-evaluating...</h3>
-                            <p className="text-sm text-gray-600 text-center">
+                            <h3 className={`text-xl font-bold ${isCodingReport ? 'text-white' : 'text-charcoal'}`}>Re-evaluating...</h3>
+                            <p className={`text-sm text-center ${isCodingReport ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Fetching updated problem data and re-running Dean evaluation with new prompts
                             </p>
                         </div>
                     </div>
                 )}
                 
-                <div className="h-20 bg-white border-b border-[#E6E6E6] flex items-center justify-between px-8 z-40 shrink-0">
+                <div className={`h-20 border-b flex items-center justify-between px-8 z-40 shrink-0 ${
+                    isCodingReport ? 'bg-black border-white/5' : 'bg-white border-[#E6E6E6]'
+                }`}>
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/database')} className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors text-xs font-bold uppercase tracking-widest text-gray-600">
+                        <button onClick={() => navigate('/database')} className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors text-xs font-bold uppercase tracking-widest ${
+                            isCodingReport 
+                                ? 'border-white/10 bg-white/5 hover:bg-white/10 text-gray-300' 
+                                : 'border-gray-200 hover:bg-gray-50 text-gray-600'
+                        }`}>
                             <ArrowLeft size={14} /> Back to Database
                         </button>
                     </div>
@@ -782,16 +801,10 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                      onClick={() => setReportTypeFilter('all')}
                                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${reportTypeFilter === 'all' ? 'bg-charcoal text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gray-300'}`}
                                  >
-                                     All ({reportCounts.all})
-                                 </button>
-                                 <button
-                                     onClick={() => setReportTypeFilter('coach')}
-                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'coach' ? 'bg-gold text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-gold/50'}`}
-                                 >
-                                     <Award size={12} /> Interview ({reportCounts.coach})
-                                 </button>
-                                 <button
-                                     onClick={() => setReportTypeFilter('hot-take')}
+                                    All ({reportCounts.all})
+                                </button>
+                                <button
+                                    onClick={() => setReportTypeFilter('hot-take')}
                                      className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'hot-take' ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-purple-300'}`}
                                  >
                                      <Zap size={12} /> Tech Drill ({reportCounts['hot-take']})
@@ -808,13 +821,25 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                  >
                                      <GraduationCap size={12} /> Teach ({reportCounts.teach})
                                  </button>
-                                 <button
-                                     onClick={() => setReportTypeFilter('readiness')}
-                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'readiness' ? 'bg-teal-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-teal-300'}`}
-                                 >
-                                     <Layers size={12} /> Explain ({reportCounts.readiness})
-                                 </button>
-                             </div>
+                                <button
+                                    onClick={() => setReportTypeFilter('readiness')}
+                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'readiness' ? 'bg-teal-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-teal-300'}`}
+                                >
+                                    <Layers size={12} /> Explain ({reportCounts.readiness})
+                                </button>
+                                <button
+                                    onClick={() => setReportTypeFilter('system-coding')}
+                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'system-coding' ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-orange-300'}`}
+                                >
+                                    <Code2 size={12} /> System Coding ({reportCounts['system-coding']})
+                                </button>
+                                <button
+                                    onClick={() => setReportTypeFilter('role-fit')}
+                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'role-fit' ? 'bg-pink-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-pink-300'}`}
+                                >
+                                    <Award size={12} /> Role Fit ({reportCounts['role-fit']})
+                                </button>
+                            </div>
 
                             {groupedReports.length === 0 ? (
                                <div className="text-center py-20">
@@ -825,11 +850,12 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                        {reportTypeFilter === 'all' ? 'No Reports Yet' : `No ${REPORT_TYPE_CONFIG[reportTypeFilter as keyof typeof REPORT_TYPE_CONFIG]?.title || 'Reports'}`}
                                    </h3>
                                    <p className="text-gray-500 max-w-sm mx-auto">
-                                       {reportTypeFilter === 'coach' && 'Complete an interview analysis in The Coach to see reports here.'}
                                        {reportTypeFilter === 'hot-take' && 'Complete a Hot Take drill session to see reports here.'}
                                        {reportTypeFilter === 'walkie' && 'Practice problems in WalkieTalkie to see reports here.'}
                                        {reportTypeFilter === 'teach' && 'Complete a teaching session in Teach mode to see reports here.'}
                                        {reportTypeFilter === 'readiness' && 'Complete the Explain phase (Pass 1) in Paired Learning mode to see reports here.'}
+                                       {reportTypeFilter === 'system-coding' && 'Complete a system design coding interview (e.g., Consistent Hashing) to see reports here.'}
+                                       {reportTypeFilter === 'role-fit' && 'Complete a role fit / why me interview with a recruiter or team lead to see reports here.'}
                                        {reportTypeFilter === 'all' && 'Your performance reports from all features will appear here.'}
                                    </p>
                                </div>
@@ -841,13 +867,14 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                      </div>
                                      
                                      {groupedReports.map(group => {
-                                         const badgeColors: Record<string, string> = {
-                                             'coach': 'bg-gold/10 text-gold',
-                                             'hot-take': 'bg-purple-500/10 text-purple-600',
-                                             'walkie': 'bg-blue-500/10 text-blue-600',
-                                             'teach': 'bg-emerald-500/10 text-emerald-600',
-                                             'readiness': 'bg-teal-500/10 text-teal-600'
-                                         };
+                                        const badgeColors: Record<string, string> = {
+                                            'hot-take': 'bg-purple-500/10 text-purple-600',
+                                            'walkie': 'bg-blue-500/10 text-blue-600',
+                                            'teach': 'bg-emerald-500/10 text-emerald-600',
+                                            'readiness': 'bg-teal-500/10 text-teal-600',
+                                            'system-coding': 'bg-orange-500/10 text-orange-600',
+                                            'role-fit': 'bg-pink-500/10 text-pink-600'
+                                        };
                                          
 return (
                                             <div key={group.title} className="bg-white rounded-xl shadow-sm border border-[#EBE8E0] overflow-hidden">

@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { SavedItem, SavedReport, PerformanceReport, BlindProblem } from '../types';
+import { SavedItem, SavedReport, PerformanceReport, BlindProblem, CustomInterviewQuestion } from '../types';
 
 // ========== SAVED ITEMS (Snippets) ==========
 
@@ -916,3 +916,323 @@ export const getDailyActivitySummary = async (
     }));
 };
 
+// ========== COMPANY-SPECIFIC INTERVIEW QUESTIONS ==========
+
+/**
+ * Fetch all companies
+ */
+export const fetchCompanies = async (): Promise<Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    createdAt: Date;
+}>> => {
+    const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('name', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching companies:', error);
+        return [];
+    }
+
+    return data.map(company => ({
+        id: company.id,
+        name: company.name,
+        description: company.description,
+        icon: company.icon,
+        createdAt: new Date(company.created_at)
+    }));
+};
+
+/**
+ * Fetch company problems for a specific company
+ * Returns the linked problems from blind_problems table ordered by display_order
+ */
+export const fetchCompanyProblems = async (companyId: string): Promise<BlindProblem[]> => {
+    const { data, error } = await supabase
+        .from('company_problems')
+        .select(`
+            problem_title,
+            display_order,
+            notes,
+            problem_source
+        `)
+        .eq('company_id', companyId)
+        .order('display_order', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching company problems:', error);
+        return [];
+    }
+
+    if (!data || data.length === 0) {
+        return [];
+    }
+
+    // Fetch the actual problem details from blind_problems
+    const problemTitles = data.map(cp => cp.problem_title);
+    const { data: problems, error: problemsError } = await supabase
+        .from('blind_problems')
+        .select('*')
+        .in('title', problemTitles);
+
+    if (problemsError) {
+        console.error('Error fetching blind problems:', problemsError);
+        return [];
+    }
+
+    if (!problems) {
+        return [];
+    }
+
+    // Map to BlindProblem format and maintain display_order
+    const problemMap = new Map(problems.map(p => [p.title, p]));
+    const orderedProblems: BlindProblem[] = [];
+
+    for (const cp of data) {
+        const problem = problemMap.get(cp.problem_title);
+        if (problem) {
+            orderedProblems.push({
+                id: problem.id,
+                title: problem.title,
+                prompt: problem.prompt,
+                example: problem.example,
+                constraints: problem.constraints,
+                pattern: problem.pattern,
+                keyIdea: problem.key_idea,
+                detailedHint: problem.detailed_hint,
+                definition: problem.definition,
+                solution: problem.solution,
+                timeComplexity: problem.time_complexity,
+                spaceComplexity: problem.space_complexity,
+                steps: problem.steps,
+                expectedEdgeCases: problem.expected_edge_cases,
+                topics: problem.topics,
+                difficulty: problem.difficulty,
+                problemGroup: problem.problem_group,
+                leetcodeNumber: problem.leetcode_number,
+                mnemonicImageUrl: problem.mnemonic_image_url
+            });
+        }
+    }
+
+    return orderedProblems;
+};
+
+/**
+ * Build a problem queue for a specific company
+ * Similar to buildProblemQueue but for company-specific problems
+ */
+export const buildCompanyProblemQueue = async (
+    companyId: string,
+    limit: number = 10
+): Promise<BlindProblem[]> => {
+    const companyProblems = await fetchCompanyProblems(companyId);
+    
+    // Return up to 'limit' problems
+    return companyProblems.slice(0, limit);
+};
+
+/**
+ * Get count of problems for a specific company
+ */
+export const getCompanyProblemsCount = async (companyId: string): Promise<number> => {
+    const { count, error } = await supabase
+        .from('company_problems')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId);
+
+    if (error) {
+        console.error('Error counting company problems:', error);
+        return 0;
+    }
+
+    return count || 0;
+};
+
+
+// ========== CUSTOM INTERVIEW QUESTIONS ==========
+
+/**
+ * Fetch all custom interview questions for a user
+ */
+export const fetchCustomInterviewQuestions = async (userId: string): Promise<CustomInterviewQuestion[]> => {
+    const { data, error } = await supabase
+        .from('custom_interview_questions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching custom interview questions:', error);
+        return [];
+    }
+
+    return data.map(q => ({
+        id: q.id,
+        userId: q.user_id,
+        title: q.title,
+        description: q.description,
+        solutionCode: q.solution_code || '',
+        language: q.language || 'python',
+        difficulty: q.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        topics: q.topics || [],
+        company: q.company || undefined,
+        interviewRound: q.interview_round || undefined,
+        notes: q.notes || undefined,
+        reportId: q.report_id || undefined,
+        createdAt: new Date(q.created_at),
+        updatedAt: new Date(q.updated_at)
+    }));
+};
+
+/**
+ * Create a new custom interview question
+ */
+export const createCustomInterviewQuestion = async (
+    userId: string,
+    questionData: Omit<CustomInterviewQuestion, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
+): Promise<CustomInterviewQuestion | null> => {
+    const { data, error } = await supabase
+        .from('custom_interview_questions')
+        .insert({
+            user_id: userId,
+            title: questionData.title,
+            description: questionData.description,
+            solution_code: questionData.solutionCode,
+            language: questionData.language,
+            difficulty: questionData.difficulty,
+            topics: questionData.topics,
+            company: questionData.company,
+            interview_round: questionData.interviewRound,
+            notes: questionData.notes,
+            report_id: questionData.reportId
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating custom interview question:', error);
+        return null;
+    }
+
+    return {
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        description: data.description,
+        solutionCode: data.solution_code || '',
+        language: data.language || 'python',
+        difficulty: data.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        topics: data.topics || [],
+        company: data.company || undefined,
+        interviewRound: data.interview_round || undefined,
+        notes: data.notes || undefined,
+        reportId: data.report_id || undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+    };
+};
+
+/**
+ * Update an existing custom interview question
+ */
+export const updateCustomInterviewQuestion = async (
+    questionId: string,
+    updates: Partial<Omit<CustomInterviewQuestion, 'id' | 'userId' | 'createdAt' | 'updatedAt'>>
+): Promise<CustomInterviewQuestion | null> => {
+    const updateData: any = {};
+    
+    if (updates.title !== undefined) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.solutionCode !== undefined) updateData.solution_code = updates.solutionCode;
+    if (updates.language !== undefined) updateData.language = updates.language;
+    if (updates.difficulty !== undefined) updateData.difficulty = updates.difficulty;
+    if (updates.topics !== undefined) updateData.topics = updates.topics;
+    if (updates.company !== undefined) updateData.company = updates.company;
+    if (updates.interviewRound !== undefined) updateData.interview_round = updates.interviewRound;
+    if (updates.notes !== undefined) updateData.notes = updates.notes;
+    if (updates.reportId !== undefined) updateData.report_id = updates.reportId;
+
+    const { data, error } = await supabase
+        .from('custom_interview_questions')
+        .update(updateData)
+        .eq('id', questionId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating custom interview question:', error);
+        return null;
+    }
+
+    return {
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        description: data.description,
+        solutionCode: data.solution_code || '',
+        language: data.language || 'python',
+        difficulty: data.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        topics: data.topics || [],
+        company: data.company || undefined,
+        interviewRound: data.interview_round || undefined,
+        notes: data.notes || undefined,
+        reportId: data.report_id || undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+    };
+};
+
+/**
+ * Delete a custom interview question
+ */
+export const deleteCustomInterviewQuestion = async (questionId: string): Promise<boolean> => {
+    const { error } = await supabase
+        .from('custom_interview_questions')
+        .delete()
+        .eq('id', questionId);
+
+    if (error) {
+        console.error('Error deleting custom interview question:', error);
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Get a single custom interview question by ID
+ */
+export const getCustomInterviewQuestion = async (questionId: string): Promise<CustomInterviewQuestion | null> => {
+    const { data, error } = await supabase
+        .from('custom_interview_questions')
+        .select('*')
+        .eq('id', questionId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching custom interview question:', error);
+        return null;
+    }
+
+    return {
+        id: data.id,
+        userId: data.user_id,
+        title: data.title,
+        description: data.description,
+        solutionCode: data.solution_code || '',
+        language: data.language || 'python',
+        difficulty: data.difficulty as 'easy' | 'medium' | 'hard' | undefined,
+        topics: data.topics || [],
+        company: data.company || undefined,
+        interviewRound: data.interview_round || undefined,
+        notes: data.notes || undefined,
+        reportId: data.report_id || undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+    };
+};

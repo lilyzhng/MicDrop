@@ -16,7 +16,11 @@ import {
 } from '../types';
 import { 
     STRUCTURE_CHECKER_CONFIG,
-    JUNIOR_CONFIG, 
+    JUNIOR_CONFIG,
+    LEETCODE_JUNIOR_CONFIG,
+    LEETCODE_DEAN_CONFIG,
+    SYSTEM_JUNIOR_CONFIG,
+    SYSTEM_DEAN_CONFIG,
     DEAN_CONFIG, 
     JUNIOR_RESPONSE_SCHEMA, 
     TEACHING_REPORT_SCHEMA 
@@ -139,19 +143,23 @@ export function getInitialJuniorState(): JuniorState {
 
 /**
  * Generate the Junior's next response based on the teaching so far
+ * Uses SYSTEM_JUNIOR_CONFIG for system coding problems, LEETCODE_JUNIOR_CONFIG for LeetCode
  */
 export async function getJuniorResponse(
     problem: BlindProblem,
     teachingHistory: TeachingTurn[],
     currentState: JuniorState
 ): Promise<{ response: string; newState: JuniorState; isComplete: boolean }> {
-    const prompt = JUNIOR_CONFIG.generateResponsePrompt(problem, teachingHistory, currentState);
+    // Select the appropriate Junior config based on problem type
+    const juniorConfig = problem.isSystemCoding ? SYSTEM_JUNIOR_CONFIG : LEETCODE_JUNIOR_CONFIG;
+    
+    const prompt = juniorConfig.generateResponsePrompt(problem, teachingHistory, currentState);
 
     const response = await ai.models.generateContent({
-        model: JUNIOR_CONFIG.model,
+        model: juniorConfig.model,
         contents: prompt,
         config: {
-            systemInstruction: JUNIOR_CONFIG.systemPrompt,
+            systemInstruction: juniorConfig.systemPrompt,
             responseMimeType: "application/json",
             responseSchema: {
                 type: GeminiType.OBJECT,
@@ -175,6 +183,11 @@ export async function getJuniorResponse(
     });
 
     const result = JSON.parse(response.text);
+    
+    if (problem.isSystemCoding) {
+        console.log('[TeachBack] Using System Junior for system coding problem');
+    }
+    
     return {
         response: result.response,
         newState: result.newState,
@@ -208,18 +221,26 @@ export async function getJuniorSummary(
 
 /**
  * Have the Dean evaluate the complete teaching session
+ * Uses SYSTEM_DEAN_CONFIG for system coding problems, LEETCODE_DEAN_CONFIG for LeetCode
  */
 export async function evaluateTeaching(
     problem: BlindProblem,
     session: TeachingSession
 ): Promise<TeachingReport> {
-    const prompt = DEAN_CONFIG.generateEvaluationPrompt(problem, session);
+    // Select the appropriate Dean config based on problem type
+    const deanConfig = problem.isSystemCoding ? SYSTEM_DEAN_CONFIG : LEETCODE_DEAN_CONFIG;
+    
+    if (problem.isSystemCoding) {
+        console.log('[TeachBack] Using System Dean to evaluate system coding teaching');
+    }
+    
+    const prompt = deanConfig.generateEvaluationPrompt(problem, session);
 
     const response = await ai.models.generateContent({
-        model: DEAN_CONFIG.model,
+        model: deanConfig.model,
         contents: prompt,
         config: {
-            systemInstruction: DEAN_CONFIG.systemPrompt,
+            systemInstruction: deanConfig.systemPrompt,
             responseMimeType: "application/json",
             responseSchema: {
                 type: GeminiType.OBJECT,

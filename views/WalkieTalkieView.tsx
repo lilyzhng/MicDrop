@@ -14,7 +14,7 @@ import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSessio
 import { UserStudySettings, StudyStats, Company } from '../types/database';
 import { supabase } from '../config/supabase';
 import { analyzeWalkieSession } from '../services/analysisService';
-import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount } from '../services/databaseService';
+import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount, fetchCustomQuestionsForCompany } from '../services/databaseService';
 import { 
   getJuniorResponse, 
   getJuniorSummary, 
@@ -166,8 +166,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   // Handle company selection for Himmel Park
   const handleCompanySelect = async (spotId: string, companyId: string, companyName: string) => {
     try {
-      // Fetch problem count for this company
-      const count = await getCompanyProblemsCount(companyId);
+      // Fetch problem count for this company (includes curated + custom questions)
+      const count = await getCompanyProblemsCount(companyId, companyName, user?.id);
       
       // Update the spot with selected company
       setSpotsWithTopics(prev => prev.map(spot => {
@@ -737,11 +737,21 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     try {
         let problems: BlindProblem[] = [];
         
-        // For company-specific spots, use company problem queue
+        // For company-specific spots, use company problem queue + custom questions
         if (spot.isCompanySpecific && spot.selectedCompanyId) {
           const batchSize = 10; // All problems for the company
-          problems = await buildCompanyProblemQueue(spot.selectedCompanyId, batchSize);
-          console.log(`[Company Session] Loaded ${problems.length} problems for company ${spot.selectedCompanyName}`);
+          const curatedProblems = await buildCompanyProblemQueue(spot.selectedCompanyId, batchSize);
+          console.log(`[Company Session] Loaded ${curatedProblems.length} curated problems for company ${spot.selectedCompanyName}`);
+          
+          // Also fetch custom questions for this company (if user is logged in)
+          let customQuestions: BlindProblem[] = [];
+          if (user?.id && spot.selectedCompanyName) {
+            customQuestions = await fetchCustomQuestionsForCompany(user.id, spot.selectedCompanyName);
+            console.log(`[Company Session] Loaded ${customQuestions.length} custom questions for company ${spot.selectedCompanyName}`);
+          }
+          
+          // Merge: custom questions first (for practice priority), then curated
+          problems = [...customQuestions, ...curatedProblems];
         } else {
           // Normal flow for other spots
           // Calculate remaining problems for today's goal

@@ -671,3 +671,128 @@ Return structured JSON with semantic sections that can be beautifully rendered.`
 
     return JSON.parse(response.text);
 };
+
+// ============================================================
+// TEACHING METADATA GENERATION
+// ============================================================
+
+/**
+ * Generate teaching metadata for a system coding problem.
+ * This fills in the missing fields needed for teaching mode.
+ */
+export interface SystemCodingReportData {
+    title: string;
+    prompt: string;
+    solutionCode: string;
+    correctSolution: string | null;
+    codeLanguage: string;
+    company: string | null;
+    knownBugs: Array<{
+        title: string;
+        type: string;
+        severity: string;
+        impact: Record<string, string>;
+        evidence: { lineNumbers: number[]; codeSnippet: string };
+        fix: string;
+    }>;
+    rubricScores: {
+        problemUnderstanding: number;
+        solutionApproach: number;
+        functionalCorrectness: number;
+        codeHygiene: number;
+        communication: number | null;
+    } | null;
+    transcript: string | null;
+    weakAreas: {
+        primaryFailureMode: string;
+        biggestImpactFix: string;
+    } | null;
+}
+
+export interface TeachingMetadata {
+    keyIdea: string;
+    pattern: string;
+    steps: string[];
+    timeComplexity: string;
+    spaceComplexity: string;
+    detailedHint: string;
+    expectedEdgeCases: string[];
+    correctSolution: string;
+}
+
+const TEACHING_METADATA_SCHEMA = {
+    type: GeminiType.OBJECT,
+    properties: {
+        keyIdea: { type: GeminiType.STRING, description: 'The core insight or key idea for solving this problem (1-2 sentences)' },
+        pattern: { type: GeminiType.STRING, description: 'The implementation pattern, e.g., "Hash Ring + Binary Search"' },
+        steps: { 
+            type: GeminiType.ARRAY, 
+            items: { type: GeminiType.STRING },
+            description: 'Step-by-step correct approach (4-6 steps)'
+        },
+        timeComplexity: { type: GeminiType.STRING, description: 'Time complexity with brief reasoning, e.g., "O(log N) for binary search lookup"' },
+        spaceComplexity: { type: GeminiType.STRING, description: 'Space complexity with brief reasoning, e.g., "O(N) to store N servers"' },
+        detailedHint: { type: GeminiType.STRING, description: 'A teaching walkthrough hint (2-3 sentences) to help explain the approach' },
+        expectedEdgeCases: {
+            type: GeminiType.ARRAY,
+            items: { type: GeminiType.STRING },
+            description: 'List of edge cases to consider (3-5 items)'
+        },
+        correctSolution: { type: GeminiType.STRING, description: 'A correct, clean implementation of the solution' }
+    },
+    required: ['keyIdea', 'pattern', 'steps', 'timeComplexity', 'spaceComplexity', 'detailedHint', 'expectedEdgeCases', 'correctSolution']
+};
+
+export async function generateTeachingMetadata(reportData: SystemCodingReportData): Promise<TeachingMetadata> {
+    // Build context from known bugs
+    const bugContext = reportData.knownBugs.length > 0
+        ? `Known bugs in the solution:\n${reportData.knownBugs.map(b => `- ${b.title}: ${b.fix}`).join('\n')}`
+        : 'No bugs identified.';
+    
+    // Build weak areas context
+    const weakAreasContext = reportData.weakAreas
+        ? `Primary failure: ${reportData.weakAreas.primaryFailureMode}\nBiggest fix: ${reportData.weakAreas.biggestImpactFix}`
+        : '';
+
+    const prompt = `You are an expert coding instructor. Given a system coding interview problem and an attempted solution, generate teaching metadata to help the student learn this problem properly.
+
+## Problem
+Title: ${reportData.title}
+
+Description:
+${reportData.prompt}
+
+## Student's Attempted Solution (${reportData.codeLanguage})
+\`\`\`${reportData.codeLanguage}
+${reportData.solutionCode}
+\`\`\`
+
+## Analysis
+${bugContext}
+
+${weakAreasContext}
+
+## Your Task
+Generate teaching metadata for this problem:
+1. **keyIdea**: The core insight (1-2 sentences) - what's the "aha moment"?
+2. **pattern**: The implementation pattern name (e.g., "Hash Ring + Binary Search", "Trie + DFS")
+3. **steps**: 4-6 step-by-step approach to solve correctly
+4. **timeComplexity**: Correct time complexity with reasoning
+5. **spaceComplexity**: Correct space complexity with reasoning  
+6. **detailedHint**: A teaching hint to help explain the approach (2-3 sentences)
+7. **expectedEdgeCases**: 3-5 edge cases to consider
+8. **correctSolution**: A correct, clean implementation in ${reportData.codeLanguage}
+
+${reportData.correctSolution ? `Note: A corrected solution was already provided:\n\`\`\`${reportData.codeLanguage}\n${reportData.correctSolution}\n\`\`\`\nUse this as reference but feel free to improve it.` : 'Generate a correct solution from scratch.'}`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: TEACHING_METADATA_SCHEMA
+        }
+    });
+
+    return JSON.parse(response.text);
+}

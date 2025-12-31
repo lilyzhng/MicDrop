@@ -267,6 +267,7 @@ export interface BlindProblem {
   problemGroup?: string; // Learning group/pattern (e.g., 'arrays_hashing', 'two_pointers', 'dp_1d')
   leetcodeNumber?: number;
   mnemonicImageUrl?: string; // Visual mnemonic image URL from Supabase Storage
+  isSystemCoding?: boolean; // True for system coding questions (use System Junior/Dean)
 }
 
 // --- Teach-Back Mode Types ---

@@ -239,6 +239,63 @@ export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProb
 };
 
 /**
+ * Fetch a system coding question by title (from custom_interview_questions)
+ * Returns as BlindProblem format for compatibility with teaching/practice modes
+ */
+export const fetchSystemCodingQuestionByTitle = async (userId: string, title: string): Promise<BlindProblem | null> => {
+    const { data, error } = await supabase
+        .from('custom_interview_questions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('title', title)
+        .limit(1);
+
+    if (error) {
+        console.error('Error fetching system coding question by title:', error);
+        return null;
+    }
+
+    if (!data || data.length === 0) {
+        return null;
+    }
+
+    const q = data[0];
+    
+    // Verify it's a system coding question and parse metadata
+    try {
+        const metadata = JSON.parse(q.notes || '{}');
+        if (!metadata.isSystemCoding) {
+            return null;
+        }
+
+        return {
+            id: q.id,
+            title: q.title,
+            prompt: q.description,
+            formattedPrompt: metadata.formattedPrompt || undefined,
+            example: '',
+            constraints: [],
+            pattern: metadata.pattern || 'System Coding',
+            keyIdea: metadata.keyIdea || '',
+            detailedHint: metadata.detailedHint,
+            definition: undefined,
+            solution: metadata.correctSolution || q.solution_code,
+            timeComplexity: metadata.timeComplexity || '',
+            spaceComplexity: metadata.spaceComplexity || '',
+            steps: metadata.steps || [],
+            expectedEdgeCases: metadata.expectedEdgeCases || [],
+            topics: q.topics || [],
+            difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
+            problemGroup: 'system_coding',
+            isSystemCoding: true
+        };
+    } catch {
+        console.error('Failed to parse system coding question metadata');
+        return null;
+    }
+};
+
+/**
  * Fetch all blind problems (for stats/admin purposes)
  */
 export const fetchAllBlindProblems = async (): Promise<BlindProblem[]> => {
@@ -1269,6 +1326,16 @@ export const getCustomInterviewQuestion = async (questionId: string): Promise<Cu
 export interface SystemCodingQuestionData {
     title: string;
     prompt: string;
+    formattedPrompt?: {
+        title?: string;
+        sections: Array<{
+            type: 'heading' | 'paragraph' | 'code' | 'example' | 'list' | 'constraint';
+            content: string;
+            items?: string[];
+            language?: string;
+            label?: string;
+        }>;
+    }; // Structured problem statement for rich display
     solutionCode: string;
     correctSolution: string;
     codeLanguage: string;
@@ -1312,6 +1379,7 @@ export const saveSystemCodingQuestion = async (
             expectedEdgeCases: data.expectedEdgeCases,
             correctSolution: data.correctSolution,
             knownBugs: data.knownBugs || [],
+            formattedPrompt: data.formattedPrompt || undefined,
             isSystemCoding: true
         };
 
@@ -1415,6 +1483,7 @@ export const fetchCustomQuestionsForCompany = async (
                 id: q.id,
                 title: q.title,
                 prompt: q.description,
+                formattedPrompt: metadata.formattedPrompt || undefined,
                 example: '',
                 constraints: [],
                 pattern: metadata.pattern || 'System Coding',

@@ -640,29 +640,31 @@ const PROBLEM_FORMATTER_SCHEMA = {
 export const formatProblemStatement = async (rawProblem: string): Promise<FormattedProblemStatement> => {
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
-        contents: `You are a problem statement formatter. Parse this coding problem and structure it into semantic sections.
+        contents: `You are a TEXT SPLITTER, not a writer. Your ONLY job is to split this wall of text into labeled sections for display.
 
-**Problem Text:**
+**ABSOLUTE RULES - VIOLATION = FAILURE:**
+1. COPY-PASTE ONLY. Never rewrite, rephrase, summarize, or "improve" any text.
+2. ZERO content changes. Every single character, word, number, and symbol must be preserved EXACTLY.
+3. NO additions. Do not add explanations, clarifications, or any text that isn't in the original.
+4. NO deletions. Do not remove or shorten anything.
+5. Split at natural boundaries (like "Background", "Task:", "Example:") that already exist in the text.
+
+**Problem Text to Split:**
 ${rawProblem}
 
-**Instructions:**
-- Identify the main title if present
-- Break down into semantic sections
-- Detect headings (Description, Examples, Constraints, etc.)
-- Identify code blocks and their language
-- Separate examples with their inputs/outputs
-- Extract constraint lists
-- Preserve exact code and example formatting
+**Your Task:**
+Find natural section boundaries in the text above and tag each chunk. You are a text SPLITTER, not an editor.
 
-**Section Types:**
-- heading: Section titles like "Description:", "Examples:", "Constraints:"
-- paragraph: Regular descriptive text
-- code: Code snippets (detect language)
-- example: Example inputs/outputs with labels
-- list: Bulleted or numbered lists
-- constraint: Constraint items
+**Section Types to use:**
+- heading: Words that serve as section titles in the original (e.g., "Background", "Algorithm Description", "Task")
+- paragraph: Regular text blocks - COPY VERBATIM
+- code: Code snippets - preserve EXACT formatting, whitespace, indentation
+- example: Input/output examples - COPY VERBATIM including labels
+- list: Any list-like content - COPY EACH ITEM VERBATIM
+- constraint: Constraint statements if present
 
-Return structured JSON with semantic sections that can be beautifully rendered.`,
+**Verification:**
+If you concatenated all section contents, it should reproduce the EXACT original text (minus only the boundary markers you used for splitting).`,
         config: {
             responseMimeType: "application/json",
             responseSchema: PROBLEM_FORMATTER_SCHEMA

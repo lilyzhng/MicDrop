@@ -5,7 +5,7 @@
  * Supports both voice recording and text input modes.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Mic, 
@@ -15,10 +15,13 @@ import {
   Layers, 
   StopCircle,
   Keyboard,
-  Send
+  Send,
+  Wand2,
+  Loader2
 } from 'lucide-react';
-import { BlindProblem } from '../../types';
+import { BlindProblem, FormattedProblemSection } from '../../types';
 import { getNeetCodeUrl } from '../../config/neetcodeUrls';
+import { formatProblemStatement } from '../../services/analysisService';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
 type InputMode = 'voice' | 'text';
@@ -44,6 +47,16 @@ interface ProblemStepProps {
   setShowDefinitionExpanded: (show: boolean) => void;
 }
 
+// Check if problem statement needs AI formatting
+// Returns true if: no formatted prompt exists, and raw prompt is long (>300 chars)
+const needsFormatting = (problem: BlindProblem | null): boolean => {
+  if (!problem?.prompt) return false;
+  const hasFormattedPrompt = problem.formattedPrompt && problem.formattedPrompt.sections.length > 0;
+  if (hasFormattedPrompt) return false;
+  // Show format button for any long text without proper formatting
+  return problem.prompt.length > 300;
+};
+
 export const ProblemStep: React.FC<ProblemStepProps> = ({
   step,
   currentProblem,
@@ -64,6 +77,47 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
 }) => {
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [textInput, setTextInput] = useState('');
+  const [isFormatting, setIsFormatting] = useState(false);
+  const [dynamicFormattedPrompt, setDynamicFormattedPrompt] = useState<{ sections: FormattedProblemSection[] } | null>(null);
+
+  // Reset dynamic formatting when problem changes
+  useEffect(() => {
+    setDynamicFormattedPrompt(null);
+  }, [currentProblem?.id]);
+
+  // Debug: log why format button might not show
+  useEffect(() => {
+    if (currentProblem) {
+      console.log('[ProblemStep Debug]', {
+        title: currentProblem.title,
+        promptLength: currentProblem.prompt?.length,
+        hasFormattedPrompt: !!currentProblem.formattedPrompt,
+        sectionsCount: currentProblem.formattedPrompt?.sections?.length,
+        needsFormat: needsFormatting(currentProblem),
+        dynamicFormattedPrompt: !!dynamicFormattedPrompt,
+        showFormatButton: needsFormatting(currentProblem) && !dynamicFormattedPrompt
+      });
+    }
+  }, [currentProblem, dynamicFormattedPrompt]);
+
+  // Handle AI formatting of unformatted problem statement
+  const handleFormatProblem = async () => {
+    if (!currentProblem?.prompt || isFormatting) return;
+    
+    setIsFormatting(true);
+    try {
+      const formatted = await formatProblemStatement(currentProblem.prompt);
+      setDynamicFormattedPrompt(formatted);
+    } catch (error) {
+      console.error('Failed to format problem statement:', error);
+    } finally {
+      setIsFormatting(false);
+    }
+  };
+
+  // Use dynamic formatted prompt if available, otherwise fall back to problem's formattedPrompt
+  const activeFormattedPrompt = dynamicFormattedPrompt || currentProblem?.formattedPrompt;
+  const showFormatButton = needsFormatting(currentProblem) && !dynamicFormattedPrompt;
 
   const onTextSubmit = () => {
     if (textInput.trim()) {
@@ -93,9 +147,11 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
         </div>
       </div>
 
-      {/* Problem Content - Mobile vertical, Desktop side-by-side */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 md:px-8 py-4">
-        <div className="max-w-6xl mx-auto pb-32 sm:pb-40">
+      {/* Main Content Area - Desktop: 50/50 split with input on right | Mobile: Vertical with input at bottom */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left Column: Problem Content (scrollable) - 50% on desktop */}
+        <div className="lg:w-1/2 overflow-y-auto px-4 sm:px-6 md:px-8 py-4 lg:pr-4">
+          <div className="max-w-4xl mx-auto pb-32 sm:pb-40 lg:pb-8">
           {/* Problem Title with LeetCode Number - Always on top */}
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
             {currentProblem?.leetcodeNumber && (
@@ -104,15 +160,30 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
             {currentProblem?.title}
           </h2>
           
-          {/* Desktop: Side-by-side layout with equal heights | Mobile: Vertical layout */}
-          <div className="flex flex-col lg:flex-row lg:gap-8 lg:items-stretch">
-            {/* Left Column: Problem Statement */}
-            <div className="flex-1 lg:max-w-[55%] order-first lg:order-first mb-6 lg:mb-0">
-              <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10 h-full flex flex-col">
+            {/* Problem Statement and Image - Stacked on all screens in left column */}
+            <div className="flex flex-col gap-6">
+              {/* Problem Statement */}
+              <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10">
                 <div className="flex items-center justify-between mb-4 sm:mb-6">
                    <div className="flex items-center gap-2">
                      <BookOpen size={16} className="sm:w-5 sm:h-5 text-gold" />
                      <span className="text-[10px] sm:text-xs font-bold text-gold uppercase tracking-widest">Problem Statement</span>
+                     {/* AI Format button - appears when text is long and unformatted */}
+                     {showFormatButton && (
+                       <button
+                         onClick={handleFormatProblem}
+                         disabled={isFormatting}
+                         className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+                         title="Use AI to format this problem statement for easier reading"
+                       >
+                         {isFormatting ? (
+                           <Loader2 size={10} className="animate-spin" />
+                         ) : (
+                           <Wand2 size={10} />
+                         )}
+                         <span>{isFormatting ? 'Formatting...' : 'Format'}</span>
+                       </button>
+                     )}
                    </div>
                    {currentProblem?.title && (
                      <a 
@@ -127,29 +198,71 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                      </a>
                    )}
                 </div>
-                <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8 flex-grow">{currentProblem?.prompt}</p>
+                {/* Render formatted problem if available, otherwise fall back to raw prompt */}
+                {activeFormattedPrompt && activeFormattedPrompt.sections.length > 0 ? (
+                  <div className="space-y-4 mb-6 sm:mb-8">
+                    {activeFormattedPrompt.sections.map((section, idx) => {
+                      switch (section.type) {
+                        case 'heading':
+                          return <h3 key={idx} className="text-lg sm:text-xl font-bold text-gray-200 mt-6 mb-3 first:mt-0">{section.content}</h3>;
+                        case 'paragraph':
+                          return <p key={idx} className="text-base sm:text-lg text-gray-300 leading-relaxed font-light">{section.content}</p>;
+                        case 'code':
+                          return (
+                            <pre key={idx} className="bg-black/50 p-4 sm:p-6 rounded-xl border border-white/5 overflow-x-auto">
+                              <code className="text-xs sm:text-sm font-mono text-gold/80">{section.content}</code>
+                            </pre>
+                          );
+                        case 'example':
+                          return (
+                            <div key={idx} className="bg-black/30 border-l-2 border-gold/40 p-4 rounded-r-lg">
+                              {section.label && <p className="text-[10px] font-bold text-gold/60 uppercase tracking-widest mb-2">{section.label}</p>}
+                              <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{section.content}</pre>
+                            </div>
+                          );
+                        case 'list':
+                        case 'constraint':
+                          return (
+                            <div key={idx} className="space-y-2 ml-2">
+                              {section.items && section.items.length > 0 ? (
+                                section.items.map((item, itemIdx) => (
+                                  <div key={itemIdx} className="flex items-start gap-2">
+                                    <span className="text-gold mt-1">•</span>
+                                    <p className="text-base text-gray-300">{item}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-base text-gray-300">{section.content}</p>
+                              )}
+                            </div>
+                          );
+                        default:
+                          return <p key={idx} className="text-base text-gray-300 leading-relaxed">{section.content}</p>;
+                      }
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8">{currentProblem?.prompt}</p>
+                )}
                 {currentProblem?.example && (
                   <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
                 )}
-              </div>
             </div>
             
-            {/* Right Column: Visual Mnemonic Image - Matches problem height on desktop */}
+              {/* Visual Mnemonic Image */}
             {currentProblem?.mnemonicImageUrl && (
-              <div className="lg:flex-1 lg:max-w-[45%] order-2 lg:order-last mb-6 lg:mb-0">
-                <div className="rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white/5 h-full">
+                <div className="rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white/5">
                   <img 
                     src={currentProblem.mnemonicImageUrl} 
                     alt={`Visual mnemonic for ${currentProblem.title}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto"
                     loading="lazy"
                   />
-                </div>
               </div>
             )}
           </div>
           
-          {/* Need a Hint Button - Centered below the two columns */}
+            {/* Need a Hint Button */}
           {revealHintIdx < 4 && (
             <div className="flex justify-center mt-8 sm:mt-10">
               <button 
@@ -164,8 +277,7 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
             </div>
           )}
           
-          {/* Hints Section - Full width below */}
-          {/* Order: 1. Pattern (with expandable Definition) → 2. Key Idea → 3. Detailed Hint → 4. Skeleton */}
+            {/* Hints Section */}
           <div className="grid gap-4 sm:gap-6 mt-6 sm:mt-8">
             {revealHintIdx >= 1 && (
               <div className="p-5 sm:p-8 bg-gold/5 border border-gold/10 rounded-xl sm:rounded-[2rem] animate-in slide-in-from-bottom-4">
@@ -200,8 +312,118 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
         </div>
       </div>
 
-      {/* Recording/Text Controls - Mobile responsive */}
-      <div className="p-6 sm:p-10 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 flex flex-col items-center">
+        {/* Right Column: Input Area - 50% on desktop, sticky bottom on mobile */}
+        <div className="lg:w-1/2 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
+          {/* Desktop: Full height input area */}
+          <div className="hidden lg:flex flex-col h-full p-6">
+            {/* Input Mode Toggle */}
+            {step === 'problem' && (
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <button
+                  onClick={() => setInputMode('voice')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                    inputMode === 'voice'
+                      ? 'bg-gold/20 border border-gold/40 text-gold'
+                      : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+                  }`}
+                >
+                  <Mic size={12} />
+                  <span>Voice</span>
+                </button>
+                <button
+                  onClick={() => setInputMode('text')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                    inputMode === 'text'
+                      ? 'bg-gold/20 border border-gold/40 text-gold'
+                      : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
+                  }`}
+                >
+                  <Keyboard size={12} />
+                  <span>Type</span>
+                </button>
+              </div>
+            )}
+
+            {step === 'problem' ? (
+              inputMode === 'voice' ? (
+                // Voice mode - centered mic button
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <button onClick={() => { setStep('recording'); handleStartRecording(); }} className="w-20 h-20 rounded-full bg-charcoal border-4 border-white/10 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group">
+                    <Mic size={32} className="group-hover:text-gold transition-colors" />
+                  </button>
+                  <span className="mt-4 text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                    {sessionMode === 'paired' ? 'Start Explaining' : 'Push to Explain'}
+                  </span>
+                  {sessionMode === 'paired' && (
+                    <p className="mt-3 text-[9px] text-gray-600 text-center max-w-sm">
+                      Cover: core insight, state definition, example walkthrough, edge cases, and complexity
+                    </p>
+                  )}
+                </div>
+              ) : (
+                // Text mode - expandable textarea
+                <div className="flex-1 flex flex-col">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Send size={14} className="text-gold" />
+                    <span className="text-[10px] font-bold text-gold uppercase tracking-widest">Your Explanation</span>
+                  </div>
+                  <textarea
+                    value={textInput}
+                    onChange={(e) => setTextInput(e.target.value)}
+                    placeholder={sessionMode === 'paired' 
+                      ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
+                      : "Type your explanation of the solution..."}
+                    className="flex-1 w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 text-gray-200 font-serif text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        onTextSubmit();
+                      }
+                    }}
+                  />
+                  <div className="flex flex-col items-center mt-4 gap-2">
+                    <button 
+                      onClick={onTextSubmit}
+                      disabled={!textInput.trim()}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
+                        textInput.trim() 
+                          ? 'bg-gold hover:scale-110 active:scale-95 border-gold/40' 
+                          : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send size={20} />
+                    </button>
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
+                      ⌘/Ctrl + Enter
+                    </span>
+                  </div>
+                </div>
+              )
+            ) : (
+              // Recording mode - transcript display
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Recording</span>
+                </div>
+                <div className={`flex-1 w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-red-500/30 overflow-y-auto text-gray-400 font-serif italic text-base ${!rawTranscript ? 'flex items-center justify-center' : 'block'}`}>
+                  {rawTranscript || (sessionMode === 'paired' 
+                    ? "Form your mental model: insight, state, example, edges, complexity..." 
+                    : "Verbalize your mental model...")}
+                </div>
+                <div className="flex justify-center mt-4">
+                  <button onClick={handleStopRecording} className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95">
+                    <StopCircle size={24} />
+                  </button>
+                </div>
+                <span className="mt-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest text-center">
+                  Stop Recording
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: Bottom fixed controls */}
+          <div className="lg:hidden p-6 sm:p-10 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 flex flex-col items-center">
         {/* Input Mode Toggle */}
         {step === 'problem' && (
           <div className="flex items-center gap-2 mb-6">
@@ -283,6 +505,8 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
             Cover: core insight, state definition, example walkthrough, edge cases, and complexity
           </p>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

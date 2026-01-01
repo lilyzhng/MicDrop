@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Download, Award, PenTool, Quote, Lightbulb, Bookmark, ThumbsUp, Star, Ear, AlertCircle, Mic2, FileText, MessageCircleQuestion, Target, Sparkles, Zap, History, MessageSquare, Code, CheckCircle, ChevronDown, ChevronRight, FileJson, Loader2, Image } from 'lucide-react';
 import { PerformanceReport as ReportType, SavedItem } from '../types';
 import html2canvas from 'html2canvas';
-import { generateTeachingMetadata, SystemCodingReportData } from '../services/analysisService';
-import { saveSystemCodingQuestion, findExistingSystemCodingQuestion } from '../services/databaseService';
+import { generateTeachingMetadata, SystemCodingReportData, formatProblemStatement } from '../services/analysisService';
+import { saveSystemCodingQuestion, findExistingSystemCodingQuestion, updateSavedReport } from '../services/databaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 type ReportDisplayType = 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
@@ -15,6 +15,7 @@ interface PerformanceReportProps {
     reportType?: ReportDisplayType; // Explicitly set report type for display
     transcript?: string;
     context?: string; // Interview context/question
+    reportId?: string; // ID of the saved report (for persisting formatting updates)
     isSaved: (title: string, content: string) => boolean;
     onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
     onDone: (force: boolean) => void;
@@ -37,7 +38,7 @@ const createReportContext = (report: ReportType, transcript?: string, context?: 
     context
 });
 
-const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportType, transcript, context, isSaved, onToggleSave, onDone }) => {
+const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportType, transcript, context, reportId, isSaved, onToggleSave, onDone }) => {
     const { rating, summary, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite, flipTheTable, hotTakeRubric, hotTakeMasterRewrite, hotTakeHistory, hotTakeRounds, mentalModelChecklist, missingEdgeCases, rubricScores, codingRubric, codeIssues, problemSolvingTimeline, codingQuestion, solutionCode, correctedSolution, codeLanguage, formattedProblemStatement, nextTimeHabits, interpretationLayer } = report;
     const { user } = useAuth();
     const [showRewrite, setShowRewrite] = useState(false);
@@ -46,6 +47,9 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [isSavingToQueue, setIsSavingToQueue] = useState(false);
     const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+    const [isFormattingProblem, setIsFormattingProblem] = useState(false);
+    const [dynamicFormattedProblem, setDynamicFormattedProblem] = useState<typeof formattedProblemStatement | null>(null);
+    const [formatSaveStatus, setFormatSaveStatus] = useState<'idle' | 'saved' | 'failed'>('idle');
     const reportRef = useRef<HTMLDivElement>(null);
     const downloadMenuRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -250,12 +254,78 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
         URL.revokeObjectURL(url);
     };
 
+    // Helper: Convert formatted problem sections to clean markdown-style text
+    const formattedSectionsToText = (formatted: typeof formattedProblemStatement): string => {
+        if (!formatted || !formatted.sections || formatted.sections.length === 0) {
+            return codingQuestion || '';
+        }
+        
+        const parts: string[] = [];
+        if (formatted.title) {
+            parts.push(`# ${formatted.title}\n`);
+        }
+        
+        for (const section of formatted.sections) {
+            switch (section.type) {
+                case 'heading':
+                    parts.push(`\n## ${section.content}\n`);
+                    break;
+                case 'paragraph':
+                    parts.push(`${section.content}\n`);
+                    break;
+                case 'code':
+                    parts.push(`\n\`\`\`${section.language || ''}\n${section.content}\n\`\`\`\n`);
+                    break;
+                case 'example':
+                    if (section.label) {
+                        parts.push(`\n**${section.label}:**\n`);
+                    }
+                    parts.push(`${section.content}\n`);
+                    break;
+                case 'list':
+                case 'constraint':
+                    if (section.items && section.items.length > 0) {
+                        parts.push('\n');
+                        for (const item of section.items) {
+                            parts.push(`• ${item}\n`);
+                        }
+                    } else {
+                        parts.push(`${section.content}\n`);
+                    }
+                    break;
+                default:
+                    parts.push(`${section.content}\n`);
+            }
+        }
+        
+        return parts.join('');
+    };
+
     // Go to Walkie-Talkie - checks for existing question or generates new one
     const goToWalkieTalkie = async () => {
         if (isSavingToQueue || !user) return;
         
         setIsSavingToQueue(true);
         try {
+            // Use formatted problem if available, otherwise use raw
+            const activeFormattedProblem = dynamicFormattedProblem || formattedProblemStatement;
+            const hasValidFormatting = activeFormattedProblem && activeFormattedProblem.sections && activeFormattedProblem.sections.length > 0;
+            
+            // If no formatting exists yet, try to format it first
+            let problemPrompt = codingQuestion || '';
+            if (!hasValidFormatting && codingQuestion) {
+                try {
+                    console.log('[GoToWalkieTalkie] No formatting found, generating...');
+                    const formatted = await formatProblemStatement(codingQuestion);
+                    setDynamicFormattedProblem(formatted);
+                    problemPrompt = formattedSectionsToText(formatted);
+                } catch (formatError) {
+                    console.warn('[GoToWalkieTalkie] Failed to format, using raw:', formatError);
+                }
+            } else if (hasValidFormatting) {
+                problemPrompt = formattedSectionsToText(activeFormattedProblem);
+            }
+            
             // Extract title from problem
             const title = codingQuestion?.split('\n')[0]?.trim() || 'Untitled Problem';
             
@@ -280,10 +350,10 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             
             console.log('[GoToWalkieTalkie] No existing question found, generating...');
             
-            // Build report data for teaching metadata generation
+            // Build report data for teaching metadata generation (use formatted prompt)
             const reportDataForAI: SystemCodingReportData = {
                 title,
-                prompt: codingQuestion || '',
+                prompt: problemPrompt,
                 solutionCode: solutionCode || '',
                 correctSolution: correctedSolution || null,
                 codeLanguage: codeLanguage || 'python',
@@ -309,10 +379,16 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             
             console.log('[GoToWalkieTalkie] Teaching metadata generated:', teachingMetadata);
             
-            // Save to database
+            // Get the formatted prompt (either newly generated or existing)
+            const formattedPromptToSave = dynamicFormattedProblem || formattedProblemStatement || undefined;
+            
+            // Save to database (use formatted prompt for better display in walkie-talkie)
             const result = await saveSystemCodingQuestion(user.id, {
                 title,
-                prompt: codingQuestion || '',
+                prompt: problemPrompt,
+                formattedPrompt: formattedPromptToSave && formattedPromptToSave.sections?.length > 0 
+                    ? formattedPromptToSave 
+                    : undefined,
                 solutionCode: solutionCode || '',
                 correctSolution: teachingMetadata.correctSolution,
                 codeLanguage: codeLanguage || 'python',
@@ -447,70 +523,153 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             </div>
             
             {/* PROBLEM STATEMENT - Collapsed by default, anchors the report */}
-            {codingQuestion && isCoding && (
-                <div className="mb-6 sm:mb-8">
-                    <button 
-                        onClick={() => setShowProblemStatement(!showProblemStatement)}
-                        className="w-full flex items-center justify-between p-3 sm:p-4 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl hover:bg-[#252525] transition-colors group"
-                    >
-                        <div className="flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
-                            <FileText size={14} /> Problem Statement
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-500">
-                            <span className="text-[10px] opacity-60">{showProblemStatement ? 'Hide' : 'Show'}</span>
-                            {showProblemStatement ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        </div>
-                    </button>
-                    {showProblemStatement && (
-                        <div className="mt-2 bg-[#1e1e1e] rounded-xl p-4 sm:p-6 border border-[#2a2a2a] animate-in fade-in slide-in-from-top-2 duration-200">
-                            {formattedProblemStatement ? (
-                                <div className="space-y-3">
-                                    {formattedProblemStatement.title && (
-                                        <h3 className="text-base font-bold text-gray-200 mb-3">{formattedProblemStatement.title}</h3>
-                                    )}
-                                    {formattedProblemStatement.sections.map((section, idx) => {
-                                        switch (section.type) {
-                                            case 'heading':
-                                                return <h4 key={idx} className="text-sm font-bold text-gray-300 mt-4 mb-2 first:mt-0">{section.content}</h4>;
-                                            case 'paragraph':
-                                                return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
-                                            case 'code':
-                                                return <pre key={idx} className="bg-[#0a0a0a] p-3 rounded-lg border border-[#1e1e1e] overflow-x-auto"><code className="text-xs font-mono text-gray-300">{section.content}</code></pre>;
-                                            case 'example':
-                                                return (
-                                                    <div key={idx} className="bg-[#252525] border-l-2 border-gray-600 p-3 rounded-r-lg">
-                                                        {section.label && <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{section.label}</p>}
-                                                        <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{section.content}</pre>
-                                                    </div>
-                                                );
-                                            case 'list':
-                                            case 'constraint':
-                                                return (
-                                                    <div key={idx} className="space-y-1 ml-2">
-                                                        {section.items && section.items.length > 0 ? (
-                                                            section.items.map((item, itemIdx) => (
-                                                                <div key={itemIdx} className="flex items-start gap-2">
-                                                                    <span className="text-gray-500 mt-1">•</span>
-                                                                    <p className="text-sm text-gray-400">{item}</p>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <p className="text-sm text-gray-400">{section.content}</p>
-                                                        )}
-                                                    </div>
-                                                );
-                                            default:
-                                                return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
-                                        }
-                                    })}
-                                </div>
-                            ) : (
-                                <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{codingQuestion}</pre>
-                            )}
-                        </div>
-                    )}
-                </div>
-            )}
+            {codingQuestion && isCoding && (() => {
+                // Use dynamic formatted problem if available, otherwise fall back to report's formattedProblemStatement
+                const activeFormattedProblem = dynamicFormattedProblem || formattedProblemStatement;
+                const hasValidFormatting = activeFormattedProblem && activeFormattedProblem.sections && activeFormattedProblem.sections.length > 0;
+                
+                const handleFormatProblem = async () => {
+                    if (!codingQuestion || isFormattingProblem) return;
+                    setIsFormattingProblem(true);
+                    setFormatSaveStatus('idle');
+                    
+                    console.log('[FormatProblem] Starting format, reportId:', reportId);
+                    
+                    try {
+                        const formatted = await formatProblemStatement(codingQuestion);
+                        console.log('[FormatProblem] Formatting complete, sections:', formatted.sections?.length);
+                        setDynamicFormattedProblem(formatted);
+                        
+                        // Persist to database if we have a report ID
+                        if (reportId) {
+                            console.log('[FormatProblem] Saving to database with reportId:', reportId);
+                            const updatedReportData = {
+                                ...report,
+                                formattedProblemStatement: formatted
+                            };
+                            const success = await updateSavedReport(reportId, { 
+                                reportData: updatedReportData 
+                            });
+                            if (success) {
+                                console.log('[FormatProblem] ✓ Saved formatted problem to database');
+                                setFormatSaveStatus('saved');
+                            } else {
+                                console.warn('[FormatProblem] ✗ Failed to persist formatted problem');
+                                setFormatSaveStatus('failed');
+                            }
+                        } else {
+                            console.log('[FormatProblem] No reportId available - formatting will not persist');
+                        }
+                    } catch (error) {
+                        console.error('[FormatProblem] Error:', error);
+                        setFormatSaveStatus('failed');
+                    } finally {
+                        setIsFormattingProblem(false);
+                    }
+                };
+                
+                return (
+                    <div className="mb-6 sm:mb-8">
+                        <button 
+                            onClick={() => setShowProblemStatement(!showProblemStatement)}
+                            className="w-full flex items-center justify-between p-3 sm:p-4 bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl hover:bg-[#252525] transition-colors group"
+                        >
+                            <div className="flex items-center gap-2 text-gray-400 text-xs font-bold tracking-widest uppercase">
+                                <FileText size={14} /> Problem Statement
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-500">
+                                <span className="text-[10px] opacity-60">{showProblemStatement ? 'Hide' : 'Show'}</span>
+                                {showProblemStatement ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                            </div>
+                        </button>
+                        {showProblemStatement && (
+                            <div className="mt-2 bg-[#1e1e1e] rounded-xl p-4 sm:p-6 border border-[#2a2a2a] animate-in fade-in slide-in-from-top-2 duration-200">
+                                {hasValidFormatting ? (
+                                    <div className="space-y-3">
+                                        {activeFormattedProblem.title && (
+                                            <h3 className="text-base font-bold text-gray-200 mb-3">{activeFormattedProblem.title}</h3>
+                                        )}
+                                        {activeFormattedProblem.sections.map((section, idx) => {
+                                            switch (section.type) {
+                                                case 'heading':
+                                                    return <h4 key={idx} className="text-sm font-bold text-gray-300 mt-4 mb-2 first:mt-0">{section.content}</h4>;
+                                                case 'paragraph':
+                                                    return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
+                                                case 'code':
+                                                    return <pre key={idx} className="bg-[#0a0a0a] p-3 rounded-lg border border-[#1e1e1e] overflow-x-auto"><code className="text-xs font-mono text-gray-300">{section.content}</code></pre>;
+                                                case 'example':
+                                                    return (
+                                                        <div key={idx} className="bg-[#252525] border-l-2 border-gray-600 p-3 rounded-r-lg">
+                                                            {section.label && <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{section.label}</p>}
+                                                            <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{section.content}</pre>
+                                                        </div>
+                                                    );
+                                                case 'list':
+                                                case 'constraint':
+                                                    return (
+                                                        <div key={idx} className="space-y-1 ml-2">
+                                                            {section.items && section.items.length > 0 ? (
+                                                                section.items.map((item, itemIdx) => (
+                                                                    <div key={itemIdx} className="flex items-start gap-2">
+                                                                        <span className="text-gray-500 mt-1">•</span>
+                                                                        <p className="text-sm text-gray-400">{item}</p>
+                                                                    </div>
+                                                                ))
+                                                            ) : (
+                                                                <p className="text-sm text-gray-400">{section.content}</p>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                default:
+                                                    return <p key={idx} className="text-sm text-gray-400 leading-relaxed">{section.content}</p>;
+                                            }
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{codingQuestion}</pre>
+                                        {/* Format with AI button */}
+                                        <div className="pt-4 border-t border-[#2a2a2a]">
+                                            <button
+                                                onClick={handleFormatProblem}
+                                                disabled={isFormattingProblem}
+                                                className="flex items-center gap-2 px-4 py-2 bg-gold/10 border border-gold/30 rounded-lg text-gold text-xs font-bold uppercase tracking-wider hover:bg-gold/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {isFormattingProblem ? (
+                                                    <>
+                                                        <Loader2 size={14} className="animate-spin" />
+                                                        Formatting...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles size={14} />
+                                                        Format with AI
+                                                    </>
+                                                )}
+                                            </button>
+                                            <p className="mt-2 text-[10px] text-gray-500">
+                                                {reportId 
+                                                    ? 'Click to format the problem statement. Changes will be saved automatically.'
+                                                    : 'This report was generated before AI formatting was available. Click to format (changes won\'t persist without a saved report).'}
+                                            </p>
+                                            {formatSaveStatus === 'saved' && (
+                                                <p className="mt-1 text-[10px] text-green-400 flex items-center gap-1">
+                                                    <CheckCircle size={10} /> Formatting saved successfully
+                                                </p>
+                                            )}
+                                            {formatSaveStatus === 'failed' && (
+                                                <p className="mt-1 text-[10px] text-red-400 flex items-center gap-1">
+                                                    <AlertCircle size={10} /> Failed to save formatting
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* HOT TAKE TABS - Mobile responsive */}
             {hotTakeRounds && (

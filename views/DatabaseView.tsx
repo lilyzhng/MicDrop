@@ -739,6 +739,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                reportType={displayReport.type as 'coach' | 'walkie' | 'hot-take'}
                                transcript={displayReport.reportData.refinedTranscript}
                                context={displayReport.title}
+                               reportId={displayReport.id}
                                isSaved={isSaved} 
                                onToggleSave={onToggleSave} 
                                onDone={() => navigate('/database')} 

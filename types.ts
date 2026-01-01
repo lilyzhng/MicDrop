@@ -247,10 +247,23 @@ export interface User {
 
 // --- Walkie-Talkie Specific Types ---
 
+// Formatted problem section (for structured display)
+export interface FormattedProblemSection {
+  type: 'heading' | 'paragraph' | 'code' | 'example' | 'list' | 'constraint';
+  content: string;
+  items?: string[];
+  language?: string;
+  label?: string;
+}
+
 export interface BlindProblem {
   id: string;
   title: string;
   prompt: string;
+  formattedPrompt?: {
+    title?: string;
+    sections: FormattedProblemSection[];
+  }; // Structured problem statement for rich display
   example?: string;
   constraints: string[];
   pattern: string;

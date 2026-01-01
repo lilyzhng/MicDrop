@@ -14,7 +14,7 @@ import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSessio
 import { UserStudySettings, StudyStats, Company } from '../types/database';
 import { supabase } from '../config/supabase';
 import { analyzeWalkieSession } from '../services/analysisService';
-import { buildProblemQueue, fetchBlindProblemByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount, fetchCustomQuestionsForCompany } from '../services/databaseService';
+import { buildProblemQueue, fetchBlindProblemByTitle, fetchSystemCodingQuestionByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount, fetchCustomQuestionsForCompany } from '../services/databaseService';
 import { 
   getJuniorResponse, 
   getJuniorSummary, 
@@ -40,7 +40,6 @@ import {
   CuratingStep,
   AnalyzingStep,
   ReadinessEvaluatingStep,
-  JuniorThinkingStep,
   JuniorSummarizingStep,
   DeanEvaluatingStep,
   LocationsStep,
@@ -73,7 +72,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   
   // Get navigation state for "Teach Again" functionality
   const location = useLocation();
-  const teachAgainProblem = (location.state as { teachAgainProblem?: string } | null)?.teachAgainProblem;
+  const navigationState = location.state as { teachAgainProblem?: string; isSystemCoding?: boolean } | null;
+  const teachAgainProblem = navigationState?.teachAgainProblem;
+  const isSystemCodingNavigation = navigationState?.isSystemCoding;
 
   // Step types now include paired repetition flow steps
   type StepType = 'locations' | 'curating' | 'problem' | 'recording' | 'analyzing' | 'reveal'
@@ -418,9 +419,23 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     const loadProblemAndStartTeaching = async () => {
       setStep('curating');
       
-      const problem = await fetchBlindProblemByTitle(teachAgainProblem);
+      // Try to load the problem - for system coding questions, check custom_interview_questions first
+      let problem: BlindProblem | null = null;
+      
+      if (isSystemCodingNavigation && user?.id) {
+        // This is a system coding question - load from custom_interview_questions
+        console.log('[TeachAgain] Loading system coding question:', teachAgainProblem);
+        problem = await fetchSystemCodingQuestionByTitle(user.id, teachAgainProblem);
+      }
+      
+      // Fall back to blind_problems if not found or not a system coding question
+      if (!problem) {
+        console.log('[TeachAgain] Loading from blind_problems:', teachAgainProblem);
+        problem = await fetchBlindProblemByTitle(teachAgainProblem);
+      }
       
       if (problem) {
+        console.log('[TeachAgain] Problem loaded:', problem.title, 'formattedPrompt:', !!problem.formattedPrompt);
         // Set up the problem queue with just this one problem
         setProblemQueue([problem]);
         setCurrentQueueIdx(0);
@@ -456,7 +471,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     };
 
     loadProblemAndStartTeaching();
-  }, [teachAgainProblem]);
+  }, [teachAgainProblem, isSystemCodingNavigation, user?.id]);
 
   const handleStartRecording = async () => {
     setTranscript("");
@@ -1339,8 +1354,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   // TEACHING MODE UI
   // ============================================================
 
-  // Teaching conversation screen
-  if (step === 'teaching' || step === 'junior_question') {
+  // Teaching conversation screen (including junior thinking state shown inline)
+  if (step === 'teaching' || step === 'junior_question' || step === 'junior_thinking') {
     return (
       <>
         <TeachingStep
@@ -1352,6 +1367,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           isTeachingRecording={isTeachingRecording}
           teachingRawTranscript={teachingRawTranscript}
           ttsEnabled={ttsEnabled}
+          isJuniorThinking={step === 'junior_thinking'}
           setStep={setStep}
           setTtsEnabled={setTtsEnabled}
           handleStartTeachingRecording={handleStartTeachingRecording}
@@ -1369,11 +1385,6 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         )}
       </>
     );
-  }
-
-  // Junior thinking/processing screen
-  if (step === 'junior_thinking') {
-    return <JuniorThinkingStep />;
   }
 
   // Junior summarizing screen

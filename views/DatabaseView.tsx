@@ -38,16 +38,6 @@ const countAttemptsByDate = (reports: SavedReport[]): Record<string, number> => 
   return counts;
 };
 
-// Get days in a month
-const getDaysInMonth = (year: number, month: number): number => {
-  return new Date(year, month + 1, 0).getDate();
-};
-
-// Get first day of month (0 = Sunday, 1 = Monday, etc.)
-const getFirstDayOfMonth = (year: number, month: number): number => {
-  return new Date(year, month, 1).getDay();
-};
-
 // Format seconds into a readable time string (e.g., "5m 30s" or "1h 15m")
 const formatTimeSpent = (seconds: number | undefined): string => {
   if (!seconds || seconds <= 0) return '-';
@@ -109,9 +99,6 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     // Edit State
     const [editingReportId, setEditingReportId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState<{ title: string; date: string }>({ title: '', date: '' });
-    
-    // Calendar navigation state for Progress tab
-    const [calendarDate, setCalendarDate] = useState(() => new Date());
     
     // Spaced Repetition State
     const [studyStats, setStudyStats] = useState<StudyStats | null>(null);
@@ -1344,83 +1331,93 @@ return (
                                  </div>
                              )}
 
-                             {/* Calendar View */}
-                             <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0]">
-                                 <div className="flex items-center justify-between mb-6">
-                                     <h3 className="text-lg font-bold text-charcoal">
-                                         {calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                                     </h3>
-                                     <div className="flex items-center gap-2">
-                                         <button 
-                                             onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1))}
-                                             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                         >
-                                             <ChevronLeft size={18} className="text-gray-600" />
-                                         </button>
-                                         <button 
-                                             onClick={() => setCalendarDate(new Date())}
-                                             className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-gold hover:bg-gold/10 rounded-lg transition-colors"
-                                         >
-                                             Today
-                                         </button>
-                                         <button 
-                                             onClick={() => setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))}
-                                             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                                         >
-                                             <ChevronRight size={18} className="text-gray-600" />
-                                         </button>
-                                     </div>
-                                 </div>
-                                 
-                                 {/* Calendar Grid */}
-                                 <div className="grid grid-cols-7 gap-1">
-                                     {/* Day Headers */}
-                                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                                         <div key={day} className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest py-2">
-                                             {day}
-                                         </div>
-                                     ))}
-                                     
-                                     {/* Empty cells for days before month starts */}
-                                     {Array.from({ length: getFirstDayOfMonth(calendarDate.getFullYear(), calendarDate.getMonth()) }).map((_, i) => (
-                                         <div key={`empty-${i}`} className="aspect-square" />
-                                     ))}
-                                     
-                                     {/* Day cells */}
-                                     {Array.from({ length: getDaysInMonth(calendarDate.getFullYear(), calendarDate.getMonth()) }).map((_, i) => {
-                                         const day = i + 1;
-                                         const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), day);
-                                         const dateStr = getDateString(date);
-                                         const completed = completedByDate[dateStr] || 0;
-                                         const attempts = attemptsByDate[dateStr] || 0;
-                                         const isToday = dateStr === getDateString(new Date());
-                                         const isFuture = date > new Date();
-                                         
-                                         return (
-                                            <div 
-                                                key={day}
-                                                className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all ${
-                                                    isToday ? 'ring-2 ring-gold ring-offset-2' : ''
-                                                } ${
-                                                    completed >= 15 ? 'bg-gold text-white' :
-                                                    completed >= 10 ? 'bg-gold/60 text-white' :
-                                                    completed >= 5 ? 'bg-gold/30 text-charcoal' :
-                                                    completed > 0 ? 'bg-gold/10 text-charcoal' :
-                                                    isFuture ? 'bg-gray-50 text-gray-300' :
-                                                    'bg-gray-50 text-gray-500'
-                                                }`}
-                                                title={`${completed} completed / ${attempts} attempts`}
-                                            >
-                                                <span className={`text-sm font-bold ${completed >= 10 ? 'text-white' : ''}`}>{day}</span>
-                                                {completed > 0 && (
-                                                    <span className={`text-[9px] font-bold ${completed >= 10 ? 'text-white/80' : 'text-gold'}`}>
-                                                        {completed >= 15 ? '🔥' : completed}
-                                                    </span>
-                                                )}
+                            {/* Calendar View - Recent 2 Weeks */}
+                            <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0]">
+                                {(() => {
+                                    // Show exactly 2 weeks (14 days, 2 rows): last week + this week
+                                    const today = new Date();
+                                    
+                                    // Find Monday of THIS week
+                                    const todayDayOfWeek = (today.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+                                    const thisMonday = new Date(today);
+                                    thisMonday.setDate(today.getDate() - todayDayOfWeek);
+                                    
+                                    // Start from Monday of LAST week (7 days before this Monday)
+                                    const startDate = new Date(thisMonday);
+                                    startDate.setDate(thisMonday.getDate() - 7);
+                                    
+                                    // Generate exactly 14 days (2 complete weeks)
+                                    const days: Date[] = [];
+                                    for (let i = 0; i < 14; i++) {
+                                        const date = new Date(startDate);
+                                        date.setDate(startDate.getDate() + i);
+                                        days.push(date);
+                                    }
+                                    
+                                    // End date is Sunday of this week
+                                    const endDate = new Date(startDate);
+                                    endDate.setDate(startDate.getDate() + 13);
+                                    
+                                    // Format date range for header
+                                    const formatShortDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                                    const dateRangeStr = `${formatShortDate(startDate)} – ${formatShortDate(endDate)}`;
+                                    
+                                    return (
+                                        <>
+                                            <div className="flex items-center justify-between mb-6">
+                                                <h3 className="text-lg font-bold text-charcoal">
+                                                    Recent 2 Weeks
+                                                </h3>
+                                                <span className="text-sm text-gray-500">
+                                                    {dateRangeStr}
+                                                </span>
                                             </div>
-                                         );
-                                     })}
-                                 </div>
+                                            
+                                            {/* Calendar Grid */}
+                                            <div className="grid grid-cols-7 gap-1">
+                                                {/* Day Headers - Week starts on Monday */}
+                                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                                    <div key={day} className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest py-2">
+                                                        {day}
+                                                    </div>
+                                                ))}
+                                                
+                                                {/* Day cells */}
+                                                {days.map((date, i) => {
+                                                    const dateStr = getDateString(date);
+                                                    const completed = completedByDate[dateStr] || 0;
+                                                    const attempts = attemptsByDate[dateStr] || 0;
+                                                    const isToday = dateStr === getDateString(new Date());
+                                                    const isFuture = date > today;
+                                                    
+                                                    return (
+                                                       <div 
+                                                           key={i}
+                                                           className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all ${
+                                                               isToday ? 'ring-2 ring-gold ring-offset-2' : ''
+                                                           } ${
+                                                               isFuture ? 'bg-gray-50/50 text-gray-300' :
+                                                               completed >= 15 ? 'bg-gold text-white' :
+                                                               completed >= 10 ? 'bg-gold/60 text-white' :
+                                                               completed >= 5 ? 'bg-gold/30 text-charcoal' :
+                                                               completed > 0 ? 'bg-gold/10 text-charcoal' :
+                                                               'bg-gray-50 text-gray-500'
+                                                           }`}
+                                                           title={!isFuture ? `${completed} completed / ${attempts} attempts` : ''}
+                                                       >
+                                                           <span className={`text-sm font-bold ${completed >= 10 && !isFuture ? 'text-white' : ''}`}>{date.getDate()}</span>
+                                                           {completed > 0 && !isFuture && (
+                                                               <span className={`text-[9px] font-bold ${completed >= 10 ? 'text-white/80' : 'text-gold'}`}>
+                                                                   {completed >= 15 ? '🔥' : completed}
+                                                               </span>
+                                                           )}
+                                                       </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                                  
                                  {/* Legend */}
                                  <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-100">
@@ -1797,11 +1794,11 @@ return (
              {showMasteredDetails && (
                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowMasteredDetails(false)}>
                      <div 
-                         className="bg-charcoal rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10"
+                         className="bg-charcoal rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10 flex flex-col"
                          onClick={(e) => e.stopPropagation()}
                      >
                          {/* Header */}
-                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                         <div className="p-6 border-b border-white/10 flex items-center justify-between flex-shrink-0">
                              <div>
                                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                      <TrendingUp size={20} className="text-emerald-400" />
@@ -1820,7 +1817,7 @@ return (
                          </div>
                          
                          {/* Content */}
-                         <div className="p-6 overflow-y-auto max-h-[70vh]">
+                         <div className="p-6 overflow-y-auto flex-1 min-h-0">
                              {allMasteredProblems.length === 0 ? (
                                  <div className="text-center py-12">
                                      <div className="text-5xl mb-4">🎯</div>
@@ -1878,7 +1875,7 @@ return (
                          
                          {/* Footer */}
                          {allMasteredProblems.length > 0 && (
-                             <div className="p-4 border-t border-white/10 bg-white/5">
+                             <div className="p-4 border-t border-white/10 bg-white/5 flex-shrink-0">
                                  <div className="flex items-center justify-between text-sm">
                                      <span className="text-gray-400">
                                          {75 - allMasteredProblems.length} problems remaining
@@ -1897,11 +1894,11 @@ return (
              {showPassedDetails && (
                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowPassedDetails(false)}>
                      <div 
-                         className="bg-charcoal rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10"
+                         className="bg-charcoal rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10 flex flex-col"
                          onClick={(e) => e.stopPropagation()}
                      >
                          {/* Header */}
-                         <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                         <div className="p-6 border-b border-white/10 flex items-center justify-between flex-shrink-0">
                              <div>
                                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                      <Target size={20} className="text-yellow-400" />
@@ -1920,7 +1917,7 @@ return (
                          </div>
                          
                          {/* Content */}
-                         <div className="p-6 overflow-y-auto max-h-[70vh]">
+                         <div className="p-6 overflow-y-auto flex-1 min-h-0">
                              {allPassedProblems.length === 0 ? (
                                  <div className="text-center py-12">
                                      <div className="text-5xl mb-4">📚</div>
@@ -1977,7 +1974,7 @@ return (
                          
                          {/* Footer */}
                          {allPassedProblems.length > 0 && (
-                             <div className="p-4 border-t border-white/10 bg-white/5">
+                             <div className="p-4 border-t border-white/10 bg-white/5 flex-shrink-0">
                                  <div className="flex items-center justify-between text-sm">
                                      <span className="text-gray-400">
                                          {allPassedProblems.length} problems in review duty

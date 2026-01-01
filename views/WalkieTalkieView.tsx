@@ -8,7 +8,8 @@ import {
   getLockedSpotAssignments,
   lockSpotAssignment,
   getDateString,
-  assignTopicsToSpots
+  assignTopicsToSpots,
+  incrementQuestionsAnswered
 } from '../components/spots';
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport } from '../types';
 import { UserStudySettings, StudyStats, Company } from '../types/database';
@@ -653,6 +654,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setAiReport(report);
       onSaveReport(currentProblem.title, 'walkie', report);
       
+      // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+      if (selectedSpot && user?.id) {
+        incrementQuestionsAnswered(user.id, selectedSpot.id);
+      }
+      
       // Update spaced repetition progress with time tracking
       if (useSpacedRepetition && user?.id) {
         const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
@@ -728,6 +734,12 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         return; // Company selection should happen in LocationsStep
       }
       setSelectedCompany(companies.find(c => c.id === spot.selectedCompanyId) || null);
+    }
+    
+    // For Daily Commute (reviews only), default to teach mode
+    // Since these are problems the user has already learned, teaching is the best way to solidify knowledge
+    if (spot.onlyReviews) {
+      setSessionMode('teach');
     }
     
     // Set the selected topic for this session
@@ -1003,6 +1015,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         };
         onSaveReport(currentProblem.title, 'teach', performanceReport);
         
+        // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+        if (selectedSpot && user?.id) {
+          incrementQuestionsAnswered(user.id, selectedSpot.id);
+        }
+        
         // Update spaced repetition progress with time tracking
         if (useSpacedRepetition && user?.id) {
           const existingProgress = await fetchUserProgressByTitle(user.id, currentProblem.title);
@@ -1093,6 +1110,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         timeSpentSeconds: getElapsedSeconds()
       };
       onSaveReport(currentProblem.title, 'teach', performanceReport);
+      
+      // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+      if (selectedSpot && user?.id) {
+        incrementQuestionsAnswered(user.id, selectedSpot.id);
+      }
       
       // Update spaced repetition progress (use teaching score as rating) with time tracking
       if (useSpacedRepetition && user?.id) {

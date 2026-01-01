@@ -20,7 +20,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { BlindProblem, FormattedProblemSection } from '../../types';
-import { getNeetCodeUrl } from '../../config/neetcodeUrls';
+import { getNeetCodeUrl, getSourceUrl } from '../../config/neetcodeUrls';
 import { formatProblemStatement } from '../../services/analysisService';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
@@ -186,16 +186,32 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                      )}
                    </div>
                    {currentProblem?.title && (
-                     <a 
-                       href={getNeetCodeUrl(currentProblem.title)} 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
-                       title={getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? "Watch NeetCode video solution" : "View problem discussion & solution"}
-                     >
-                       <ExternalLink size={10} className="sm:w-3 sm:h-3" />
-                       <span>{getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? 'NeetCode Video' : 'Video Solution'}</span>
-                     </a>
+                     <div className="flex items-center gap-2">
+                       {/* Source link (if available) */}
+                       {getSourceUrl(currentProblem.title) && (
+                         <a 
+                           href={getSourceUrl(currentProblem.title)!} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500/20 transition-colors"
+                           title="View original problem source"
+                         >
+                           <ExternalLink size={10} className="sm:w-3 sm:h-3" />
+                           <span>Source</span>
+                         </a>
+                       )}
+                       {/* Video solution link */}
+                       <a 
+                         href={getNeetCodeUrl(currentProblem.title)} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
+                         title={getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? "Watch video solution" : "View problem discussion & solution"}
+                       >
+                         <ExternalLink size={10} className="sm:w-3 sm:h-3" />
+                         <span>{getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? 'Video Solution' : 'Solution'}</span>
+                       </a>
+                     </div>
                    )}
                 </div>
                 {/* Render formatted problem if available, otherwise fall back to raw prompt */}

@@ -4,7 +4,7 @@
  * Static definitions for the three practice locations.
  */
 
-import { PowerSpot, SavedDayAssignments, SavedSpotAssignment, DAILY_NEW_GOAL } from './spotTypes';
+import { PowerSpot, SavedDayAssignments, SavedSpotAssignment, DAILY_NEW_GOAL, QUESTIONS_TO_UNLOCK } from './spotTypes';
 
 // LocalStorage key for spot assignments
 export const SPOT_ASSIGNMENTS_KEY = 'walkie_talkie_spot_assignments';
@@ -160,6 +160,63 @@ export const clearSpotAssignments = (userId: string): void => {
   }
 };
 
+/**
+ * Increment questions answered for a locked spot.
+ * This is called when a question is completed (passed or mastered).
+ */
+export const incrementQuestionsAnswered = (userId: string, spotId: string): number => {
+  try {
+    const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
+    const existing = getLockedSpotAssignments(userId);
+    if (!existing) return 0;
+    
+    const assignment = existing.assignments.find(a => a.spotId === spotId);
+    if (!assignment || !assignment.locked) return 0;
+    
+    const newCount = (assignment.questionsAnswered || 0) + 1;
+    
+    // Update the assignment
+    const updatedAssignments = existing.assignments.map(a => 
+      a.spotId === spotId ? { ...a, questionsAnswered: newCount } : a
+    );
+    
+    const data: SavedDayAssignments = {
+      date: existing.date,
+      assignments: updatedAssignments
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log(`[IncrementQuestions] Spot ${spotId} now has ${newCount} questions answered`);
+    
+    return newCount;
+  } catch (error) {
+    console.error('Error incrementing questions answered:', error);
+    return 0;
+  }
+};
+
+/**
+ * Unlock a spot assignment (allow topic switching after answering enough questions)
+ */
+export const unlockSpotAssignment = (userId: string, spotId: string): void => {
+  try {
+    const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
+    const existing = getLockedSpotAssignments(userId);
+    if (!existing) return;
+    
+    // Remove the locked assignment for this spot
+    const updatedAssignments = existing.assignments.filter(a => a.spotId !== spotId);
+    
+    const data: SavedDayAssignments = {
+      date: existing.date,
+      assignments: updatedAssignments
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log(`[UnlockSpot] Spot ${spotId} unlocked - user can now switch topics`);
+  } catch (error) {
+    console.error('Error unlocking spot assignment:', error);
+  }
+};
+
 // Type for progress grid items (from spacedRepetitionService)
 export interface ProgressGridGroup {
   groupName: string;
@@ -281,14 +338,20 @@ export const assignTopicsToSpots = (
         }
       }
       
-      // If this is a newProblemsOnly spot and remaining is 0, unlock it (topic is done for today)
-      const shouldUnlock = isNewProblemsOnly && remaining === 0;
+      // Unlock conditions for newProblemsOnly spots (Coffee Sanctuary):
+      // 1. Topic exhausted: remaining === 0 (all new problems in topic done)
+      // 2. Enough questions answered: questionsAnswered >= QUESTIONS_TO_UNLOCK (user can switch)
+      const questionsAnswered = lockedAssignment.questionsAnswered || 0;
+      const topicExhausted = remaining === 0;
+      const enoughQuestionsAnswered = questionsAnswered >= QUESTIONS_TO_UNLOCK;
+      const shouldUnlock = isNewProblemsOnly && (topicExhausted || enoughQuestionsAnswered);
       
-      console.log(`[AssignTopics] Using locked topic "${lockedAssignment.topic}" for spot ${spot.id}, remaining=${remaining}, newProblemsOnly=${isNewProblemsOnly}, shouldUnlock=${shouldUnlock}`);
+      console.log(`[AssignTopics] Using locked topic "${lockedAssignment.topic}" for spot ${spot.id}, remaining=${remaining}, questionsAnswered=${questionsAnswered}, newProblemsOnly=${isNewProblemsOnly}, shouldUnlock=${shouldUnlock} (exhausted=${topicExhausted}, enoughAnswered=${enoughQuestionsAnswered})`);
       
       if (shouldUnlock) {
-        // Topic exhausted for newProblemsOnly - unlock and assign new topic
-        console.log(`[AssignTopics] Topic "${lockedAssignment.topic}" exhausted for newProblemsOnly spot, assigning new topic`);
+        // Unlock reason: topic exhausted OR enough questions answered
+        const unlockReason = topicExhausted ? 'topic exhausted' : `${questionsAnswered}/${QUESTIONS_TO_UNLOCK} questions answered`;
+        console.log(`[AssignTopics] Unlocking spot ${spot.id} (${unlockReason}), assigning new topic`);
         const newTopicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
           || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
         topicIdxNewOnly++;
@@ -335,6 +398,7 @@ export const assignTopicsToSpots = (
         reviewsPriority: spot.reviewsPriority,
         onlyReviews: spot.onlyReviews || false,
         newProblemsOnly: isNewProblemsOnly,
+        questionsAnswered,
         ...(isNewProblemsOnly && { dailyNewCompleted, dailyNewRemaining })
       };
     }

@@ -201,11 +201,27 @@ ${refinedTranscript || '(not available)'}
                     </div>
                 </div>
 
-                {/* Your Explanation with Inline Scores - 2x2 Grid + Full-width Edge Cases */}
+                {/* Your Explanation Transcript */}
+                {(refinedTranscript || rawTranscript) && (
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+                            <h4 className="text-xs font-bold text-charcoal uppercase tracking-widest flex items-center gap-1.5">
+                                <BookOpen size={12} /> Your Explanation
+                            </h4>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap font-serif">
+                                {formatText(refinedTranscript || rawTranscript || '')}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Explanation Analysis with Inline Scores - 2x2 Grid + Full-width Edge Cases */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                         <h4 className="text-xs font-bold text-charcoal uppercase tracking-widest flex items-center gap-1.5">
-                            <BookOpen size={12} /> Your Explanation
+                            <CheckCircle2 size={12} /> Analysis
                         </h4>
                         <span className="text-xs text-gray-400">{totalPoints} / 100</span>
                     </div>

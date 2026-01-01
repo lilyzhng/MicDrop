@@ -40,10 +40,15 @@ export interface SpotWithTopic extends PowerSpot {
   // Daily new goal tracking (for newProblemsOnly spots like Coffee Sanctuary)
   dailyNewCompleted?: number;  // How many new problems completed today
   dailyNewRemaining?: number;  // How many more needed to hit DAILY_NEW_GOAL
+  // Questions answered tracking (for topic unlock after QUESTIONS_TO_UNLOCK)
+  questionsAnswered?: number;  // How many questions answered in this locked topic
   // Company-specific data (for Himmel Park)
   selectedCompanyId?: string;  // Selected company UUID
   selectedCompanyName?: string;  // Selected company name for display
 }
+
+// Number of questions to answer before a topic can be unlocked (to allow switching)
+export const QUESTIONS_TO_UNLOCK = 3;
 
 // Saved spot topic assignments (persisted per day)
 export interface SavedSpotAssignment {
@@ -51,6 +56,7 @@ export interface SavedSpotAssignment {
   topic: string;
   topicDisplay: string;
   locked: boolean;  // true = user has entered this spot, topic is frozen for the day
+  questionsAnswered?: number;  // number of questions answered in this locked topic session
 }
 
 export interface SavedDayAssignments {

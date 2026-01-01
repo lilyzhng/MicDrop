@@ -20,7 +20,7 @@ import {
   Building2,
   HeartHandshake
 } from 'lucide-react';
-import { SpotCardProps, SpotWithTopic, DAILY_NEW_GOAL } from './spotTypes';
+import { SpotCardProps, SpotWithTopic, DAILY_NEW_GOAL, QUESTIONS_TO_UNLOCK } from './spotTypes';
 
 // Get the appropriate icon for a spot
 const getSpotIcon = (icon: string) => {
@@ -216,6 +216,13 @@ export const SpotCard: React.FC<SpotCardProps> = ({
                 : 'bg-gray-500/20 border border-gray-500/30 text-gray-300'
             }`}>
               {spot.remaining === 0 ? '✓ topic done' : `${spot.remaining} in topic`}
+            </span>
+          )}
+          
+          {/* 3b. Unlock progress for locked newProblemsOnly spots (Coffee Sanctuary) */}
+          {spot.newProblemsOnly && spot.locked && (spot.questionsAnswered || 0) > 0 && (spot.questionsAnswered || 0) < QUESTIONS_TO_UNLOCK && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-purple-500/20 border border-purple-500/30 text-purple-300">
+              {spot.questionsAnswered}/{QUESTIONS_TO_UNLOCK} to unlock
             </span>
           )}
           

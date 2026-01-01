@@ -91,7 +91,32 @@ export const NEETCODE_VIDEO_URLS: Record<string, string> = {
   'Find Median from Data Stream': 'https://youtu.be/itmhHWaHupI',
   
   // Factory AI / Company-specific problems (use interviewing.io links)
+  'Print Folder Structure': 'https://www.youtube.com/watch?v=MRy7M3E0La8',
+};
+
+// Source URLs for company-specific problems (interviewing.io, etc.)
+export const PROBLEM_SOURCE_URLS: Record<string, string> = {
   'Print Folder Structure': 'https://interviewing.io/mocks/google-python-print-folder-structure',
+};
+
+/**
+ * Get source URL for a problem (if available).
+ * These are typically interviewing.io links or other non-video source pages.
+ */
+export const getSourceUrl = (title: string): string | null => {
+  if (PROBLEM_SOURCE_URLS[title]) {
+    return PROBLEM_SOURCE_URLS[title];
+  }
+  
+  // Try normalized match (case-insensitive)
+  const normalizedTitle = title.toLowerCase().trim();
+  for (const [key, url] of Object.entries(PROBLEM_SOURCE_URLS)) {
+    if (key.toLowerCase().trim() === normalizedTitle) {
+      return url;
+    }
+  }
+  
+  return null;
 };
 
 /**

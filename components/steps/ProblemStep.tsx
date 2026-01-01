@@ -460,25 +460,25 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
             </button>
           ) : (
             // Text mode - show text area and submit button
-            <div className="w-full max-w-2xl flex flex-col items-center">
+            <div className="w-full max-w-2xl flex items-end gap-3">
               <textarea
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder={sessionMode === 'paired' 
                   ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
                   : "Type your explanation of the solution..."}
-                className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2.5rem] p-4 sm:p-8 mb-4 border border-white/10 min-h-[150px] sm:min-h-[200px] max-h-[40vh] text-gray-200 font-serif text-base sm:text-lg resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                className="flex-1 bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2rem] p-3 sm:p-5 border border-white/10 min-h-[80px] sm:min-h-[100px] max-h-[25vh] text-gray-200 font-serif text-sm sm:text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
               />
               <button 
                 onClick={onTextSubmit}
                 disabled={!textInput.trim()}
-                className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white shadow-2xl border-2 transition-all shrink-0 ${
                   textInput.trim() 
                     ? 'bg-gold hover:scale-110 active:scale-95 border-gold/40' 
                     : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
                 }`}
               >
-                <Send size={24} className="sm:w-8 sm:h-8" />
+                <Send size={20} className="sm:w-6 sm:h-6" />
               </button>
             </div>
           )

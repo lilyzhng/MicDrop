@@ -111,11 +111,11 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
         </div>
       </div>
 
-      {/* Main Content Area - Desktop: 50/50 split with conversation on right | Mobile: Vertical */}
+      {/* Main Content Area - Desktop: 50/50 split with conversation on right | Mobile: Conversation focused */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Column: Problem Content (scrollable) - 50% on desktop */}
-        <div className="lg:w-1/2 overflow-y-auto px-4 sm:px-6 lg:px-4 py-4 shrink-0">
-          <div className="pb-48 sm:pb-56 lg:pb-8">
+        {/* Left Column: Problem Content (scrollable) - 50% on desktop, hidden on mobile to show conversation */}
+        <div className="hidden lg:block lg:w-1/2 overflow-y-auto px-4 py-4">
+          <div className="pb-8">
             {/* Problem Title with LeetCode Number - Always on top */}
             <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
               {currentProblem?.leetcodeNumber && (
@@ -345,26 +345,59 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
             </div>
           </div>
 
-          {/* Mobile: Bottom conversation and controls */}
-          <div className="lg:hidden flex flex-col">
-            {/* Conversation History - Mobile */}
-            <div ref={mobileConversationRef} className="px-4 py-4 max-h-[30vh] overflow-y-auto">
-              <div className="space-y-4">
+          {/* Mobile: Full conversation-focused layout */}
+          <div className="lg:hidden flex flex-col h-full">
+            {/* Mobile Problem Header - Compact reference */}
+            <div className="px-4 py-3 border-b border-white/10 bg-black/30">
+              <div className="flex items-center gap-2">
+                <BookOpen size={14} className="text-purple-300 shrink-0" />
+                <h3 className="text-sm font-serif font-semibold truncate">
+                  {currentProblem?.leetcodeNumber && (
+                    <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
+                  )}
+                  {currentProblem?.title}
+                </h3>
+              </div>
+            </div>
+
+            {/* Conversation Header - Mobile */}
+            <div className="px-4 py-2 flex items-center justify-between border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <MessageCircle size={14} className="text-purple-300" />
+                <span className="text-[9px] font-bold text-purple-300 uppercase tracking-widest">Conversation</span>
+              </div>
+              {/* TTS Toggle */}
+              <button 
+                onClick={() => setTtsEnabled(!ttsEnabled)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider transition-all ${
+                  ttsEnabled 
+                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
+                    : 'bg-white/5 border border-white/10 text-gray-500'
+                }`}
+              >
+                {ttsEnabled ? <Volume2 size={10} /> : <VolumeX size={10} />}
+                <span>TTS</span>
+              </button>
+            </div>
+
+            {/* Conversation History - Mobile (takes remaining space) */}
+            <div ref={mobileConversationRef} className="flex-1 px-4 py-3 overflow-y-auto">
+              <div className="space-y-3">
                 {teachingSession?.turns.map((turn, idx) => (
                   <div 
                     key={idx} 
                     className={`flex ${turn.speaker === 'teacher' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div 
-                      className={`max-w-[85%] rounded-2xl p-4 ${
+                      className={`max-w-[85%] rounded-2xl p-3 ${
                         turn.speaker === 'teacher' 
                           ? 'bg-gold/20 border border-gold/30 text-white' 
                           : 'bg-purple-500/20 border border-purple-500/30 text-purple-100'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
-                          {turn.speaker === 'teacher' ? 'You (Teaching)' : 'Junior Engineer'}
+                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
+                          {turn.speaker === 'teacher' ? 'You' : 'Junior'}
                         </span>
                         {turn.speaker === 'junior' && (
                           <button 
@@ -372,19 +405,19 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                             className="p-1 rounded hover:bg-white/10 transition-colors"
                             title="Read aloud"
                           >
-                            <Volume2 size={14} className="text-purple-300" />
+                            <Volume2 size={12} className="text-purple-300" />
                           </button>
                         )}
                       </div>
-                      <p className="text-sm sm:text-base leading-relaxed">{turn.content}</p>
+                      <p className="text-sm leading-relaxed">{turn.content}</p>
                     </div>
                   </div>
                 ))}
 
                 {/* Initial prompt if no conversation yet */}
                 {(!teachingSession?.turns.length || teachingSession.turns.length === 0) && !isJuniorThinking && (
-                  <div className="text-center py-8">
-                    <MessageCircle size={32} className="mx-auto text-gray-600 mb-3" />
+                  <div className="text-center py-6">
+                    <MessageCircle size={28} className="mx-auto text-gray-600 mb-2" />
                     <p className="text-gray-500 text-sm italic">Start teaching the junior engineer...</p>
                     <p className="text-gray-600 text-xs mt-1">Explain the problem and your approach</p>
                   </div>
@@ -393,10 +426,10 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 {/* Junior thinking indicator bubble - Mobile */}
                 {isJuniorThinking && (
                   <div className="flex justify-start">
-                    <div className="max-w-[85%] rounded-2xl p-4 bg-purple-500/20 border border-purple-500/30 text-purple-100">
+                    <div className="max-w-[85%] rounded-2xl p-3 bg-purple-500/20 border border-purple-500/30 text-purple-100">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
-                          Junior Engineer
+                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
+                          Junior
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
@@ -493,41 +526,40 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                     </span>
                   </div>
                 ) : (
-                  // Text mode UI
-                  <div className="flex flex-col items-center gap-4">
-                    <textarea
-                      value={textInput}
-                      onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Type your teaching response here..."
-                      className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 min-h-[100px] max-h-[25vh] text-gray-200 font-serif text-sm resize-none focus:outline-none focus:border-purple-500/40 placeholder:text-gray-500 placeholder:italic"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                          onTextSubmit();
-                        }
-                      }}
-                    />
-                    <div className="flex items-center gap-3">
+                  // Text mode UI - horizontal layout with send button inline
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-end gap-2">
+                      <textarea
+                        value={textInput}
+                        onChange={(e) => setTextInput(e.target.value)}
+                        placeholder="Type your teaching response..."
+                        className="flex-1 bg-white/5 backdrop-blur-2xl rounded-xl p-3 border border-white/10 min-h-[60px] max-h-[20vh] text-gray-200 font-serif text-sm resize-none focus:outline-none focus:border-purple-500/40 placeholder:text-gray-500 placeholder:italic"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                            onTextSubmit();
+                          }
+                        }}
+                      />
                       <button 
                         onClick={onTextSubmit}
                         disabled={!textInput.trim()}
-                        className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white shadow-2xl border-4 transition-all ${
+                        className={`w-11 h-11 rounded-full flex items-center justify-center text-white shadow-xl border-2 transition-all shrink-0 ${
                           textInput.trim() 
                             ? 'bg-purple-600 hover:scale-110 active:scale-95 border-purple-500/40' 
                             : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
                         }`}
                       >
-                        <Send size={20} className="sm:w-6 sm:h-6" />
+                        <Send size={18} />
                       </button>
+                    </div>
+                    <div className="flex items-center justify-center">
                       <button 
                         onClick={handleEndTeachingSession}
-                        className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
+                        className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
                       >
                         End Session
                       </button>
                     </div>
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                      ⌘/Ctrl + Enter to send
-                    </span>
                   </div>
                 )}
               </div>

@@ -8,6 +8,7 @@ import { supabase } from '../config/supabase';
 import PerformanceReportComponent from '../components/PerformanceReport';
 import TeachingReportComponent from '../components/TeachingReport';
 import ReadinessReportComponent from '../components/ReadinessReport';
+import DayTimelineModal, { TimelineSession } from '../components/DayTimelineModal';
 import { findReportBySlug } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
 import { evaluateTeaching } from '../services/teachBackService';
@@ -119,6 +120,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     const [isReEvaluating, setIsReEvaluating] = useState(false);
     const [updatedReport, setUpdatedReport] = useState<SavedReport | null>(null);
     
+    // Calendar date selection for timeline view
+    const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+    
     // Use updated report if available, otherwise use the original
     const displayReport = updatedReport || selectedReport;
     
@@ -226,6 +230,47 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         }
         return statsMap;
     }, [todayAllReports]);
+    
+    // Calculate sessions for the selected calendar date (for timeline view)
+    const selectedDateSessions = useMemo((): TimelineSession[] => {
+        if (!selectedCalendarDate) return [];
+        
+        // Get all reports for the selected date
+        const dateReports = savedReports.filter(r => {
+            if (r.type !== 'walkie' && r.type !== 'teach' && r.type !== 'readiness') return false;
+            const reportDate = getDateString(r.date);
+            return reportDate === selectedCalendarDate;
+        });
+        
+        // Convert to timeline items with calculated start/end times
+        const sessions: TimelineSession[] = dateReports.map(r => {
+            const endTime = new Date(r.date);
+            const durationSeconds = r.reportData?.timeSpentSeconds ?? 0;
+            const startTime = new Date(endTime.getTime() - (durationSeconds * 1000));
+            
+            let score = 0;
+            if (r.type === 'walkie') {
+                score = r.reportData?.rating ?? r.rating ?? 0;
+            } else if (r.type === 'teach') {
+                score = r.reportData?.teachingReportData?.teachingScore ?? r.rating ?? 0;
+            } else if (r.type === 'readiness') {
+                score = r.reportData?.readinessReportData?.readinessScore ?? r.rating ?? 0;
+            }
+            
+            return {
+                id: r.id,
+                title: r.title,
+                type: r.type as 'walkie' | 'teach' | 'readiness',
+                startTime,
+                endTime,
+                durationSeconds,
+                score
+            };
+        });
+        
+        // Sort by start time
+        return sessions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+    }, [savedReports, selectedCalendarDate]);
     
     // Calculate today's reports with details (grouped by problem, with cumulative time)
     const todayReports = useMemo(() => {
@@ -1389,21 +1434,27 @@ return (
                                                     const attempts = attemptsByDate[dateStr] || 0;
                                                     const isToday = dateStr === getDateString(new Date());
                                                     const isFuture = date > today;
+                                                    const hasActivity = attempts > 0;
                                                     
                                                     return (
-                                                       <div 
+                                                       <button 
                                                            key={i}
+                                                           onClick={() => !isFuture && hasActivity && setSelectedCalendarDate(dateStr)}
+                                                           disabled={isFuture || !hasActivity}
                                                            className={`aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all ${
                                                                isToday ? 'ring-2 ring-gold ring-offset-2' : ''
                                                            } ${
-                                                               isFuture ? 'bg-gray-50/50 text-gray-300' :
+                                                               isFuture ? 'bg-gray-50/50 text-gray-300 cursor-default' :
+                                                               hasActivity ? 'cursor-pointer hover:scale-105 hover:shadow-lg' : 'cursor-default'
+                                                           } ${
+                                                               isFuture ? '' :
                                                                completed >= 15 ? 'bg-gold text-white' :
                                                                completed >= 10 ? 'bg-gold/60 text-white' :
                                                                completed >= 5 ? 'bg-gold/30 text-charcoal' :
                                                                completed > 0 ? 'bg-gold/10 text-charcoal' :
                                                                'bg-gray-50 text-gray-500'
                                                            }`}
-                                                           title={!isFuture ? `${completed} completed / ${attempts} attempts` : ''}
+                                                           title={!isFuture ? `${completed} completed / ${attempts} attempts${hasActivity ? ' - Click to view timeline' : ''}` : ''}
                                                        >
                                                            <span className={`text-sm font-bold ${completed >= 10 && !isFuture ? 'text-white' : ''}`}>{date.getDate()}</span>
                                                            {completed > 0 && !isFuture && (
@@ -1411,7 +1462,7 @@ return (
                                                                    {completed >= 15 ? '🔥' : completed}
                                                                </span>
                                                            )}
-                                                       </div>
+                                                       </button>
                                                     );
                                                 })}
                                             </div>
@@ -1985,11 +2036,19 @@ return (
                                  </div>
                              </div>
                          )}
-                     </div>
-                 </div>
+                    </div>
+                </div>
              )}
-        </div>
-    );
+             
+             {/* Day Timeline Modal */}
+             <DayTimelineModal
+                 isOpen={!!selectedCalendarDate}
+                 onClose={() => setSelectedCalendarDate(null)}
+                 selectedDate={selectedCalendarDate || ''}
+                 sessions={selectedDateSessions}
+             />
+       </div>
+   );
 };
 
 export default DatabaseView;

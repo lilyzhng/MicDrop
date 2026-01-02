@@ -127,11 +127,72 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
     }
   };
 
-  // Handle keyboard shortcuts
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // Handle keyboard shortcuts including Tab for indentation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Cmd/Ctrl + Enter to submit
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       onBoardSubmit();
+      return;
+    }
+    
+    // Tab for indentation
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+      const indent = '    '; // 4 spaces
+      
+      if (start === end) {
+        // No selection - just insert tab at cursor
+        const newValue = value.substring(0, start) + indent + value.substring(end);
+        setBoardContent(newValue);
+        // Set cursor position after the inserted tab
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + indent.length;
+        });
+      } else {
+        // Selection exists - indent/unindent selected lines
+        const beforeSelection = value.substring(0, start);
+        const afterSelection = value.substring(end);
+        
+        // Find the start of the first selected line
+        const lineStart = beforeSelection.lastIndexOf('\n') + 1;
+        const textBeforeLines = value.substring(0, lineStart);
+        const selectedText = value.substring(lineStart, end);
+        
+        if (e.shiftKey) {
+          // Shift+Tab: Unindent - remove leading spaces from each line
+          const unindentedLines = selectedText.split('\n').map(line => {
+            if (line.startsWith(indent)) {
+              return line.substring(indent.length);
+            } else if (line.startsWith('  ')) {
+              return line.substring(2);
+            } else if (line.startsWith('\t')) {
+              return line.substring(1);
+            }
+            return line;
+          }).join('\n');
+          
+          const newValue = textBeforeLines + unindentedLines + afterSelection;
+          setBoardContent(newValue);
+          requestAnimationFrame(() => {
+            textarea.selectionStart = lineStart;
+            textarea.selectionEnd = lineStart + unindentedLines.length;
+          });
+        } else {
+          // Tab: Indent - add spaces to the beginning of each line
+          const indentedLines = selectedText.split('\n').map(line => indent + line).join('\n');
+          const newValue = textBeforeLines + indentedLines + afterSelection;
+          setBoardContent(newValue);
+          requestAnimationFrame(() => {
+            textarea.selectionStart = lineStart;
+            textarea.selectionEnd = lineStart + indentedLines.length;
+          });
+        }
+      }
     }
   };
 
@@ -239,9 +300,9 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                       {/* Content with preserved formatting */}
                       <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-100 pl-3 border-l border-amber-400/20">
                         {turn.content}
-                      </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
 
                 {/* Current writing area - seamlessly integrated */}
                 {inputMode === 'board' && !isJuniorThinking && (
@@ -279,16 +340,16 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 {!teachingSession?.turns.some(t => t.speaker === 'teacher') && inputMode === 'voice' && !isTeachingRecording && (
                   <div className="text-center py-12">
                     <p className="text-gray-500 font-serif italic">Click Record to start teaching...</p>
-                  </div>
-                )}
               </div>
+                )}
+            </div>
 
               {/* Board tray with controls - like chalk/erasers on the tray */}
               <div className="bg-gradient-to-b from-amber-900/30 to-amber-950/50 border-t border-amber-800/30 rounded-b-xl mt-auto px-3 py-2 flex items-center justify-between gap-2">
                 {/* Send button - bottom left for easy access */}
                 <div>
                   {inputMode === 'board' ? (
-                    <button 
+                <button
                       onClick={onBoardSubmit}
                       disabled={!boardContent.trim()}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
@@ -298,7 +359,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                       }`}
                     >
                       <Send size={12} /> Send
-                    </button>
+                </button>
                   ) : isTeachingRecording ? (
                     <button 
                       onClick={handleStopTeachingRecording}
@@ -318,7 +379,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 
                 {/* Other controls - right side */}
                 <div className="flex items-center gap-2">
-                  <button
+                      <button 
                     onClick={() => setInputMode('board')}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
                       inputMode === 'board'
@@ -327,8 +388,8 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                     }`}
                   >
                     ⌨️ Write
-                  </button>
-                  <button
+                      </button>
+                      <button 
                     onClick={() => setInputMode('voice')}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
                       inputMode === 'voice'
@@ -344,7 +405,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                     className="px-2.5 py-1.5 rounded bg-red-500/30 text-red-200 text-[9px] font-bold uppercase tracking-wider hover:bg-red-500/40 transition-all"
                   >
                     Class Over
-                  </button>
+                      </button>
                 </div>
               </div>
             </div>
@@ -366,23 +427,23 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                       <div className="flex items-start gap-3">
                         <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
                           <GraduationCap size={12} className="text-purple-300" />
-                        </div>
+            </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1">
                             <span className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Junior Engineer</span>
-                            <button 
-                              onClick={() => speakJuniorResponse(turn.content)}
-                              className="p-1 rounded hover:bg-white/10 transition-colors"
-                            >
+                          <button 
+                            onClick={() => speakJuniorResponse(turn.content)}
+                            className="p-1 rounded hover:bg-white/10 transition-colors"
+                          >
                               <Volume2 size={11} className="text-purple-300" />
-                            </button>
+                          </button>
                           </div>
                           <p className="text-sm text-purple-100 italic leading-relaxed">"{turn.content}"</p>
-                        </div>
                       </div>
                     </div>
-                  ))}
-                
+                  </div>
+                ))}
+
                 {/* Junior thinking indicator */}
                 {isJuniorThinking && (
                   <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20 animate-pulse">

@@ -425,7 +425,7 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
                     
                     {/* Message Bubble */}
                     <div className={`rounded-2xl p-4 border ${getBubbleStyle()}`}>
-                      <p className="text-sm text-gray-800 leading-relaxed">{turn.content}</p>
+                      <p className={`text-sm text-gray-800 leading-relaxed whitespace-pre-wrap ${isTeacher ? 'font-mono' : ''}`}>{turn.content}</p>
                     </div>
                     
                     {/* Annotation */}

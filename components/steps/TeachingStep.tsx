@@ -2,7 +2,7 @@
  * TeachingStep Component
  * 
  * The teaching conversation screen where user teaches a junior engineer.
- * Supports both voice recording and text input modes.
+ * Features a unified writing board that preserves formatting.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -11,17 +11,16 @@ import {
   Mic, 
   BookOpen, 
   GraduationCap, 
-  MessageCircle, 
   Volume2, 
   VolumeX, 
   Send,
-  Keyboard,
-  Loader2
+  Loader2,
+  HelpCircle
 } from 'lucide-react';
 import { BlindProblem, TeachingSession } from '../../types';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
-type InputMode = 'voice' | 'text';
+type InputMode = 'voice' | 'board';
 
 interface TeachingStepProps {
   step: 'teaching' | 'junior_question' | 'junior_thinking';
@@ -39,13 +38,13 @@ interface TeachingStepProps {
   setTtsEnabled: (enabled: boolean) => void;
   handleStartTeachingRecording: () => void;
   handleStopTeachingRecording: () => void;
-  handleTeachingTextSubmit: (text: string) => void;
+  handleTeachingTextSubmit: (text: string, imageBase64?: string) => void;
   handleEndTeachingSession: () => void;
   speakJuniorResponse: (text: string) => void;
 }
 
 export const TeachingStep: React.FC<TeachingStepProps> = ({
-  step,
+  step: _step, // Used by parent to determine rendering
   currentProblem,
   teachingSession,
   sessionMode,
@@ -62,33 +61,77 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
   handleEndTeachingSession,
   speakJuniorResponse
 }) => {
-  const [inputMode, setInputMode] = useState<InputMode>('text');
-  const [textInput, setTextInput] = useState('');
+  const [inputMode, setInputMode] = useState<InputMode>('board');
+  const [boardContent, setBoardContent] = useState('');
   
-  // Refs for auto-scrolling conversation areas
-  const desktopConversationRef = useRef<HTMLDivElement>(null);
-  const mobileConversationRef = useRef<HTMLDivElement>(null);
+  // Refs for auto-scrolling
+  const boardRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const studentQuestionsRef = useRef<HTMLDivElement>(null);
   
-  // Auto-scroll to bottom when conversation updates or junior is thinking
+  // Auto-scroll board when content updates - smooth scroll to bottom
   useEffect(() => {
     const scrollToBottom = () => {
-      if (desktopConversationRef.current) {
-        desktopConversationRef.current.scrollTop = desktopConversationRef.current.scrollHeight;
-      }
-      if (mobileConversationRef.current) {
-        mobileConversationRef.current.scrollTop = mobileConversationRef.current.scrollHeight;
+      if (boardRef.current) {
+        boardRef.current.scrollTo({
+          top: boardRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
       }
     };
-    
     // Small delay to ensure DOM has updated
     const timeoutId = setTimeout(scrollToBottom, 50);
     return () => clearTimeout(timeoutId);
   }, [teachingSession?.turns.length, isJuniorThinking]);
 
-  const onTextSubmit = () => {
-    if (textInput.trim()) {
-      handleTeachingTextSubmit(textInput.trim());
-      setTextInput('');
+  // Auto-scroll student questions when new question arrives
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (studentQuestionsRef.current) {
+        studentQuestionsRef.current.scrollTo({
+          top: studentQuestionsRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+    };
+    const timeoutId = setTimeout(scrollToBottom, 50);
+    return () => clearTimeout(timeoutId);
+  }, [teachingSession?.turns.filter(t => t.speaker === 'junior').length, isJuniorThinking]);
+
+  // Focus textarea when switching to board mode
+  useEffect(() => {
+    if (inputMode === 'board' && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [inputMode]);
+
+  // Auto-resize textarea as user types and scroll to keep cursor visible
+  useEffect(() => {
+    if (textareaRef.current) {
+      // Reset height to auto to get correct scrollHeight
+      textareaRef.current.style.height = 'auto';
+      // Set height to scrollHeight to fit all content
+      textareaRef.current.style.height = `${Math.max(150, textareaRef.current.scrollHeight)}px`;
+      
+      // Scroll the board to keep the textarea visible
+      if (boardRef.current) {
+        boardRef.current.scrollTop = boardRef.current.scrollHeight;
+      }
+    }
+  }, [boardContent]);
+
+  const onBoardSubmit = () => {
+    if (boardContent.trim()) {
+      handleTeachingTextSubmit(boardContent.trim());
+      setBoardContent('');
+    }
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onBoardSubmit();
     }
   };
 
@@ -100,7 +143,6 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
           <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
         </button>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-          {/* Show Pass 2 indicator for paired mode, otherwise just Teach Mode */}
           <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-purple-500/30 text-[8px] sm:text-[10px] font-bold text-purple-300 bg-purple-500/10 uppercase tracking-wider sm:tracking-widest">
             <GraduationCap size={10} className="inline mr-1" /> 
             {sessionMode === 'paired' ? 'Pass 2 • Teach' : 'Teach Mode'}
@@ -108,39 +150,48 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
           <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/10 text-[8px] sm:text-[10px] font-bold text-gray-400 bg-white/5 uppercase tracking-wider sm:tracking-widest whitespace-nowrap">
             {currentQueueIdx + 1}/5
           </div>
+          {/* TTS Toggle */}
+          <button 
+            onClick={() => setTtsEnabled(!ttsEnabled)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+              ttsEnabled 
+                ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
+                : 'bg-white/5 border border-white/10 text-gray-500'
+            }`}
+          >
+            {ttsEnabled ? <Volume2 size={10} /> : <VolumeX size={10} />}
+            <span className="hidden sm:inline">TTS</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Content Area - Desktop: 50/50 split with conversation on right | Mobile: Conversation focused */}
+      {/* Main Content - Split View */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Column: Problem Content (scrollable) - 50% on desktop, hidden on mobile to show conversation */}
-        <div className="hidden lg:block lg:w-1/2 overflow-y-auto px-4 py-4">
-          <div className="pb-8">
-            {/* Problem Title with LeetCode Number - Always on top */}
-            <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
+        
+        {/* Left: Problem Reference (Desktop only) */}
+        <div className="hidden lg:block lg:w-2/5 overflow-y-auto px-4 py-4 border-r border-white/5">
+          <h2 className="text-2xl font-serif font-bold mb-4 leading-tight">
               {currentProblem?.leetcodeNumber && (
                 <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
               )}
               {currentProblem?.title}
             </h2>
             
-            {/* Problem Statement and Image - Stacked in left column */}
-            <div className="flex flex-col gap-6">
-              {/* Problem Statement */}
-              <div className="bg-white/5 rounded-2xl sm:rounded-[2.5rem] p-5 sm:p-8 md:p-10 border border-white/10">
-                <div className="flex items-center gap-2 mb-4 sm:mb-6">
-                  <BookOpen size={16} className="sm:w-5 sm:h-5 text-purple-300" />
-                  <span className="text-[10px] sm:text-xs font-bold text-purple-300 uppercase tracking-widest">Problem Statement</span>
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen size={14} className="text-purple-300" />
+              <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">Problem</span>
                 </div>
-                <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8">{currentProblem?.prompt}</p>
+            <p className="text-sm text-gray-200 leading-relaxed">{currentProblem?.prompt}</p>
                 {currentProblem?.example && (
-                  <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
+              <div className="mt-4 bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-xs text-gray-300 overflow-x-auto">
+                <pre className="whitespace-pre-wrap">{currentProblem.example}</pre>
+              </div>
                 )}
               </div>
               
-              {/* Visual Mnemonic Image */}
               {currentProblem?.mnemonicImageUrl && (
-                <div className="rounded-2xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white/5">
+            <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
                   <img 
                     src={currentProblem.mnemonicImageUrl} 
                     alt={`Visual mnemonic for ${currentProblem.title}`}
@@ -150,421 +201,213 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 </div>
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Right Column: Conversation & Input - 50% on desktop, scrollable bottom on mobile */}
-        <div className="lg:w-1/2 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
-          {/* Desktop: Full height conversation area */}
-          <div className="hidden lg:flex flex-col h-full">
-            {/* Conversation Header */}
-            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        {/* Right: Teaching Board */}
+        <div className="flex-1 flex flex-col lg:w-3/5">
+          
+          {/* Mobile Problem Header */}
+          <div className="lg:hidden px-4 py-2 border-b border-white/10 bg-black/30">
               <div className="flex items-center gap-2">
-                <MessageCircle size={16} className="text-purple-300" />
-                <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">Conversation</span>
-              </div>
-              {/* TTS Toggle */}
-              <button 
-                onClick={() => setTtsEnabled(!ttsEnabled)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                  ttsEnabled 
-                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
-                    : 'bg-white/5 border border-white/10 text-gray-500'
-                }`}
-              >
-                {ttsEnabled ? <Volume2 size={10} /> : <VolumeX size={10} />}
-                <span>TTS</span>
-              </button>
+              <BookOpen size={12} className="text-purple-300 shrink-0" />
+              <h3 className="text-xs font-serif font-semibold truncate">
+                {currentProblem?.leetcodeNumber && (
+                  <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
+                )}
+                {currentProblem?.title}
+              </h3>
             </div>
+          </div>
 
-            {/* Conversation History - Scrollable */}
-            <div ref={desktopConversationRef} className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
-                {teachingSession?.turns.map((turn, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`flex ${turn.speaker === 'teacher' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div 
-                      className={`max-w-[90%] rounded-2xl p-3 ${
-                        turn.speaker === 'teacher' 
-                          ? 'bg-gold/20 border border-gold/30 text-white' 
-                          : 'bg-purple-500/20 border border-purple-500/30 text-purple-100'
+          {/* The Board - Fixed height with internal scrolling */}
+          <div className="flex-1 flex flex-col overflow-hidden p-2 sm:p-4">
+            {/* Chalkboard container - fixed height */}
+            <div className="flex-1 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-4 sm:border-8 border-amber-900/40 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+              {/* Chalk dust effect */}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.02)_0%,transparent_70%)] pointer-events-none rounded-2xl" />
+              
+              {/* Scrollable content area */}
+              <div ref={boardRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                {teachingSession?.turns
+                  .filter(turn => turn.speaker === 'teacher')
+                  .map((turn, idx) => (
+                    <div key={idx}>
+                      {/* Teaching label */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                        <span className="text-[9px] font-bold text-amber-400/70 uppercase tracking-widest">Teaching (me)</span>
+                      </div>
+                      {/* Content with preserved formatting */}
+                      <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-100 pl-3 border-l border-amber-400/20">
+                        {turn.content}
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Current writing area - seamlessly integrated */}
+                {inputMode === 'board' && !isJuniorThinking && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[9px] font-bold text-emerald-400/70 uppercase tracking-widest">Teaching (me)</span>
+                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      value={boardContent}
+                      onChange={(e) => setBoardContent(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Continue teaching..."
+                      className="w-full bg-transparent border-l border-emerald-400/30 pl-3 outline-none resize-none font-mono text-sm text-gray-100 leading-relaxed placeholder:text-gray-600 overflow-hidden"
+                      style={{ caretColor: '#34d399', minHeight: '150px' }}
+                    />
+                  </div>
+                )}
+
+                {/* Voice recording display */}
+                {inputMode === 'voice' && isTeachingRecording && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-[9px] font-bold text-red-400/70 uppercase tracking-widest">Recording...</span>
+                    </div>
+                    <p className="font-mono text-sm text-gray-300 leading-relaxed whitespace-pre-wrap pl-3 border-l border-red-400/30">
+                      {teachingRawTranscript || "Listening..."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!teachingSession?.turns.some(t => t.speaker === 'teacher') && inputMode === 'voice' && !isTeachingRecording && (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 font-serif italic">Click Record to start teaching...</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Board tray with controls - like chalk/erasers on the tray */}
+              <div className="bg-gradient-to-b from-amber-900/30 to-amber-950/50 border-t border-amber-800/30 rounded-b-xl mt-auto px-3 py-2 flex items-center justify-between gap-2">
+                {/* Send button - bottom left for easy access */}
+                <div>
+                  {inputMode === 'board' ? (
+                    <button 
+                      onClick={onBoardSubmit}
+                      disabled={!boardContent.trim()}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        boardContent.trim() 
+                          ? 'bg-emerald-500/60 text-emerald-50 hover:bg-emerald-500/70 shadow-md' 
+                          : 'bg-white/5 text-gray-600 cursor-not-allowed'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
-                          {turn.speaker === 'teacher' ? 'You (Teaching)' : 'Junior Engineer'}
-                        </span>
-                        {turn.speaker === 'junior' && (
-                          <button 
-                            onClick={() => speakJuniorResponse(turn.content)}
-                            className="p-1 rounded hover:bg-white/10 transition-colors"
-                            title="Read aloud"
-                          >
-                            <Volume2 size={12} className="text-purple-300" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-sm leading-relaxed">{turn.content}</p>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Initial prompt if no conversation yet */}
-                {(!teachingSession?.turns.length || teachingSession.turns.length === 0) && !isJuniorThinking && (
-                  <div className="text-center py-8">
-                    <MessageCircle size={28} className="mx-auto text-gray-600 mb-3" />
-                    <p className="text-gray-500 text-sm italic">Start teaching the junior engineer...</p>
-                    <p className="text-gray-600 text-xs mt-1">Explain the problem and your approach</p>
-                  </div>
-                )}
-
-                {/* Junior thinking indicator bubble */}
-                {isJuniorThinking && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[90%] rounded-2xl p-3 bg-purple-500/20 border border-purple-500/30 text-purple-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
-                          Junior Engineer
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Loader2 size={14} className="animate-spin text-purple-300" />
-                        <span className="text-purple-200 italic">Thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Input Area - Fixed at bottom */}
-            <div className="p-4 border-t border-white/10 bg-black/40">
-              {/* Input Mode Toggle */}
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <button
-                  onClick={() => setInputMode('voice')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                    inputMode === 'voice'
-                      ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
-                      : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-                  }`}
-                >
-                  <Mic size={12} />
-                  <span>Voice</span>
-                </button>
-                <button
-                  onClick={() => setInputMode('text')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                    inputMode === 'text'
-                      ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
-                      : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-                  }`}
-                >
-                  <Keyboard size={12} />
-                  <span>Type</span>
-                </button>
-              </div>
-
-              {/* Voice Recording UI */}
-              {inputMode === 'voice' && isTeachingRecording ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-3 mb-3 border border-red-500/30 min-h-[60px] max-h-[120px] overflow-y-auto text-gray-400 font-serif italic text-sm text-center">
-                    {teachingRawTranscript || "Speaking..."}
-                  </div>
-                  <button 
-                    onClick={handleStopTeachingRecording} 
-                    className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95"
-                  >
-                    <Send size={20} />
-                  </button>
-                  <span className="mt-2 text-[9px] font-bold text-gray-500 uppercase tracking-widest">Tap to Send</span>
-                </div>
-              ) : inputMode === 'voice' ? (
-                // Voice mode - not recording
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={handleStartTeachingRecording} 
-                      className="w-14 h-14 rounded-full bg-charcoal border-4 border-purple-500/30 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group"
-                    >
-                      <Mic size={20} className="group-hover:text-purple-300 transition-colors" />
+                      <Send size={12} /> Send
                     </button>
+                  ) : isTeachingRecording ? (
                     <button 
-                      onClick={handleEndTeachingSession}
-                      className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
+                      onClick={handleStopTeachingRecording}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500/60 text-red-50 text-[10px] font-bold uppercase tracking-wider hover:bg-red-500/70 transition-all animate-pulse shadow-md"
                     >
-                      End Session
+                      <Send size={12} /> Send
                     </button>
-                  </div>
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                    {step === 'junior_question' ? 'Continue Teaching' : 'Start Teaching'}
-                  </span>
-                </div>
-              ) : (
-                // Text mode UI
-                <div className="flex flex-col gap-3">
-                  <textarea
-                    value={textInput}
-                    onChange={(e) => setTextInput(e.target.value)}
-                    placeholder="Type your teaching response here..."
-                    className="w-full bg-white/5 backdrop-blur-2xl rounded-xl p-3 border border-white/10 min-h-[100px] max-h-[200px] text-gray-200 font-serif text-sm resize-none focus:outline-none focus:border-purple-500/40 placeholder:text-gray-500 placeholder:italic"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        onTextSubmit();
-                      }
-                    }}
-                  />
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={handleEndTeachingSession}
-                        className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
-                      >
-                        End
-                      </button>
-                      <button 
-                        onClick={onTextSubmit}
-                        disabled={!textInput.trim()}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-xl border-2 transition-all ${
-                          textInput.trim() 
-                            ? 'bg-purple-600 hover:scale-110 active:scale-95 border-purple-500/40' 
-                            : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
-                        }`}
-                      >
-                        <Send size={18} />
-                      </button>
-                    </div>
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                      ⌘/Ctrl + Enter
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile: Full conversation-focused layout */}
-          <div className="lg:hidden flex flex-col h-full">
-            {/* Mobile Problem Header - Compact reference */}
-            <div className="px-4 py-3 border-b border-white/10 bg-black/30">
-              <div className="flex items-center gap-2">
-                <BookOpen size={14} className="text-purple-300 shrink-0" />
-                <h3 className="text-sm font-serif font-semibold truncate">
-                  {currentProblem?.leetcodeNumber && (
-                    <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
+                  ) : (
+                    <button 
+                      onClick={handleStartTeachingRecording}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-purple-500/60 text-purple-50 text-[10px] font-bold uppercase tracking-wider hover:bg-purple-500/70 transition-all shadow-md"
+                    >
+                      <Mic size={12} /> Record
+                    </button>
                   )}
-                  {currentProblem?.title}
-                </h3>
-              </div>
-            </div>
-
-            {/* Conversation Header - Mobile */}
-            <div className="px-4 py-2 flex items-center justify-between border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <MessageCircle size={14} className="text-purple-300" />
-                <span className="text-[9px] font-bold text-purple-300 uppercase tracking-widest">Conversation</span>
-              </div>
-              {/* TTS Toggle */}
-              <button 
-                onClick={() => setTtsEnabled(!ttsEnabled)}
-                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[8px] font-bold uppercase tracking-wider transition-all ${
-                  ttsEnabled 
-                    ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
-                    : 'bg-white/5 border border-white/10 text-gray-500'
-                }`}
-              >
-                {ttsEnabled ? <Volume2 size={10} /> : <VolumeX size={10} />}
-                <span>TTS</span>
-              </button>
-            </div>
-
-            {/* Conversation History - Mobile (takes remaining space) */}
-            <div ref={mobileConversationRef} className="flex-1 px-4 py-3 overflow-y-auto">
-              <div className="space-y-3">
-                {teachingSession?.turns.map((turn, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`flex ${turn.speaker === 'teacher' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div 
-                      className={`max-w-[85%] rounded-2xl p-3 ${
-                        turn.speaker === 'teacher' 
-                          ? 'bg-gold/20 border border-gold/30 text-white' 
-                          : 'bg-purple-500/20 border border-purple-500/30 text-purple-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
-                          {turn.speaker === 'teacher' ? 'You' : 'Junior'}
-                        </span>
-                        {turn.speaker === 'junior' && (
-                          <button 
-                            onClick={() => speakJuniorResponse(turn.content)}
-                            className="p-1 rounded hover:bg-white/10 transition-colors"
-                            title="Read aloud"
-                          >
-                            <Volume2 size={12} className="text-purple-300" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-sm leading-relaxed">{turn.content}</p>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Initial prompt if no conversation yet */}
-                {(!teachingSession?.turns.length || teachingSession.turns.length === 0) && !isJuniorThinking && (
-                  <div className="text-center py-6">
-                    <MessageCircle size={28} className="mx-auto text-gray-600 mb-2" />
-                    <p className="text-gray-500 text-sm italic">Start teaching the junior engineer...</p>
-                    <p className="text-gray-600 text-xs mt-1">Explain the problem and your approach</p>
-                  </div>
-                )}
-
-                {/* Junior thinking indicator bubble - Mobile */}
-                {isJuniorThinking && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[85%] rounded-2xl p-3 bg-purple-500/20 border border-purple-500/30 text-purple-100">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[8px] font-bold uppercase tracking-widest opacity-60">
-                          Junior
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Loader2 size={14} className="animate-spin text-purple-300" />
-                        <span className="text-purple-200 italic">Thinking...</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Recording/Text Controls - Mobile */}
-            <div className="p-4 sm:p-8 bg-gradient-to-t from-black via-black/95 to-transparent shrink-0">
-              <div className="max-w-2xl mx-auto">
-                {/* Mode Toggles Row */}
-                <div className="flex items-center justify-center gap-2 mb-4 flex-wrap">
-                  {/* Input Mode Toggle */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setInputMode('voice')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                        inputMode === 'voice'
-                          ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
-                          : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-                      }`}
-                    >
-                      <Mic size={12} />
-                      <span>Voice</span>
-                    </button>
-                    <button
-                      onClick={() => setInputMode('text')}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                        inputMode === 'text'
-                          ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300'
-                          : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-                      }`}
-                    >
-                      <Keyboard size={12} />
-                      <span>Type</span>
-                    </button>
-                  </div>
-
-                  {/* Separator */}
-                  <div className="w-px h-4 bg-white/10" />
-
-                  {/* TTS Toggle */}
-                  <button 
-                    onClick={() => setTtsEnabled(!ttsEnabled)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                      ttsEnabled 
-                        ? 'bg-purple-500/20 border border-purple-500/40 text-purple-300' 
-                        : 'bg-white/5 border border-white/10 text-gray-500'
+                </div>
+                
+                {/* Other controls - right side */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setInputMode('board')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
+                      inputMode === 'board'
+                        ? 'bg-emerald-500/40 text-emerald-200'
+                        : 'bg-white/10 text-gray-400 hover:bg-white/20'
                     }`}
                   >
-                    {ttsEnabled ? <Volume2 size={12} /> : <VolumeX size={12} />}
-                    <span>Read Aloud</span>
+                    ⌨️ Write
+                  </button>
+                  <button
+                    onClick={() => setInputMode('voice')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
+                      inputMode === 'voice'
+                        ? 'bg-purple-500/40 text-purple-200'
+                        : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                    }`}
+                  >
+                    <Mic size={11} /> Voice
+                  </button>
+                  <div className="w-px h-5 bg-white/20 mx-1" />
+                  <button 
+                    onClick={handleEndTeachingSession}
+                    className="px-2.5 py-1.5 rounded bg-red-500/30 text-red-200 text-[9px] font-bold uppercase tracking-wider hover:bg-red-500/40 transition-all"
+                  >
+                    Class Over
                   </button>
                 </div>
+              </div>
+            </div>
 
-                {/* Voice Recording UI */}
-                {inputMode === 'voice' && isTeachingRecording ? (
-                  <div className="flex flex-col items-center">
-                    <div className="w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 mb-4 border border-white/10 min-h-[60px] max-h-[20vh] overflow-y-auto text-gray-400 font-serif italic text-sm text-center">
-                      {teachingRawTranscript || "Speaking..."}
+            {/* Student Questions Section - Below the board, fixed height with scroll */}
+            <div className="mt-3 bg-purple-950/20 rounded-xl border border-purple-500/20 overflow-hidden">
+              {/* Header - fixed */}
+              <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
+                <HelpCircle size={14} className="text-purple-400" />
+                <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Student Questions</span>
+              </div>
+              
+              {/* Scrollable questions container */}
+              <div ref={studentQuestionsRef} className="max-h-[200px] overflow-y-auto p-3 space-y-3">
+                {teachingSession?.turns
+                  .filter(turn => turn.speaker === 'junior')
+                  .map((turn, idx) => (
+                    <div key={idx} className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <div className="flex items-start gap-3">
+                        <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
+                          <GraduationCap size={12} className="text-purple-300" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Junior Engineer</span>
+                            <button 
+                              onClick={() => speakJuniorResponse(turn.content)}
+                              className="p-1 rounded hover:bg-white/10 transition-colors"
+                            >
+                              <Volume2 size={11} className="text-purple-300" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-purple-100 italic leading-relaxed">"{turn.content}"</p>
+                        </div>
+                      </div>
                     </div>
-                    <button 
-                      onClick={handleStopTeachingRecording} 
-                      className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-red-600 flex items-center justify-center text-white shadow-2xl animate-pulse border-4 border-white/10 active:scale-95"
-                    >
-                      <Send size={24} className="sm:w-8 sm:h-8" />
-                    </button>
-                    <span className="mt-3 text-[9px] font-bold text-gray-500 uppercase tracking-widest">Tap to Send</span>
-                  </div>
-                ) : inputMode === 'voice' ? (
-                  // Voice mode - not recording
-                  <div className="flex flex-col items-center gap-4">
+                  ))}
+                
+                {/* Junior thinking indicator */}
+                {isJuniorThinking && (
+                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20 animate-pulse">
                     <div className="flex items-center gap-3">
-                      <button 
-                        onClick={handleStartTeachingRecording} 
-                        className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-charcoal border-4 border-purple-500/30 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group"
-                      >
-                        <Mic size={24} className="sm:w-8 sm:h-8 group-hover:text-purple-300 transition-colors" />
-                      </button>
-                      <button 
-                        onClick={handleEndTeachingSession}
-                        className="px-4 py-2 rounded-full bg-white/10 border border-white/20 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
-                      >
-                        End Session
-                      </button>
+                      <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
+                        <GraduationCap size={12} className="text-purple-300" />
+                      </div>
+                      <div className="flex items-center gap-2 text-purple-200">
+                        <Loader2 size={14} className="animate-spin" />
+                        <span className="italic text-sm">Student is thinking...</span>
+                      </div>
                     </div>
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">
-                      {step === 'junior_question' ? 'Continue Teaching' : 'Start Teaching'}
-                    </span>
                   </div>
-                ) : (
-                  // Text mode UI - horizontal layout with send button inline
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-end gap-2">
-                      <textarea
-                        value={textInput}
-                        onChange={(e) => setTextInput(e.target.value)}
-                        placeholder="Type your teaching response..."
-                        className="flex-1 bg-white/5 backdrop-blur-2xl rounded-xl p-3 border border-white/10 min-h-[60px] max-h-[20vh] text-gray-200 font-serif text-sm resize-none focus:outline-none focus:border-purple-500/40 placeholder:text-gray-500 placeholder:italic"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                            onTextSubmit();
-                          }
-                        }}
-                      />
-                      <button 
-                        onClick={onTextSubmit}
-                        disabled={!textInput.trim()}
-                        className={`w-11 h-11 rounded-full flex items-center justify-center text-white shadow-xl border-2 transition-all shrink-0 ${
-                          textInput.trim() 
-                            ? 'bg-purple-600 hover:scale-110 active:scale-95 border-purple-500/40' 
-                            : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
-                        }`}
-                      >
-                        <Send size={18} />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-center">
-                      <button 
-                        onClick={handleEndTeachingSession}
-                        className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:bg-white/20 hover:text-white transition-all"
-                      >
-                        End Session
-                      </button>
-                    </div>
+                )}
+                
+                {/* Empty state - no questions yet */}
+                {!teachingSession?.turns.some(t => t.speaker === 'junior') && !isJuniorThinking && (
+                  <div className="text-center py-4 text-gray-500 text-sm italic">
+                    Student questions will appear here
                   </div>
                 )}
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -572,4 +415,3 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
 };
 
 export default TeachingStep;
-

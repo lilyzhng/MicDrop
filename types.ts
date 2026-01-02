@@ -297,6 +297,7 @@ export interface TeachingTurn {
   content: string;
   rawContent?: string; // Original unrefined transcript (for debugging)
   timestamp: number;
+  imageBase64?: string; // Optional base64 image from whiteboard/Excalidraw
 }
 
 export interface TeachingSession {

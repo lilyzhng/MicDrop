@@ -956,14 +956,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   };
 
   // Shared logic for processing a teaching turn (used by both voice and text input)
-  const processTeachingTurn = async (text: string) => {
+  const processTeachingTurn = async (text: string, imageBase64?: string) => {
     if (!text.trim() || !currentProblem || !teachingSession) return;
     
     setStep('junior_thinking');
     
     try {
-      // Add the text as a turn
-      const updatedSession = addTurn(teachingSession, 'teacher', text, text);
+      // Add the text as a turn (with optional image)
+      const updatedSession = addTurn(teachingSession, 'teacher', text, text, imageBase64);
       setTeachingSession(updatedSession);
       
       // Get junior's response
@@ -1056,9 +1056,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
   };
 
-  // Handle text submission for teaching step
-  const handleTeachingTextSubmit = (text: string) => {
-    processTeachingTurn(text);
+  // Handle text submission for teaching step (with optional whiteboard image)
+  const handleTeachingTextSubmit = (text: string, imageBase64?: string) => {
+    processTeachingTurn(text, imageBase64);
   };
 
   const handleStopTeachingRecording = async () => {

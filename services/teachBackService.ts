@@ -142,8 +142,52 @@ export function getInitialJuniorState(): JuniorState {
 }
 
 /**
+ * Build multimodal content array for Gemini when images are present
+ * Gemini accepts an array of parts: text and inline images
+ */
+function buildMultimodalContent(
+    textPrompt: string, 
+    teachingHistory: TeachingTurn[]
+): { role: string; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }[] {
+    const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+    
+    // Add the main text prompt
+    parts.push({ text: textPrompt });
+    
+    // Add any images from the teaching history
+    const imagesWithContext = teachingHistory
+        .filter(turn => turn.speaker === 'teacher' && turn.imageBase64)
+        .map((turn, idx) => ({
+            index: idx + 1,
+            image: turn.imageBase64!,
+            text: turn.content
+        }));
+    
+    if (imagesWithContext.length > 0) {
+        parts.push({ 
+            text: `\n\n--- WHITEBOARD DRAWINGS FROM TEACHER ---\nThe teacher has drawn ${imagesWithContext.length} diagram(s) on the whiteboard. Analyze them to understand what they're explaining:\n` 
+        });
+        
+        for (const item of imagesWithContext) {
+            parts.push({ 
+                text: `\nWhiteboard drawing #${item.index}${item.text ? ` (Teacher said: "${item.text}")` : ''}:` 
+            });
+            parts.push({
+                inlineData: {
+                    mimeType: 'image/png',
+                    data: item.image.replace(/^data:image\/\w+;base64,/, '') // Remove data URL prefix if present
+                }
+            });
+        }
+    }
+    
+    return [{ role: 'user', parts }];
+}
+
+/**
  * Generate the Junior's next response based on the teaching so far
  * Uses SYSTEM_JUNIOR_CONFIG for system coding problems, LEETCODE_JUNIOR_CONFIG for LeetCode
+ * Supports multimodal content (text + whiteboard drawings)
  */
 export async function getJuniorResponse(
     problem: BlindProblem,
@@ -154,10 +198,18 @@ export async function getJuniorResponse(
     const juniorConfig = problem.isSystemCoding ? SYSTEM_JUNIOR_CONFIG : LEETCODE_JUNIOR_CONFIG;
     
     const prompt = juniorConfig.generateResponsePrompt(problem, teachingHistory, currentState);
+    
+    // Check if there are any images in the teaching history
+    const hasImages = teachingHistory.some(turn => turn.imageBase64);
+    
+    // Build content - use multimodal format if images exist
+    const contents = hasImages 
+        ? buildMultimodalContent(prompt, teachingHistory)
+        : prompt;
 
     const response = await ai.models.generateContent({
         model: juniorConfig.model,
-        contents: prompt,
+        contents,
         config: {
             systemInstruction: juniorConfig.systemPrompt,
             responseMimeType: "application/json",
@@ -186,6 +238,9 @@ export async function getJuniorResponse(
     
     if (problem.isSystemCoding) {
         console.log('[TeachBack] Using System Junior for system coding problem');
+    }
+    if (hasImages) {
+        console.log('[TeachBack] Sent multimodal content with images to Gemini');
     }
     
     return {
@@ -453,7 +508,8 @@ export function addTurn(
     session: TeachingSession, 
     speaker: 'teacher' | 'junior', 
     content: string,
-    rawContent?: string // Original unrefined transcript (for debugging)
+    rawContent?: string, // Original unrefined transcript (for debugging)
+    imageBase64?: string // Optional whiteboard/Excalidraw image
 ): TeachingSession {
     return {
         ...session,
@@ -463,7 +519,8 @@ export function addTurn(
                 speaker,
                 content,
                 rawContent,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                imageBase64
             }
         ]
     };

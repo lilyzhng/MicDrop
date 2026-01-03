@@ -227,7 +227,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
       </div>
 
       {/* Main Content - Split View */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         
         {/* Left: Problem Reference (Desktop only) */}
         <div className="hidden lg:block lg:w-2/5 overflow-y-auto px-4 py-4 border-r border-white/5">
@@ -264,25 +264,46 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
             </div>
 
         {/* Right: Teaching Board */}
-        <div className="flex-1 flex flex-col lg:w-3/5">
+        <div className="flex-1 flex flex-col lg:w-3/5 min-h-0 overflow-y-auto lg:overflow-hidden">
           
-          {/* Mobile Problem Header */}
-          <div className="lg:hidden px-4 py-2 border-b border-white/10 bg-black/30">
-              <div className="flex items-center gap-2">
-              <BookOpen size={12} className="text-purple-300 shrink-0" />
-              <h3 className="text-xs font-serif font-semibold truncate">
-                {currentProblem?.leetcodeNumber && (
-                  <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
-                )}
-                {currentProblem?.title}
-              </h3>
+          {/* Mobile Problem Section - Full problem shown first on mobile */}
+          <div className="lg:hidden px-4 py-4 border-b border-white/10 bg-black/20 shrink-0">
+            <h2 className="text-xl font-serif font-bold mb-3 leading-tight">
+              {currentProblem?.leetcodeNumber && (
+                <span className="text-purple-300">#{currentProblem.leetcodeNumber}. </span>
+              )}
+              {currentProblem?.title}
+            </h2>
+            
+            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen size={12} className="text-purple-300" />
+                <span className="text-[9px] font-bold text-purple-300 uppercase tracking-widest">Problem</span>
+              </div>
+              <p className="text-sm text-gray-200 leading-relaxed">{currentProblem?.prompt}</p>
+              {currentProblem?.example && (
+                <div className="mt-3 bg-black/40 p-3 rounded-lg border border-white/5 font-mono text-xs text-gray-300 overflow-x-auto">
+                  <pre className="whitespace-pre-wrap">{currentProblem.example}</pre>
+                </div>
+              )}
             </div>
+            
+            {currentProblem?.mnemonicImageUrl && (
+              <div className="mt-3 rounded-xl overflow-hidden border border-white/10 bg-white/5">
+                <img 
+                  src={currentProblem.mnemonicImageUrl} 
+                  alt={`Visual mnemonic for ${currentProblem.title}`}
+                  className="w-full h-auto"
+                  loading="lazy"
+                />
+              </div>
+            )}
           </div>
 
-          {/* The Board - Fixed height with internal scrolling */}
-          <div className="flex-1 flex flex-col overflow-hidden p-2 sm:p-4">
-            {/* Chalkboard container - fixed height */}
-            <div className="flex-1 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-4 sm:border-8 border-amber-900/40 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+          {/* The Board - Constrained height with internal scrolling */}
+          <div className="flex flex-col p-2 sm:p-4 lg:flex-1 lg:overflow-hidden shrink-0 lg:shrink">
+            {/* Chalkboard container - constrained on mobile, flex on desktop */}
+            <div className="h-[280px] sm:h-[320px] lg:h-auto lg:flex-1 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-4 sm:border-8 border-amber-900/40 shadow-[inset_0_2px_20px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
               {/* Chalk dust effect */}
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.02)_0%,transparent_70%)] pointer-events-none rounded-2xl" />
               
@@ -410,16 +431,16 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
               </div>
             </div>
 
-            {/* Student Questions Section - Below the board, fixed height with scroll */}
-            <div className="mt-3 bg-purple-950/20 rounded-xl border border-purple-500/20 overflow-hidden">
+            {/* Student Questions Section - Below the board, visible on mobile */}
+            <div className="mt-3 bg-purple-950/20 rounded-xl border border-purple-500/20 overflow-hidden shrink-0">
               {/* Header - fixed */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-purple-500/10 border-b border-purple-500/20">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/10 border-b border-purple-500/20">
                 <HelpCircle size={14} className="text-purple-400" />
                 <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Student Questions</span>
               </div>
               
-              {/* Scrollable questions container */}
-              <div ref={studentQuestionsRef} className="max-h-[200px] overflow-y-auto p-3 space-y-3">
+              {/* Scrollable questions container - taller on mobile for visibility */}
+              <div ref={studentQuestionsRef} className="h-[140px] sm:h-[160px] lg:max-h-[200px] lg:h-auto overflow-y-auto p-3 space-y-3">
                 {teachingSession?.turns
                   .filter(turn => turn.speaker === 'junior')
                   .map((turn, idx) => (

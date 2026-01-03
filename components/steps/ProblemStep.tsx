@@ -195,7 +195,7 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
       </div>
 
       {/* Main Content Area - Desktop: 50/50 split with input on right | Mobile: Vertical with input at bottom */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Column: Problem Content (scrollable) - 50% on desktop */}
         <div className="lg:w-1/2 overflow-y-auto px-4 sm:px-6 md:px-8 py-4 lg:pr-4">
           <div className="max-w-4xl mx-auto pb-32 sm:pb-40 lg:pb-8">
@@ -376,9 +376,9 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
       </div>
 
         {/* Right Column: Input Area - 50% on desktop, sticky bottom on mobile */}
-        <div className="lg:w-1/2 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
+        <div className="lg:w-1/2 lg:h-full lg:min-h-0 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
           {/* Desktop: Full height input area */}
-          <div className="hidden lg:flex flex-col h-full p-6">
+          <div className="hidden lg:flex flex-col h-full min-h-0 p-6 pb-8">
             {/* Input Mode Toggle */}
             {step === 'problem' && (
               <div className="flex items-center justify-center gap-2 mb-4">
@@ -425,8 +425,8 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                 </div>
               ) : (
                 // Text mode - expandable textarea
-                <div className="flex-1 flex flex-col">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="flex items-center gap-2 mb-3 shrink-0">
                     <Send size={14} className="text-gold" />
                     <span className="text-[10px] font-bold text-gold uppercase tracking-widest">Your Explanation</span>
                   </div>
@@ -436,10 +436,10 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                     placeholder={sessionMode === 'paired' 
                       ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
                       : "Type your explanation of the solution..."}
-                    className="flex-1 w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 text-gray-200 font-mono text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                    className="flex-1 w-full min-h-[200px] bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 text-gray-200 font-mono text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
                     onKeyDown={handleKeyDown}
                   />
-                  <div className="flex flex-col items-center mt-4 gap-2">
+                  <div className="flex flex-col items-center mt-4 gap-2 shrink-0">
                     <button 
                       onClick={onTextSubmit}
                       disabled={!textInput.trim()}

@@ -198,7 +198,7 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left Column: Problem Content (scrollable) - 50% on desktop */}
         <div className="lg:w-1/2 overflow-y-auto px-4 sm:px-6 md:px-8 py-4 lg:pr-4">
-          <div className="max-w-4xl mx-auto pb-32 sm:pb-40 lg:pb-8">
+          <div className="max-w-4xl mx-auto pb-48 sm:pb-52 lg:pb-8">
           {/* Problem Title with LeetCode Number - Always on top */}
           <h2 className="text-2xl sm:text-4xl md:text-5xl font-serif font-bold mb-4 sm:mb-6 leading-tight">
             {currentProblem?.leetcodeNumber && (
@@ -375,8 +375,8 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
         </div>
       </div>
 
-        {/* Right Column: Input Area - 50% on desktop, sticky bottom on mobile */}
-        <div className="lg:w-1/2 lg:h-full lg:min-h-0 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
+        {/* Right Column: Input Area - 50% on desktop, fixed bottom on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:z-auto lg:w-1/2 lg:h-full lg:min-h-0 lg:border-l lg:border-white/10 lg:bg-black/30 flex flex-col">
           {/* Desktop: Full height input area */}
           <div className="hidden lg:flex flex-col h-full min-h-0 p-6 pb-8">
             {/* Input Mode Toggle */}
@@ -482,64 +482,90 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
           </div>
 
           {/* Mobile: Bottom fixed controls */}
-          <div className="lg:hidden p-6 sm:p-10 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 flex flex-col items-center">
-        {/* Input Mode Toggle */}
-        {step === 'problem' && (
-          <div className="flex items-center gap-2 mb-6">
-            <button
-              onClick={() => setInputMode('voice')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                inputMode === 'voice'
-                  ? 'bg-gold/20 border border-gold/40 text-gold'
-                  : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-              }`}
-            >
-              <Mic size={12} />
-              <span>Voice</span>
-            </button>
-            <button
-              onClick={() => setInputMode('text')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
-                inputMode === 'text'
-                  ? 'bg-gold/20 border border-gold/40 text-gold'
-                  : 'bg-white/5 border border-white/10 text-gray-500 hover:bg-white/10'
-              }`}
-            >
-              <Keyboard size={12} />
-              <span>Type</span>
-            </button>
-          </div>
-        )}
+          <div className="lg:hidden px-4 pt-3 pb-6 bg-gradient-to-t from-black via-black/90 to-transparent shrink-0 flex flex-col items-center" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}>
 
         {step === 'problem' ? (
           inputMode === 'voice' ? (
-            // Voice mode - show mic button
-            <button onClick={() => { setStep('recording'); handleStartRecording(); }} className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-charcoal border-4 border-white/10 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group">
-              <Mic size={28} className="sm:w-10 sm:h-10 group-hover:text-gold transition-colors" />
-            </button>
+            // Voice mode - show mic button with mode toggle
+            <div className="flex items-center gap-3">
+              {/* Mode toggle - small icons */}
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => setInputMode('voice')}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    inputMode === 'voice'
+                      ? 'bg-gold/20 border border-gold/40 text-gold'
+                      : 'bg-white/5 border border-white/10 text-gray-500'
+                  }`}
+                >
+                  <Mic size={14} />
+                </button>
+                <button
+                  onClick={() => setInputMode('text')}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    inputMode === 'text'
+                      ? 'bg-gold/20 border border-gold/40 text-gold'
+                      : 'bg-white/5 border border-white/10 text-gray-500'
+                  }`}
+                >
+                  <Keyboard size={14} />
+                </button>
+              </div>
+              {/* Mic button */}
+              <button onClick={() => { setStep('recording'); handleStartRecording(); }} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-charcoal border-4 border-white/10 flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all group">
+                <Mic size={28} className="group-hover:text-gold transition-colors" />
+              </button>
+            </div>
           ) : (
-            // Text mode - show text area and submit button
-            <div className="w-full max-w-2xl flex items-end gap-3">
+            // Text mode - show text area with submit button and mode toggle
+            <div className="w-full max-w-2xl flex items-end gap-2">
               <textarea
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder={sessionMode === 'paired' 
                   ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
                   : "Type your explanation of the solution..."}
-                className="flex-1 bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2rem] p-3 sm:p-5 border border-white/10 min-h-[80px] sm:min-h-[100px] max-h-[25vh] text-gray-200 font-mono text-sm sm:text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                className="flex-1 bg-white/5 backdrop-blur-2xl rounded-2xl p-3 border border-white/10 min-h-[70px] max-h-[20vh] text-gray-200 font-mono text-sm resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
                 onKeyDown={handleKeyDown}
               />
-              <button 
-                onClick={onTextSubmit}
-                disabled={!textInput.trim()}
-                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-white shadow-2xl border-2 transition-all shrink-0 ${
-                  textInput.trim() 
-                    ? 'bg-gold hover:scale-110 active:scale-95 border-gold/40' 
-                    : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <Send size={20} className="sm:w-6 sm:h-6" />
-              </button>
+              {/* Right side: mode toggle + send button */}
+              <div className="flex flex-col items-center gap-1.5 shrink-0">
+                {/* Mode toggle - small icons stacked */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setInputMode('voice')}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                      inputMode === 'voice'
+                        ? 'bg-gold/20 border border-gold/40 text-gold'
+                        : 'bg-white/5 border border-white/10 text-gray-500'
+                    }`}
+                  >
+                    <Mic size={12} />
+                  </button>
+                  <button
+                    onClick={() => setInputMode('text')}
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                      inputMode === 'text'
+                        ? 'bg-gold/20 border border-gold/40 text-gold'
+                        : 'bg-white/5 border border-white/10 text-gray-500'
+                    }`}
+                  >
+                    <Keyboard size={12} />
+                  </button>
+                </div>
+                {/* Send button */}
+                <button 
+                  onClick={onTextSubmit}
+                  disabled={!textInput.trim()}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center text-white shadow-2xl border-2 transition-all ${
+                    textInput.trim() 
+                      ? 'bg-gold hover:scale-110 active:scale-95 border-gold/40' 
+                      : 'bg-gray-700 border-gray-600 opacity-50 cursor-not-allowed'
+                  }`}
+                >
+                  <Send size={18} />
+                </button>
+              </div>
             </div>
           )
         ) : (
@@ -555,15 +581,10 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
             </button>
           </div>
         )}
-        <span className="mt-5 sm:mt-8 text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] sm:tracking-[0.4em]">
-          {step === 'problem' 
-            ? (inputMode === 'text' ? 'Submit Explanation' : (sessionMode === 'paired' ? 'Start Explaining' : 'Push to Explain'))
-            : 'Stop Recording'}
-        </span>
-        {sessionMode === 'paired' && step === 'problem' && inputMode === 'voice' && (
-          <p className="mt-3 text-[9px] text-gray-600 text-center max-w-sm">
-            Cover: core insight, state definition, example walkthrough, edge cases, and complexity
-          </p>
+        {step !== 'problem' && (
+          <span className="mt-4 text-[9px] font-bold text-gray-500 uppercase tracking-[0.3em]">
+            Stop Recording
+          </span>
         )}
           </div>
         </div>

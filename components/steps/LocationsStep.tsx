@@ -114,31 +114,29 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
 }) => {
   return (
     <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
-      {/* Daily Quest Header - Single row with absolutely centered Daily Quest */}
-      <div className="border-b border-white/5 shrink-0 bg-black px-4 sm:px-6 py-4 sm:py-5 pr-16 sm:pr-20 relative">
-        {/* Absolutely centered Daily Quest - aligned with content below */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-full max-w-2xl px-4 sm:px-6">
-            <div className="text-center">
-              <div className="text-[8px] sm:text-[10px] text-gold font-bold tracking-[0.2em] sm:tracking-[0.3em] uppercase mb-1">Daily Quest</div>
-              <div className="flex items-center justify-center gap-2 sm:gap-3">
-                <div className="h-1 sm:h-1.5 w-24 sm:w-40 bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-gold transition-all duration-700" style={{ width: `${((dailyCleared) / (studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap)) * 100}%` }}></div>
-                </div>
-                <span className="text-xs sm:text-sm font-bold font-mono text-gold">{dailyCleared}/{studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap}</span>
+      {/* Daily Quest Header */}
+      <div className="border-b border-white/5 shrink-0 bg-black px-4 sm:px-6 py-2.5 sm:py-4 pr-14 sm:pr-16">
+        {/* Top row: Home, Daily Quest centered, Mode + Settings */}
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
+          {/* Left: Home button */}
+          <button onClick={() => onHome(true)} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/5 rounded-full border border-white/10 hover:bg-white/10 transition-colors shrink-0">
+            <Home size={16} className="sm:w-5 sm:h-5" />
+          </button>
+          
+          {/* Center: Daily Quest progress - centered with offset for visual balance */}
+          <div className="flex-1 flex flex-col items-center min-w-0 ml-20 sm:ml-22">
+            <div className="text-[8px] sm:text-[10px] text-gold font-bold tracking-[0.2em] sm:tracking-[0.3em] uppercase mb-0.5 sm:mb-1">Daily Quest</div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="h-1 sm:h-1.5 w-20 sm:w-40 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-gold transition-all duration-700" style={{ width: `${((dailyCleared) / (studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap)) * 100}%` }}></div>
               </div>
+              <span className="text-[10px] sm:text-sm font-bold font-mono text-gold whitespace-nowrap">{dailyCleared}/{studySettings?.dailyCap || DEFAULT_SETTINGS.dailyCap}</span>
             </div>
           </div>
-        </div>
-        
-        {/* Left and Right buttons - positioned normally */}
-        <div className="relative flex items-center justify-between">
-          {/* Left: Home button */}
-          <button onClick={() => onHome(true)} className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/5 rounded-full border border-white/10 hover:bg-white/10 transition-colors shrink-0"><Home size={16} className="sm:w-5 sm:h-5" /></button>
           
-          {/* Right: Action buttons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Mode Toggle Button */}
+          {/* Right: Mode toggle + Settings button */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Mode Toggle - small icon button */}
             <button 
               onClick={() => {
                 const modes: SessionMode[] = ['paired', 'explain', 'teach'];
@@ -146,7 +144,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
                 const nextIdx = (currentIdx + 1) % modes.length;
                 setSessionMode(modes[nextIdx]);
               }}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 ${
+              className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition-all ${
                 sessionMode === 'paired'
                   ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                   : sessionMode === 'teach'
@@ -156,17 +154,17 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
               title={sessionMode === 'paired' ? 'Paired: Explain → Teach same problem' : sessionMode === 'teach' ? 'Teach only mode' : 'Explain only mode'}
             >
               {sessionMode === 'paired' ? (
-                <><Layers size={12} className="sm:w-3.5 sm:h-3.5" /><span>Paired</span></>
+                <Layers size={14} className="sm:w-4 sm:h-4" />
               ) : sessionMode === 'teach' ? (
-                <><GraduationCap size={12} className="sm:w-3.5 sm:h-3.5" /><span>Teach</span></>
+                <GraduationCap size={14} className="sm:w-4 sm:h-4" />
               ) : (
-                <><Mic size={12} className="sm:w-3.5 sm:h-3.5" /><span>Explain</span></>
+                <Mic size={14} className="sm:w-4 sm:h-4" />
               )}
             </button>
-
+            {/* Settings button */}
             <button 
               onClick={() => setShowSettings(true)}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all shrink-0"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
               title="Study Settings"
             >
               <Settings size={16} className="sm:w-5 sm:h-5" />

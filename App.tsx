@@ -239,7 +239,7 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
   return (
     <div className="h-screen w-screen overflow-hidden bg-cream text-charcoal font-sans relative">
       {/* User Menu Overlay - Available on all views */}
-      <div className="absolute top-6 right-6 z-[60]">
+      <div className="absolute top-2.5 right-3 sm:top-4 sm:right-5 z-[60]">
           <UserMenu />
       </div>
 

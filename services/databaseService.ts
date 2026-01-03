@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { SavedItem, SavedReport, PerformanceReport, BlindProblem, CustomInterviewQuestion } from '../types';
+import { SavedItem, SavedReport, PerformanceReport, BlindProblem, CustomInterviewQuestion, BehavioralQuestion, BehavioralQuestionType } from '../types';
 
 // ========== SAVED ITEMS (Snippets) ==========
 
@@ -298,7 +298,7 @@ export const fetchSystemCodingQuestionByTitle = async (userId: string, title: st
 /**
  * Fetch all blind problems (for stats/admin purposes)
  */
-export const fetchAllBlindProblems = async (): Promise<BlindProblem[]> => {
+export const fetchLeetcodeProblems = async (): Promise<BlindProblem[]> => {
     const { data, error } = await supabase
         .from('blind_problems')
         .select('*')
@@ -976,10 +976,11 @@ export const getDailyActivitySummary = async (
     }));
 };
 
-// ========== COMPANY-SPECIFIC INTERVIEW QUESTIONS ==========
+// ========== SKILL MODULES (System Coding, ML Coding, etc.) ==========
 
 /**
- * Fetch all companies
+ * Fetch all skill modules (formerly "companies")
+ * These are specialized interview prep categories like System Coding, ML Coding
  */
 export const fetchCompanies = async (): Promise<Array<{
     id: string;
@@ -989,42 +990,42 @@ export const fetchCompanies = async (): Promise<Array<{
     createdAt: Date;
 }>> => {
     const { data, error } = await supabase
-        .from('companies')
+        .from('skill_modules')
         .select('*')
         .order('name', { ascending: true });
 
     if (error) {
-        console.error('Error fetching companies:', error);
+        console.error('Error fetching skill modules:', error);
         return [];
     }
 
-    return data.map(company => ({
-        id: company.id,
-        name: company.name,
-        description: company.description,
-        icon: company.icon,
-        createdAt: new Date(company.created_at)
+    return data.map(module => ({
+        id: module.id,
+        name: module.name,
+        description: module.description,
+        icon: module.icon,
+        createdAt: new Date(module.created_at)
     }));
 };
 
 /**
- * Fetch company problems for a specific company
+ * Fetch problems for a specific skill module
  * Returns the linked problems from blind_problems table ordered by display_order
  */
-export const fetchCompanyProblems = async (companyId: string): Promise<BlindProblem[]> => {
+export const fetchCompanyProblems = async (moduleId: string): Promise<BlindProblem[]> => {
     const { data, error } = await supabase
-        .from('company_problems')
+        .from('module_problems')
         .select(`
             problem_title,
             display_order,
             notes,
             problem_source
         `)
-        .eq('company_id', companyId)
+        .eq('module_id', moduleId)
         .order('display_order', { ascending: true });
 
     if (error) {
-        console.error('Error fetching company problems:', error);
+        console.error('Error fetching module problems:', error);
         return [];
     }
 
@@ -1097,33 +1098,33 @@ export const buildCompanyProblemQueue = async (
 };
 
 /**
- * Get count of problems for a specific company.
- * Includes both curated problems from company_problems AND custom questions.
+ * Get count of problems for a specific skill module.
+ * Includes both curated problems from module_problems AND custom questions.
  */
 export const getCompanyProblemsCount = async (
-    companyId: string, 
-    companyName?: string, 
+    moduleId: string, 
+    moduleName?: string, 
     userId?: string
 ): Promise<number> => {
-    // Count curated problems from company_problems table
+    // Count curated problems from module_problems table
     const { count: curatedCount, error } = await supabase
-        .from('company_problems')
+        .from('module_problems')
         .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId);
+        .eq('module_id', moduleId);
 
     if (error) {
-        console.error('Error counting company problems:', error);
+        console.error('Error counting module problems:', error);
     }
 
     let customCount = 0;
     
-    // Count custom questions if we have both company name and user ID
-    if (companyName && userId) {
+    // Count custom questions if we have both module name and user ID
+    if (moduleName && userId) {
         const { count: customQuestionsCount, error: customError } = await supabase
             .from('custom_interview_questions')
             .select('*', { count: 'exact', head: true })
             .eq('user_id', userId)
-            .eq('company', companyName);
+            .eq('company', moduleName);  // Note: custom_interview_questions still uses 'company' field
         
         if (customError) {
             console.error('Error counting custom questions:', customError);
@@ -1133,7 +1134,7 @@ export const getCompanyProblemsCount = async (
     }
 
     const total = (curatedCount || 0) + customCount;
-    console.log(`[getCompanyProblemsCount] Company ${companyName || companyId}: ${curatedCount || 0} curated + ${customCount} custom = ${total} total`);
+    console.log(`[getCompanyProblemsCount] Module ${moduleName || moduleId}: ${curatedCount || 0} curated + ${customCount} custom = ${total} total`);
     
     return total;
 };
@@ -1362,8 +1363,8 @@ export interface SystemCodingQuestionData {
 
 /**
  * Save a system coding question with teaching metadata.
- * The company field is stored directly on the question for filtering.
- * Note: We don't insert into company_problems (RLS protected for admin use).
+ * The module field is stored directly on the question for filtering.
+ * Note: We don't insert into module_problems (RLS protected for admin use).
  * Custom questions are fetched via fetchCustomQuestionsForCompany instead.
  */
 export const saveSystemCodingQuestion = async (
@@ -1505,3 +1506,149 @@ export const fetchCustomQuestionsForCompany = async (
             };
         });
 };
+
+// ========== INTERVIEW QUESTIONS (for End Game) ==========
+
+/**
+ * Fetch interview questions by type.
+ * Returns both default questions (user_id IS NULL) and user's custom questions.
+ */
+export const fetchBehavioralQuestions = async (type: BehavioralQuestionType): Promise<BehavioralQuestion[]> => {
+    console.log('[DB] fetchBehavioralQuestions called with type:', type);
+    
+    const { data, error } = await supabase
+        .from('behavioral_questions')
+        .select('*')
+        .eq('type', type)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    console.log('[DB] fetchBehavioralQuestions result:', { data: data?.length || 0, error: error?.message || null });
+
+    if (error) {
+        console.error('[DB] Error fetching behavioral questions:', error);
+        return [];
+    }
+
+    if (!data || data.length === 0) {
+        console.warn('[DB] No behavioral questions found for type:', type);
+        return [];
+    }
+
+    const mapped = data.map(q => ({
+        id: q.id,
+        userId: q.user_id,
+        type: q.type as BehavioralQuestionType,
+        title: q.title,
+        context: q.context,
+        probingPrompt: q.probing_prompt,
+        source: q.source,
+        isDefault: q.is_default,
+        createdAt: new Date(q.created_at),
+        updatedAt: new Date(q.updated_at)
+    }));
+    
+    console.log('[DB] fetchBehavioralQuestions returning', mapped.length, 'questions');
+    return mapped;
+};
+
+/**
+ * Fetch all interview questions (all types).
+ */
+export const fetchAllBehavioralQuestions = async (): Promise<BehavioralQuestion[]> => {
+    const { data, error } = await supabase
+        .from('behavioral_questions')
+        .select('*')
+        .order('type', { ascending: true })
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching all interview questions:', error);
+        return [];
+    }
+
+    return data.map(q => ({
+        id: q.id,
+        userId: q.user_id,
+        type: q.type as BehavioralQuestionType,
+        title: q.title,
+        context: q.context,
+        probingPrompt: q.probing_prompt,
+        source: q.source,
+        isDefault: q.is_default,
+        createdAt: new Date(q.created_at),
+        updatedAt: new Date(q.updated_at)
+    }));
+};
+
+/**
+ * Create a new interview question for a user.
+ */
+export const createBehavioralQuestion = async (
+    userId: string,
+    question: Omit<BehavioralQuestion, 'id' | 'userId' | 'isDefault' | 'createdAt' | 'updatedAt'>
+): Promise<BehavioralQuestion | null> => {
+    const { data, error } = await supabase
+        .from('behavioral_questions')
+        .insert({
+            user_id: userId,
+            type: question.type,
+            title: question.title,
+            context: question.context,
+            probing_prompt: question.probingPrompt,
+            source: question.source,
+            is_default: false
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error creating interview question:', error);
+        return null;
+    }
+
+    return {
+        id: data.id,
+        userId: data.user_id,
+        type: data.type as InterviewQuestionType,
+        title: data.title,
+        context: data.context,
+        probingPrompt: data.probing_prompt,
+        source: data.source,
+        isDefault: data.is_default,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+    };
+};
+
+/**
+ * Delete an interview question (user can only delete their own).
+ */
+export const deleteBehavioralQuestion = async (questionId: string): Promise<boolean> => {
+    const { error } = await supabase
+        .from('behavioral_questions')
+        .delete()
+        .eq('id', questionId);
+
+    if (error) {
+        console.error('Error deleting interview question:', error);
+        return false;
+    }
+
+    return true;
+};
+
+/**
+ * Convert BehavioralQuestion to ArenaQuestion format for use with ArenaView.
+ */
+export const toArenaQuestion = (q: BehavioralQuestion): { id: string; title: string; context: string; probingPrompt: string; source?: string } => ({
+    id: q.id,
+    title: q.title,
+    context: q.context,
+    probingPrompt: q.probingPrompt,
+    source: q.source
+});
+
+// Backwards compatibility alias
+export const toHotTakeQuestion = toArenaQuestion;

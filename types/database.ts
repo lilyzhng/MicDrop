@@ -226,7 +226,7 @@ export interface Database {
           updated_at?: string
         }
       }
-      companies: {
+      skill_modules: {
         Row: {
           id: string
           name: string
@@ -249,10 +249,10 @@ export interface Database {
           created_at?: string
         }
       }
-      company_problems: {
+      module_problems: {
         Row: {
           id: string
-          company_id: string
+          module_id: string
           problem_title: string
           problem_source: 'blind_problems' | 'custom'
           display_order: number
@@ -261,7 +261,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          company_id: string
+          module_id: string
           problem_title: string
           problem_source: 'blind_problems' | 'custom'
           display_order?: number
@@ -270,7 +270,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          company_id?: string
+          module_id?: string
           problem_title?: string
           problem_source?: 'blind_problems' | 'custom'
           display_order?: number
@@ -416,7 +416,7 @@ export interface DailyActivitySummary {
 // Company-Specific Interview Questions Types
 // ============================================
 
-export interface Company {
+export interface SkillModule {
   id: string;
   name: string;
   description: string | null;
@@ -424,13 +424,19 @@ export interface Company {
   createdAt: Date;
 }
 
-export interface CompanyProblem {
+// Alias for backwards compatibility
+export type Company = SkillModule;
+
+export interface ModuleProblem {
   id: string;
-  companyId: string;
+  moduleId: string;
   problemTitle: string;
   problemSource: 'blind_problems' | 'custom';
   displayOrder: number;
   notes: string | null;
   createdAt: Date;
 }
+
+// Alias for backwards compatibility
+export type CompanyProblem = ModuleProblem;
 

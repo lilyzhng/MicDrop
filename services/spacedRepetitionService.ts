@@ -22,7 +22,7 @@ import {
     fetchDueTomorrow,
     upsertUserProblemProgress,
     batchUpsertUserProgress,
-    fetchAllBlindProblems,
+    fetchLeetcodeProblems,
     recordProblemCompletion,
     getStudyDaysCount
 } from './databaseService';
@@ -347,7 +347,7 @@ export async function buildSpacedRepetitionQueue(
     const allProgress = await fetchAllUserProgress(userId);
     const dueReviews = await fetchDueReviews(userId);
     const dueTomorrow = await fetchDueTomorrow(userId);
-    let allProblems = await fetchAllBlindProblems();
+    let allProblems = await fetchLeetcodeProblems();
     
     // Get actual study days count from daily activity table
     // Only count days on or after the configured start date
@@ -407,7 +407,7 @@ export async function buildSpacedRepetitionQueue(
         // REVIEWS PRIORITY MODE: Get ALL due reviews regardless of topic
         filteredDueReviews = dueReviews;
         // Need to get all problems (not just filtered ones) to find review problems
-        allProblemsForReviews = await fetchAllBlindProblems();
+        allProblemsForReviews = await fetchLeetcodeProblems();
         console.log(`[Spaced Repetition] Reviews Priority Mode: Including ALL ${dueReviews.length} due reviews`);
     } else {
         // STANDARD MODE: Filter reviews by topic
@@ -506,7 +506,7 @@ export interface GroupedProblems {
 export async function getProgressGrid(userId: string): Promise<GroupedProblems[]> {
     const allProgress = await fetchAllUserProgress(userId);
     const dueReviews = await fetchDueReviews(userId);
-    const allProblems = await fetchAllBlindProblems();
+    const allProblems = await fetchLeetcodeProblems();
     
     // Create maps for quick lookup
     const progressMap = new Map<string, UserProblemProgress>();

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { PerformanceReport, HotTakeGlobalContext, HotTakePreference, HotTakeQuestion, BlindProblem } from '../types';
+import { PerformanceReport, ArenaGlobalContext, ArenaPreference, ArenaQuestion, BlindProblem, HiringCommitteeVerdict, EndGameRoundResult } from '../types';
 import { TRANSCRIBE_CONFIG, COACH_CONFIG, HOT_TAKE_CONFIG, WALKIE_TALKIE_CONFIG, CODING_INTERVIEW_CONFIG } from '../config/evaluationPrompts';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
@@ -284,12 +284,12 @@ const HOT_TAKE_QUESTION_SCHEMA = {
     }
 };
 
-export const evaluateHotTakeInitial = async (
+export const evaluateArenaInitial = async (
     transcript: string, 
     question: string, 
     context: string, 
-    globalContext: HotTakeGlobalContext, 
-    preferences: HotTakePreference[]
+    globalContext: ArenaGlobalContext, 
+    preferences: ArenaPreference[]
 ): Promise<PerformanceReport> => {
     const prefSummary = preferences.map(p => `- [${p.type}] on "${p.questionText}": ${p.feedback}`).join('\n');
     
@@ -314,7 +314,7 @@ export const evaluateHotTakeInitial = async (
     return JSON.parse(response.text);
 };
 
-export const finalizeHotTake = async (historyJson: string, globalContext: HotTakeGlobalContext): Promise<PerformanceReport> => {
+export const finalizeArena = async (historyJson: string, globalContext: ArenaGlobalContext): Promise<PerformanceReport> => {
     const prompt = HOT_TAKE_CONFIG.generateFinalizePrompt(
         historyJson,
         globalContext.company || '',
@@ -332,7 +332,7 @@ export const finalizeHotTake = async (historyJson: string, globalContext: HotTak
     return JSON.parse(response.text);
 };
 
-export const customizeHotTakeQuestions = async (baseQuestions: HotTakeQuestion[], globalContext: HotTakeGlobalContext): Promise<HotTakeQuestion[]> => {
+export const customizeArenaQuestions = async (baseQuestions: ArenaQuestion[], globalContext: ArenaGlobalContext): Promise<ArenaQuestion[]> => {
     if (!globalContext.company && !globalContext.roundFocus) {
         return baseQuestions;
     }
@@ -355,11 +355,11 @@ export const customizeHotTakeQuestions = async (baseQuestions: HotTakeQuestion[]
     return JSON.parse(response.text || "[]");
 };
 
-export const regenerateHotTakeFollowUp = async (
+export const regenerateArenaFollowUp = async (
     transcript: string,
     previousQuestion: string,
     feedback: string,
-    globalContext: HotTakeGlobalContext
+    globalContext: ArenaGlobalContext
 ): Promise<string> => {
     const prompt = HOT_TAKE_CONFIG.generateRegenerateFollowUpPrompt(
         transcript,
@@ -797,4 +797,125 @@ ${reportData.correctSolution ? `Note: A corrected solution was already provided:
     });
 
     return JSON.parse(response.text);
+}
+
+// ============================================================
+// END GAME - HIRING COMMITTEE EVALUATION
+// ============================================================
+
+const HIRING_COMMITTEE_SYSTEM_PROMPT = `Role: You are the Hiring Committee at a Tier-1 Tech Company.
+Input: You have received interview packets for the same candidate across multiple rounds.
+
+The rounds may include:
+1. Behavioral Round (Culture, Conflict)
+2. ML Deep Dive (Theoretical Depth)
+3. Coding Round (Algorithms, Correctness)
+4. System Coding (Implementation Skills)
+5. ML System Design (Scalability, Trade-offs)
+
+Task: Synthesize these signals into a final hiring decision.
+
+Rules:
+- A strong coding round CANNOT save a candidate who failed Culture or System Design.
+- L6 (Staff) requires proactive trade-off discussions, cross-functional thinking, and technical leadership.
+- Identify contradictions (e.g., strong scaling claims in behavioral vs. weak design skills).
+- Be rigorous but fair. Look for patterns across rounds.
+- If any round was skipped/placeholder, note that limited data was available.`;
+
+const HIRING_COMMITTEE_SCHEMA = {
+    type: GeminiType.OBJECT,
+    properties: {
+        verdict: { 
+            type: GeminiType.STRING, 
+            description: "STRONG HIRE, LEAN HIRE, or NO HIRE" 
+        },
+        level: { 
+            type: GeminiType.STRING, 
+            description: "L6 if candidate demonstrates staff-level competency, N/A otherwise" 
+        },
+        debriefSummary: { 
+            type: GeminiType.STRING, 
+            description: "2-3 paragraph summary explaining the decision, citing evidence from each round" 
+        },
+        primaryBlocker: { 
+            type: GeminiType.STRING, 
+            description: "The single biggest concern that could change the decision, or 'None' if strong hire" 
+        }
+    },
+    required: ["verdict", "level", "debriefSummary", "primaryBlocker"]
+};
+
+export const evaluateHiringCommittee = async (
+    roundReports: EndGameRoundResult[]
+): Promise<HiringCommitteeVerdict> => {
+    // Build the interview packets from round reports
+    const packets = roundReports.map((r, idx) => {
+        const report = r.report;
+        let roundSummary = `## Round ${idx + 1}: ${r.round}\n`;
+        roundSummary += `Score: ${report.rating}/100\n`;
+        roundSummary += `Summary: ${report.summary}\n`;
+        
+        // Add round-specific details
+        if (report.hotTakeRubric) {
+            roundSummary += `Rubric: ${JSON.stringify(report.hotTakeRubric)}\n`;
+        }
+        if (report.teachingReportData) {
+            const tr = report.teachingReportData;
+            roundSummary += `Student Outcome: ${tr.studentOutcome}\n`;
+            roundSummary += `Top Gaps: ${tr.topGaps.join(', ')}\n`;
+        }
+        if (report.codingRubric) {
+            roundSummary += `Coding Rubric: ${JSON.stringify(report.codingRubric)}\n`;
+        }
+        if (report.suggestions && report.suggestions.length > 0) {
+            roundSummary += `Key Feedback: ${report.suggestions.slice(0, 3).join('; ')}\n`;
+        }
+        
+        return roundSummary;
+    }).join('\n---\n');
+
+    const prompt = `You are evaluating a candidate for a Staff-level (L6) ML Engineering position.
+
+${packets}
+
+Based on these interview signals, provide your hiring committee decision.
+
+Remember:
+- The bar for L6 is HIGH: proactive trade-offs, technical leadership, system-wide thinking
+- Look for consistency across rounds
+- A single bad round in culture/design is a strong signal
+- Consider what's missing if any rounds were placeholders`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            systemInstruction: HIRING_COMMITTEE_SYSTEM_PROMPT,
+            responseMimeType: "application/json",
+            responseSchema: HIRING_COMMITTEE_SCHEMA
+        }
+    });
+
+    const result = JSON.parse(response.text);
+    
+    // Normalize the verdict and level values
+    return {
+        verdict: normalizeVerdict(result.verdict),
+        level: normalizeLevel(result.level),
+        debriefSummary: result.debriefSummary,
+        primaryBlocker: result.primaryBlocker
+    };
+};
+
+function normalizeVerdict(verdict: string): 'STRONG HIRE' | 'LEAN HIRE' | 'NO HIRE' {
+    const upper = verdict.toUpperCase().trim();
+    if (upper.includes('STRONG')) return 'STRONG HIRE';
+    if (upper.includes('LEAN')) return 'LEAN HIRE';
+    return 'NO HIRE';
+}
+
+function normalizeLevel(level: string): 'L6' | 'N/A' {
+    const upper = level.toUpperCase().trim();
+    if (upper.includes('L6') || upper.includes('STAFF')) return 'L6';
+    return 'N/A';
 }

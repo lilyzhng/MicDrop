@@ -1,50 +1,34 @@
 
-import React, { useState } from 'react';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User as UserIcon } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const UserMenu: React.FC = () => {
-    const { user, signOut } = useAuth();
-    const [isOpen, setIsOpen] = useState(false);
+    const { user } = useAuth();
+    const navigate = useNavigate();
 
     if (!user) return null;
 
-    return (
-        <div className="relative">
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center justify-center hover:opacity-80 transition-opacity"
-            >
-                {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.name} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full border-2 border-white/20" />
-                ) : (
-                    <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
-                        <UserIcon size={16} className="sm:w-5 sm:h-5" />
-                    </div>
-                )}
-            </button>
+    const handleAvatarClick = () => {
+        navigate('/database');
+    };
 
-            {isOpen && (
-                <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
-                    <div className="absolute right-0 top-10 sm:top-12 w-48 bg-white rounded-xl shadow-xl border border-[#EBE8E0] z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="px-4 py-3 border-b border-gray-100 mb-2">
-                            <p className="text-sm font-bold text-charcoal truncate">{user.name}</p>
-                            <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                        </div>
-                        <button 
-                            onClick={() => {
-                                setIsOpen(false);
-                                signOut();
-                            }}
-                            className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                        >
-                            <LogOut size={14} /> Sign Out
-                        </button>
-                    </div>
-                </>
+    return (
+        <button 
+            onClick={handleAvatarClick}
+            className="hover:opacity-80 transition-opacity focus:outline-none border-0 bg-transparent p-0 m-0"
+            title="View My Database"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+            {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full block" />
+            ) : (
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                    <UserIcon size={16} className="sm:w-5 sm:h-5" />
+                </div>
             )}
-        </div>
+        </button>
     );
 };
 

@@ -2,19 +2,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Home, ArrowLeft, Mic, StopCircle, Zap, Loader2, Trophy, Timer, MessageSquare, Star, ArrowUpRight, Plus, X, BookOpen, Settings, Building2, UserCircle2, Target, ThumbsUp, ThumbsDown, Save, SkipForward } from 'lucide-react';
-import { HotTakeQuestion, PerformanceReport, SavedItem, HotTakeTurn, HotTakeGlobalContext, HotTakePreference } from '../types';
-import { evaluateHotTakeInitial, finalizeHotTake, refineTranscript, customizeHotTakeQuestions, regenerateHotTakeFollowUp } from '../services/analysisService';
+import { ArenaQuestion, PerformanceReport, SavedItem, ArenaTurn, ArenaGlobalContext, ArenaPreference } from '../types';
+import { evaluateArenaInitial, finalizeArena, refineTranscript, customizeArenaQuestions, regenerateArenaFollowUp } from '../services/analysisService';
 import { formatTime } from '../utils';
 import PerformanceReportComponent from '../components/PerformanceReport';
 
-interface HotTakeViewProps {
+interface ArenaViewProps {
   onHome: (force: boolean) => void;
   onSaveReport: (title: string, type: 'hot-take', report: PerformanceReport) => void;
   isSaved: (title: string, content: string) => boolean;
   onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
+  // End Game simulation mode: if provided, call this instead of showing reveal screen
+  onRoundComplete?: (report: PerformanceReport) => void;
+  // Auto-start: if provided, skip selection and start with this question immediately
+  autoStartQuestion?: ArenaQuestion;
 }
 
-const BASE_QUESTIONS: HotTakeQuestion[] = [
+const BASE_QUESTIONS: ArenaQuestion[] = [
   { 
     id: 'ht1', 
     title: 'Introduce Yourself / Why Me?', 
@@ -53,30 +57,57 @@ const BASE_QUESTIONS: HotTakeQuestion[] = [
   }
 ];
 
-const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved, onToggleSave }) => {
+const ArenaView: React.FC<ArenaViewProps> = ({ onHome, onSaveReport, isSaved, onToggleSave, onRoundComplete, autoStartQuestion }) => {
   const location = useLocation();
-  const [step, setStep] = useState<'selection' | 'add_custom' | 'session' | 'analyzing' | 'reveal' | 'context_config'>('selection');
+  
+  // DEBUG: Log props on every render
+  console.log('[ArenaView] RENDER - autoStartQuestion:', autoStartQuestion?.title || 'UNDEFINED', 'onRoundComplete:', !!onRoundComplete);
+  
+  // If autoStartQuestion is provided, start directly in session mode
+  const [step, setStep] = useState<'selection' | 'add_custom' | 'session' | 'analyzing' | 'reveal' | 'context_config'>(() => {
+    console.log('[ArenaView] useState initializer - autoStartQuestion:', autoStartQuestion?.title || 'UNDEFINED');
+    if (autoStartQuestion) {
+      console.log('[ArenaView] Auto-starting with question:', autoStartQuestion.title);
+      return 'session';
+    }
+    return 'selection';
+  });
+  const autoStartedRef = useRef(!!autoStartQuestion); // Mark as started if we have autoStartQuestion
+  
+  // DEBUG: Log current step
+  console.log('[ArenaView] Current step:', step);
+  
+  // Effect to handle late-arriving autoStartQuestion (when prop updates after initial mount)
+  useEffect(() => {
+    console.log('[ArenaView] useEffect - autoStartQuestion changed:', autoStartQuestion?.title || 'UNDEFINED', 'autoStartedRef:', autoStartedRef.current, 'step:', step);
+    if (autoStartQuestion && !autoStartedRef.current && step === 'selection') {
+      console.log('[ArenaView] Late auto-start detected! Switching to session mode with:', autoStartQuestion.title);
+      setSelectedQuestion(autoStartQuestion);
+      setStep('session');
+      autoStartedRef.current = true;
+    }
+  }, [autoStartQuestion, step]);
   const [sessionMode, setSessionMode] = useState<'initial' | 'probing'>('initial');
   const [isCustomizingQuestions, setIsCustomizingQuestions] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   
-  const [globalContext, setGlobalContext] = useState<HotTakeGlobalContext>(() => {
+  const [globalContext, setGlobalContext] = useState<ArenaGlobalContext>(() => {
     try {
       const stored = localStorage.getItem('micdrop_hot_take_context');
       return stored ? JSON.parse(stored) : { company: '', interviewer: '', roundFocus: '' };
     } catch { return { company: '', interviewer: '', roundFocus: '' }; }
   });
 
-  const [preferences, setPreferences] = useState<HotTakePreference[]>(() => {
+  const [preferences, setPreferences] = useState<ArenaPreference[]>(() => {
     try {
       const stored = localStorage.getItem('micdrop_hot_take_preferences');
       return stored ? JSON.parse(stored) : [];
     } catch { return []; }
   });
 
-  const [activeQuestions, setActiveQuestions] = useState<HotTakeQuestion[]>(BASE_QUESTIONS);
+  const [activeQuestions, setActiveQuestions] = useState<ArenaQuestion[]>(BASE_QUESTIONS);
 
-  const [customQuestions, setCustomQuestions] = useState<HotTakeQuestion[]>(() => {
+  const [customQuestions, setCustomQuestions] = useState<ArenaQuestion[]>(() => {
     try {
       const stored = localStorage.getItem('micdrop_custom_hot_takes');
       return stored ? JSON.parse(stored) : [];
@@ -84,8 +115,18 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
   });
 
   const [newQuestion, setNewQuestion] = useState({ title: '', context: '' });
-  const [selectedQuestion, setSelectedQuestion] = useState<HotTakeQuestion | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<ArenaQuestion | null>(
+    // Initialize with autoStartQuestion if provided
+    autoStartQuestion || null
+  );
   const processedPracticeRef = useRef<string | null>(null);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [duration, setDuration] = useState(90); 
+  const [rawTranscript, setRawTranscript] = useState("");
+  
+  // Track history for reveal
+  const [sessionHistory, setSessionHistory] = useState<ArenaTurn[]>([]);
 
   // Check for incoming practice request
   useEffect(() => {
@@ -100,7 +141,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
       processedPracticeRef.current = questionKey;
       
       // Create a question object with source
-      const practiceQ: HotTakeQuestion = {
+      const practiceQ: ArenaQuestion = {
         id: 'practice_' + Date.now(),
         title: title,
         context: context,
@@ -126,12 +167,18 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
       window.history.replaceState({}, document.title);
     }
   }, [location]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [duration, setDuration] = useState(90); 
-  const [rawTranscript, setRawTranscript] = useState("");
-  
-  // Track history for reveal
-  const [sessionHistory, setSessionHistory] = useState<HotTakeTurn[]>([]);
+
+  // Auto-start for End Game simulation mode
+  useEffect(() => {
+    if (autoStartQuestion && !autoStartedRef.current) {
+      console.log('[EndGame] Auto-starting with question:', autoStartQuestion.title);
+      autoStartedRef.current = true;
+      setSelectedQuestion(autoStartQuestion);
+      setSessionMode('initial');
+      setSessionHistory([]);
+      setStep('session');
+    }
+  }, [autoStartQuestion]);
 
   const [initialReport, setInitialReport] = useState<PerformanceReport | null>(null);
   const [finalReport, setFinalReport] = useState<PerformanceReport | null>(null);
@@ -158,7 +205,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
   const refreshCustomizedQuestions = async () => {
     setIsCustomizingQuestions(true);
     try {
-      const tailored = await customizeHotTakeQuestions(BASE_QUESTIONS, globalContext);
+      const tailored = await customizeArenaQuestions(BASE_QUESTIONS, globalContext);
       setActiveQuestions(tailored);
     } catch (e) {
       setActiveQuestions(BASE_QUESTIONS);
@@ -220,7 +267,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
 
       if (sessionMode === 'initial') {
         // Pass preferences here to condition the follow-up generation
-        const report = await evaluateHotTakeInitial(currentT, selectedQuestion!.title, selectedQuestion!.context, globalContext, preferences);
+        const report = await evaluateArenaInitial(currentT, selectedQuestion!.title, selectedQuestion!.context, globalContext, preferences);
         setInitialReport(report);
         setSessionHistory([{ stage: 'Initial Context', query: selectedQuestion!.title, response: currentT }]);
         setSessionMode('probing');
@@ -231,7 +278,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
         setSessionHistory(updatedHistory);
         
         // Finalize Evaluation (Round 2)
-        const final = await finalizeHotTake(JSON.stringify(updatedHistory), globalContext);
+        const final = await finalizeArena(JSON.stringify(updatedHistory), globalContext);
         
         // CONSTRUCT COMPOSITE REPORT (Round 1 + Round 2)
         if (initialReport) {
@@ -261,6 +308,12 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
             };
             setFinalReport(compositeReport);
             onSaveReport(selectedQuestion!.title, 'hot-take', compositeReport);
+            
+            // End Game simulation mode: call callback instead of showing reveal
+            if (onRoundComplete) {
+              onRoundComplete(compositeReport);
+              return;
+            }
         } else {
              // Fallback if initialReport is missing (should not happen in normal flow)
              setFinalReport(final);
@@ -311,6 +364,12 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
 
     setFinalReport(compositeReport);
     onSaveReport(selectedQuestion.title, 'hot-take', compositeReport);
+    
+    // End Game simulation mode: call callback instead of showing reveal
+    if (onRoundComplete) {
+      onRoundComplete(compositeReport);
+      return;
+    }
     setStep('reveal');
   };
 
@@ -318,7 +377,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
     if (!initialReport?.followUpQuestion) return;
 
     // 1. Save Preference locally
-    const newPref: HotTakePreference = {
+    const newPref: ArenaPreference = {
         questionText: initialReport.followUpQuestion,
         type,
         feedback: feedback || (type === 'positive' ? 'User liked this style.' : ''),
@@ -333,7 +392,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
             // Use the last transcript from Round 1 history
             const userTranscript = sessionHistory.length > 0 ? sessionHistory[0].response : "";
             
-            const newQuestion = await regenerateHotTakeFollowUp(
+            const newQuestion = await regenerateArenaFollowUp(
                 userTranscript,
                 initialReport.followUpQuestion,
                 feedback || "Question was not relevant.",
@@ -357,7 +416,7 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
 
   const addCustomQuestion = () => {
     if (!newQuestion.title || !newQuestion.context) return;
-    const q: HotTakeQuestion = {
+    const q: ArenaQuestion = {
       id: 'custom_' + Date.now(),
       title: newQuestion.title,
       context: newQuestion.context,
@@ -813,4 +872,4 @@ const HotTakeView: React.FC<HotTakeViewProps> = ({ onHome, onSaveReport, isSaved
   return null;
 };
 
-export default HotTakeView;
+export default ArenaView;

@@ -157,29 +157,29 @@ const DayTimelineModal: React.FC<DayTimelineModalProps> = ({
             onClick={onClose}
         >
             <div 
-                className="bg-charcoal rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10 flex flex-col"
+                className="bg-charcoal rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden shadow-2xl border border-white/10 flex flex-col relative"
                 onClick={(e) => e.stopPropagation()}
             >
+                {/* Close Button - Top Right Corner */}
+                <button 
+                    onClick={onClose}
+                    className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 transition-colors"
+                >
+                    <X size={16} />
+                </button>
+                
                 {/* Header */}
-                <div className="p-6 border-b border-white/10 flex items-center justify-between flex-shrink-0">
-                    <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            <Clock size={20} className="text-gold" />
-                            Daily Timeline
-                        </h2>
-                        <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
-                        {totalTime > 0 && (
-                            <p className="text-sm font-medium text-gold mt-2">
-                                Total study time: {formatDuration(totalTime)}
-                            </p>
-                        )}
-                    </div>
-                    <button 
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/20 transition-colors"
-                    >
-                        <X size={16} />
-                    </button>
+                <div className="p-6 border-b border-white/10 flex-shrink-0">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <Clock size={20} className="text-gold" />
+                        Daily Timeline
+                    </h2>
+                    <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
+                    {totalTime > 0 && (
+                        <p className="text-sm font-medium text-gold mt-2">
+                            Total study time: {formatDuration(totalTime)}
+                        </p>
+                    )}
                 </div>
                 
                 {/* Content */}

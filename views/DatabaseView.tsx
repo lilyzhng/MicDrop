@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, ChevronDown, Clock, AlertCircle, BarChart3, Loader2 } from 'lucide-react';
+import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, ChevronDown, Clock, AlertCircle, BarChart3, Loader2, Settings, LogOut } from 'lucide-react';
 import { SavedItem, SavedReport, BlindProblem } from '../types';
 import { StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
@@ -93,7 +93,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
 }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'reports' | 'snippets' | 'progress'>('reports');
+    const [activeTab, setActiveTab] = useState<'reports' | 'snippets' | 'progress'>('progress');
     const [reportTypeFilter, setReportTypeFilter] = useState<ReportTypeFilter>('all');
     const selectedReport = selectedReportSlug ? findReportBySlug(savedReports, selectedReportSlug) : null;
     
@@ -122,6 +122,10 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     
     // Calendar date selection for timeline view
     const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+    
+    // Settings dropdown state
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const { signOut } = useAuth();
     
     // Use updated report if available, otherwise use the original
     const displayReport = updatedReport || selectedReport;
@@ -798,29 +802,61 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                           </h2>
                       </div>
                   </div>
+                  
+                  {/* Settings Gear Icon */}
+                  <div className="relative">
+                      <button 
+                          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                          className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+                          title="Settings"
+                      >
+                          <Settings size={18} className="text-gray-500" />
+                      </button>
+                      
+                      {isSettingsOpen && (
+                          <>
+                              <div className="fixed inset-0 z-40" onClick={() => setIsSettingsOpen(false)}></div>
+                              <div className="absolute right-0 top-12 w-56 bg-white rounded-xl shadow-xl border border-[#EBE8E0] z-50 py-2 animate-in fade-in zoom-in-95 duration-200">
+                                  <div className="px-4 py-3 border-b border-gray-100 mb-2">
+                                      <p className="text-sm font-bold text-charcoal truncate">{user?.name}</p>
+                                      <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                                  </div>
+                                  <button 
+                                      onClick={() => {
+                                          setIsSettingsOpen(false);
+                                          signOut();
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                  >
+                                      <LogOut size={14} /> Sign Out
+                                  </button>
+                              </div>
+                          </>
+                      )}
+                  </div>
              </div>
 
              {/* Tab Navigation */}
-             <div className="flex justify-center border-b border-[#E6E6E6] bg-white">
-                 <button 
-                    onClick={() => setActiveTab('reports')}
-                    className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'reports' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                 >
-                    Full Reports
-                 </button>
-                 <button 
-                    onClick={() => setActiveTab('progress')}
-                    className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'progress' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                 >
-                    <TrendingUp size={14} /> Progress
-                 </button>
-                 <button 
-                    onClick={() => setActiveTab('snippets')}
-                    className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'snippets' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                 >
-                    Saved Snippets
-                 </button>
-             </div>
+            <div className="flex justify-center border-b border-[#E6E6E6] bg-white">
+                <button 
+                   onClick={() => setActiveTab('progress')}
+                   className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'progress' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                   <TrendingUp size={14} /> Progress
+                </button>
+                <button 
+                   onClick={() => setActiveTab('reports')}
+                   className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'reports' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                   Full Reports
+                </button>
+                <button 
+                   onClick={() => setActiveTab('snippets')}
+                   className={`px-6 sm:px-8 py-4 text-xs sm:text-sm font-bold uppercase tracking-widest border-b-2 transition-colors ${activeTab === 'snippets' ? 'border-gold text-charcoal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                   Saved Snippets
+                </button>
+            </div>
              
              <div className="flex-1 overflow-y-auto p-8 relative min-h-0">
                  <div className="max-w-4xl mx-auto pb-20">

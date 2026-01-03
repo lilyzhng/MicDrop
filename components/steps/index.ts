@@ -24,4 +24,5 @@ export { TeachingStep } from './TeachingStep';
 export { RevealStep } from './RevealStep';
 export { ReadinessRevealStep } from './ReadinessRevealStep';
 export { TeachingRevealStep } from './TeachingRevealStep';
+export { PlaceholderRound } from './PlaceholderRound';
 

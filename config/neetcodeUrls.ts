@@ -90,7 +90,7 @@ export const NEETCODE_VIDEO_URLS: Record<string, string> = {
   'Top K Frequent Elements': 'https://youtu.be/YPTqKIgVk-k',
   'Find Median from Data Stream': 'https://youtu.be/itmhHWaHupI',
   
-  // Factory AI / Company-specific problems (use interviewing.io links)
+  // System Coding / Company-specific problems (use interviewing.io links)
   'Print Folder Structure': 'https://www.youtube.com/watch?v=MRy7M3E0La8',
 };
 

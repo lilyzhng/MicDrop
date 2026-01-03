@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { SavedItem, SavedReport, PerformanceReport } from './types';
 import HomeView from './views/HomeView';
 import DatabaseView from './views/DatabaseView';
 import AnalysisView from './views/AnalysisView';
-import HotTakeView from './views/HotTakeView';
+import ArenaView from './views/ArenaView';
 import WalkieTalkieView from './views/WalkieTalkieView';
+import EndGameView from './views/EndGameView';
 import LoginView from './views/LoginView';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import UserMenu from './components/UserMenu';
@@ -61,6 +62,10 @@ const ReportViewer: React.FC<ReportViewerProps> = ({ savedReports, isSaved, onTo
 const MainApp: React.FC = () => {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Hide the global avatar on database page (it has its own settings gear)
+  const showGlobalAvatar = !location.pathname.startsWith('/database') && !location.pathname.startsWith('/report');
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -179,7 +184,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Report Logic --
-const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit', report: PerformanceReport) => {
+const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit' | 'end-game', report: PerformanceReport) => {
       const userId = user?.id;
       console.log('[DEBUG] saveReport called:', { title, type, userId: userId || 'NO USER ID' });
       
@@ -214,7 +219,7 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
   }, []);
 
   // -- Navigation --
-  const handleNavigate = useCallback((view: 'analysis' | 'database' | 'hot-take' | 'walkie-talkie') => {
+  const handleNavigate = useCallback((view: 'analysis' | 'database' | 'hot-take' | 'walkie-talkie' | 'end-game') => {
       navigate(`/${view}`);
   }, [navigate]);
 
@@ -238,10 +243,12 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-cream text-charcoal font-sans relative">
-      {/* User Menu Overlay - Available on all views */}
-      <div className="absolute top-2.5 right-3 sm:top-4 sm:right-5 z-[60]">
-          <UserMenu />
-      </div>
+      {/* User Menu Overlay - Available on all views except database */}
+      {showGlobalAvatar && (
+        <div className="absolute top-2.5 right-3 sm:top-4 sm:right-5 z-[60]">
+            <UserMenu />
+        </div>
+      )}
 
       <Routes>
         <Route path="/" element={<HomeView onNavigate={handleNavigate} />} />
@@ -277,7 +284,7 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
         } />
         
         <Route path="/hot-take" element={
-          <HotTakeView 
+          <ArenaView 
             onHome={goHome}
             onSaveReport={saveReport}
             isSaved={isSaved}
@@ -293,6 +300,18 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
             onMastered={markAsMastered}
             isSaved={isSaved}
             onToggleSave={toggleSaveItem}
+            savedReports={savedReports}
+          />
+        } />
+        
+        <Route path="/end-game" element={
+          <EndGameView
+            onHome={goHome}
+            onSaveReport={saveReport}
+            isSaved={isSaved}
+            onToggleSave={toggleSaveItem}
+            masteredIds={masteredIds}
+            onMastered={markAsMastered}
             savedReports={savedReports}
           />
         } />

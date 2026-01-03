@@ -42,7 +42,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
     const { rating, summary, detailedFeedback, highlights, pronunciationFeedback, coachingRewrite, flipTheTable, hotTakeRubric, hotTakeMasterRewrite, hotTakeHistory, hotTakeRounds, mentalModelChecklist, missingEdgeCases, rubricScores, codingRubric, codeIssues, problemSolvingTimeline, codingQuestion, solutionCode, correctedSolution, codeLanguage, formattedProblemStatement, nextTimeHabits, interpretationLayer } = report;
     const { user } = useAuth();
     const [showRewrite, setShowRewrite] = useState(false);
-    const [activeHotTakeRound, setActiveHotTakeRound] = useState<'round1' | 'round2'>('round1');
+    const [activeArenaRound, setActiveArenaRound] = useState<'round1' | 'round2'>('round1');
     const [showProblemStatement, setShowProblemStatement] = useState(false);
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
     const [isSavingToQueue, setIsSavingToQueue] = useState(false);
@@ -70,14 +70,14 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
     };
 
     // Determine report type: explicit prop > auto-detect from content
-    const isHotTake = !!hotTakeRubric || !!hotTakeRounds;
+    const isArena = !!hotTakeRubric || !!hotTakeRounds;
     const isWalkie = !!rubricScores || !!mentalModelChecklist || !!missingEdgeCases;
     const isCoding = !!codingRubric;
-    const effectiveReportType: ReportDisplayType = reportType || (isCoding ? 'system-coding' : isHotTake ? 'hot-take' : isWalkie ? 'walkie' : 'role-fit');
+    const effectiveReportType: ReportDisplayType = reportType || (isCoding ? 'system-coding' : isArena ? 'hot-take' : isWalkie ? 'walkie' : 'role-fit');
     const reportConfig = REPORT_CONFIG[effectiveReportType];
     
     // Determine active data for Hot Take
-    const currentRoundData = hotTakeRounds ? hotTakeRounds[activeHotTakeRound] : null;
+    const currentRoundData = hotTakeRounds ? hotTakeRounds[activeArenaRound] : null;
     
     // Legacy fallback for rubric
     const displayedRubric = currentRoundData ? currentRoundData.rubric : hotTakeRubric;
@@ -329,7 +329,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             // Extract title from problem
             const title = codingQuestion?.split('\n')[0]?.trim() || 'Untitled Problem';
             
-            // Extract company from context (e.g., "Factory AI - Implement...")
+            // Extract company from context (e.g., "System Coding - Implement...")
             const companyMatch = context?.match(/^([^-–]+)/);
             const company = companyMatch ? companyMatch[1].trim() : null;
             
@@ -676,14 +676,14 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                 <div className="flex justify-center mb-6 sm:mb-8">
                      <div className="bg-white p-1 sm:p-1.5 rounded-full border border-[#E6E6E6] flex gap-1 sm:gap-2 shadow-sm">
                           <button 
-                            onClick={() => setActiveHotTakeRound('round1')}
-                            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest transition-all ${activeHotTakeRound === 'round1' ? 'bg-charcoal text-white shadow-md' : 'text-gray-400 hover:text-charcoal'}`}
+                            onClick={() => setActiveArenaRound('round1')}
+                            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest transition-all ${activeArenaRound === 'round1' ? 'bg-charcoal text-white shadow-md' : 'text-gray-400 hover:text-charcoal'}`}
                           >
                              Round 1
                           </button>
                           <button 
-                            onClick={() => setActiveHotTakeRound('round2')}
-                            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest transition-all ${activeHotTakeRound === 'round2' ? 'bg-gold text-white shadow-md' : 'text-gray-400 hover:text-gold'}`}
+                            onClick={() => setActiveArenaRound('round2')}
+                            className={`px-3 sm:px-6 py-2 sm:py-2.5 rounded-full text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest transition-all ${activeArenaRound === 'round2' ? 'bg-gold text-white shadow-md' : 'text-gray-400 hover:text-gold'}`}
                           >
                              Round 2
                           </button>
@@ -694,11 +694,11 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             {/* Executive Summary Card - Mobile responsive */}
             <div className={`rounded-2xl sm:rounded-3xl p-5 sm:p-8 mb-6 sm:mb-8 flex flex-col sm:flex-row gap-5 sm:gap-8 items-center sm:items-start animate-in fade-in duration-300 ${
                 isCoding ? 'bg-[#1e1e1e] border border-[#2a2a2a]' : 'bg-white border border-[#EBE8E0]'
-            }`} key={activeHotTakeRound}>
+            }`} key={activeArenaRound}>
                  <div className="shrink-0 relative w-24 h-24 sm:w-32 sm:h-32 flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#C7A965 ${isHotTake ? calculatedScore : rating}%, ${isCoding ? '#2a2a2a' : '#F0EBE0'} ${isHotTake ? calculatedScore : rating}% 100%)` }}></div>
+                      <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(#C7A965 ${isArena ? calculatedScore : rating}%, ${isCoding ? '#2a2a2a' : '#F0EBE0'} ${isArena ? calculatedScore : rating}% 100%)` }}></div>
                       <div className={`absolute inset-1.5 sm:inset-2 rounded-full flex flex-col items-center justify-center z-10 ${isCoding ? 'bg-[#1e1e1e]' : 'bg-white'}`}>
-                          <span className={`text-2xl sm:text-4xl font-serif font-bold ${isCoding ? 'text-gold' : 'text-charcoal'}`}>{isHotTake ? calculatedScore : rating}</span>
+                          <span className={`text-2xl sm:text-4xl font-serif font-bold ${isCoding ? 'text-gold' : 'text-charcoal'}`}>{isArena ? calculatedScore : rating}</span>
                           <span className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest ${isCoding ? 'text-gray-500' : 'text-gray-400'}`}>/ 100</span>
                       </div>
                  </div>
@@ -725,10 +725,10 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                               </div>
                           </div>
                       ) : (
-                          <p className={`leading-relaxed whitespace-pre-line text-sm sm:text-base ${isCoding ? 'text-gray-400' : 'text-gray-600'}`}>{isHotTake ? displayedSummary : summary}</p>
+                          <p className={`leading-relaxed whitespace-pre-line text-sm sm:text-base ${isCoding ? 'text-gray-400' : 'text-gray-600'}`}>{isArena ? displayedSummary : summary}</p>
                       )}
                       
-                      {coachingRewrite && !isHotTake && !isCoding && (
+                      {coachingRewrite && !isArena && !isCoding && (
                         <div className="mt-6">
                             <button 
                                 onClick={() => setShowRewrite(!showRewrite)}
@@ -768,8 +768,8 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             {/* --- HOT TAKE SPECIFIC SECTIONS --- */}
             
             {/* 1. Hot Take Rubric - Mobile responsive */}
-            {displayedRubric && isHotTake && (
-                <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-bottom-2 duration-300" key={`rubric-${activeHotTakeRound}`}>
+            {displayedRubric && isArena && (
+                <div className="mb-8 sm:mb-12 animate-in fade-in slide-in-from-bottom-2 duration-300" key={`rubric-${activeArenaRound}`}>
                      <div className="mb-3 sm:mb-4 flex items-center gap-2 text-charcoal text-[10px] sm:text-xs font-bold tracking-widest uppercase">
                         <Star size={12} className="sm:w-3.5 sm:h-3.5" /> Surgical Rubric
                      </div>
@@ -1453,15 +1453,15 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             )}
 
             {/* 2. Specific Turn Context (Active Dialogue) */}
-            {displayedQuestion && displayedTranscript && isHotTake && (
-                 <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-700" key={`context-${activeHotTakeRound}`}>
+            {displayedQuestion && displayedTranscript && isArena && (
+                 <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-700" key={`context-${activeArenaRound}`}>
                     <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase">
                         <History size={14} /> Active Dialogue
                     </div>
                     <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0]">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="text-[10px] font-bold text-gold uppercase tracking-[0.2em] bg-gold/5 px-2 py-1 rounded">
-                                {activeHotTakeRound === 'round1' ? 'Initial Context' : 'The Probe'}
+                                {activeArenaRound === 'round1' ? 'Initial Context' : 'The Probe'}
                             </span>
                         </div>
                         <div className="flex gap-4 items-start mb-4 opacity-70">
@@ -1477,8 +1477,8 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
             )}
 
             {/* 3. Hot Take Master Rewrite */}
-            {displayedRewrite && isHotTake && (
-                <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500" key={`rewrite-${activeHotTakeRound}`}>
+            {displayedRewrite && isArena && (
+                <div className="mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500" key={`rewrite-${activeArenaRound}`}>
                      <div className="mb-4 flex items-center gap-2 text-charcoal text-xs font-bold tracking-widest uppercase">
                         <PenTool size={14} /> Master Coaching Rewrite
                      </div>

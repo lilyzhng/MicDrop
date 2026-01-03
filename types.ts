@@ -59,28 +59,28 @@ export interface SpeechDrill {
   question?: string;    // The specific question or discussion point from the interviewer
 }
 
-// --- Hot Take Specific Types ---
+// --- Arena Specific Types ---
 
-export interface HotTakeTurn {
+export interface ArenaTurn {
   stage: string;
   query: string;
   response: string;
 }
 
-export interface HotTakeGlobalContext {
+export interface ArenaGlobalContext {
   company: string;
   interviewer: string;
   roundFocus: string;
 }
 
-export interface HotTakePreference {
+export interface ArenaPreference {
   questionText: string;
   feedback?: string;
   type: 'positive' | 'negative';
   timestamp: string;
 }
 
-export interface HotTakeRoundAnalysis {
+export interface ArenaRoundAnalysis {
   question: string;
   transcript: string;
   score: number;
@@ -89,13 +89,20 @@ export interface HotTakeRoundAnalysis {
   rewrite: string;
 }
 
-export interface HotTakeQuestion {
+export interface ArenaQuestion {
   id: string;
   title: string;
   context: string;
   probingPrompt: string;
   source?: string; // Optional source tag (e.g., "Augment Code Interview")
 }
+
+// Backwards compatibility aliases
+export type HotTakeTurn = ArenaTurn;
+export type HotTakeGlobalContext = ArenaGlobalContext;
+export type HotTakePreference = ArenaPreference;
+export type HotTakeRoundAnalysis = ArenaRoundAnalysis;
+export type HotTakeQuestion = ArenaQuestion;
 
 // WalkieTalkie Rubric Scores
 export interface WalkieRubricScores {
@@ -134,15 +141,23 @@ export interface PerformanceReport {
   };
   missingEdgeCases?: string[];
   detectedAutoScore?: 'good' | 'partial' | 'missed';
-  // Hot Take specific fields
-  hotTakeRubric?: Record<string, number>;
+  // Arena specific fields
+  arenaRubric?: Record<string, number>;
   continueSparring?: boolean;
   followUpQuestion?: string;
-  hotTakeHistory?: HotTakeTurn[];
+  arenaHistory?: ArenaTurn[];
+  arenaMasterRewrite?: string;
+  arenaRounds?: {
+    round1: ArenaRoundAnalysis;
+    round2: ArenaRoundAnalysis;
+  };
+  // Backwards compatibility
+  hotTakeRubric?: Record<string, number>;
+  hotTakeHistory?: ArenaTurn[];
   hotTakeMasterRewrite?: string;
   hotTakeRounds?: {
-    round1: HotTakeRoundAnalysis;
-    round2: HotTakeRoundAnalysis;
+    round1: ArenaRoundAnalysis;
+    round2: ArenaRoundAnalysis;
   };
   // Teaching mode specific fields
   teachingReportData?: TeachingReport;
@@ -207,6 +222,9 @@ export interface PerformanceReport {
     biggestImpactFix: string; // 1 sentence: highest leverage change
     overallSignal: string; // e.g., "Struggles with hash invariants"
   };
+  // End Game specific fields
+  endGameRounds?: EndGameRoundResult[];
+  endGameVerdict?: HiringCommitteeVerdict;
 }
 
 export interface SavedItem {
@@ -233,7 +251,7 @@ export interface SavedReport {
     id: string;
     date: string;
     title: string; // Context string or Script name
-    type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
+    type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit' | 'end-game';
     rating: number;
     reportData: PerformanceReport;
 }
@@ -414,3 +432,46 @@ export interface CustomInterviewQuestion {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// --- End Game (Mock Onsite Simulation) Types ---
+
+export interface EndGameRoundResult {
+  round: string;        // Round title (e.g., "Behavioral Round", "LeetCode Coding")
+  report: PerformanceReport;
+}
+
+export interface HiringCommitteeVerdict {
+  verdict: 'STRONG HIRE' | 'LEAN HIRE' | 'NO HIRE';
+  level: 'L6' | 'N/A';  // Staff level or not qualified
+  debriefSummary: string;
+  primaryBlocker: string;
+}
+
+export interface EndGameRoundConfig {
+  component: 'arena' | 'walkie' | 'placeholder';
+  mode: string;
+  persona?: string;  // For arena rounds
+  judge?: string;    // For walkie/placeholder rounds
+  title: string;
+}
+
+// --- Behavioral Questions (for End Game and other interview modules) ---
+
+export type BehavioralQuestionType = 'behavioral' | 'ml_deep_dive' | 'system_design' | 'culture_fit' | 'leadership';
+
+export interface BehavioralQuestion {
+  id: string;
+  userId: string | null;  // null = shared/default question
+  type: BehavioralQuestionType;
+  title: string;
+  context: string;  // The question context/scenario
+  probingPrompt: string;  // Instructions for how to probe/evaluate
+  source?: string;  // Optional source
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Backwards compatibility aliases
+export type InterviewQuestionType = BehavioralQuestionType;
+export type InterviewQuestion = BehavioralQuestion;

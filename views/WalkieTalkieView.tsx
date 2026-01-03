@@ -66,9 +66,14 @@ interface WalkieTalkieViewProps {
   isSaved: (title: string, content: string) => boolean;
   onToggleSave: (item: Omit<SavedItem, 'id' | 'date'>) => void;
   savedReports: SavedReport[];
+  // End Game simulation mode: if provided, call this instead of showing reveal screen
+  onRoundComplete?: (report: PerformanceReport) => void;
+  // Auto-start: if provided, skip locations and start with this problem immediately
+  autoStartProblem?: BlindProblem;
+  autoStartMode?: 'teach' | 'paired';  // teach = LeetCode/SystemCoding, paired = explain mode
 }
 
-const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave, savedReports }) => {
+const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave, savedReports, onRoundComplete, autoStartProblem, autoStartMode }) => {
   // Get auth context for user ID
   const { user } = useAuth();
   
@@ -85,7 +90,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     // Teaching mode steps
     | 'teaching' | 'junior_thinking' | 'junior_question' | 'junior_summarizing' | 'dean_evaluating' | 'teaching_reveal';
   
-  const [step, setStep] = useState<StepType>('locations');
+  // If autoStartProblem is provided, start directly in teaching mode
+  const [step, setStep] = useState<StepType>(() => {
+    if (autoStartProblem && autoStartMode === 'teach') {
+      console.log('[WalkieTalkieView] Auto-starting with problem:', autoStartProblem.title);
+      return 'teaching';
+    }
+    return 'locations';
+  });
   const [analysisPhase, setAnalysisPhase] = useState<'refining' | 'evaluating'>('refining');
   const [selectedSpot, setSelectedSpot] = useState<PowerSpot | null>(null);
   const [showStats, setShowStats] = useState(false);
@@ -297,6 +309,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
   }, [step, loadSettingsAndTopics]);
   
+  // Note: Auto-start for End Game simulation mode is now handled in useState initializers
+  // (step, sessionMode, problemQueue, and teachingSession all check for autoStartProblem/autoStartMode)
+  
   // Save settings handler
   const handleSaveSettings = async () => {
     if (!user?.id) return;
@@ -315,13 +330,20 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   };
   
   // Session Mode State - Paired (Explain → Teach) is the default for best learning
-  const [sessionMode, setSessionMode] = useState<SessionMode>('paired');
+  // If autoStartMode is provided, use that instead
+  const [sessionMode, setSessionMode] = useState<SessionMode>(() => {
+    if (autoStartMode) return autoStartMode;
+    return 'paired';
+  });
   
   // Difficulty Mode State
   const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('standard');
   
-  // Session State
-  const [problemQueue, setProblemQueue] = useState<BlindProblem[]>([]);
+  // Session State - if autoStartProblem is provided, initialize with it
+  const [problemQueue, setProblemQueue] = useState<BlindProblem[]>(() => {
+    if (autoStartProblem) return [autoStartProblem];
+    return [];
+  });
   const [currentQueueIdx, setCurrentQueueIdx] = useState(0);
   const [sessionScore, setSessionScore] = useState(0); // How many cleared in THIS visit
 
@@ -348,8 +370,22 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [usedHints, setUsedHints] = useState(false); // Track if user requested any hints
   const [showDefinitionExpanded, setShowDefinitionExpanded] = useState(false); // Track if definition is expanded within pattern
 
-  // Teaching Mode State
-  const [teachingSession, setTeachingSession] = useState<TeachingSession | null>(null);
+  // Teaching Mode State - if autoStartProblem and teach mode, initialize the session
+  const [teachingSession, setTeachingSession] = useState<TeachingSession | null>(() => {
+    if (autoStartProblem && autoStartMode === 'teach') {
+      return {
+        problemId: autoStartProblem.id,
+        turns: [],
+        juniorState: {
+          currentUnderstanding: [],
+          confusionPoints: [],
+          likelyMisimplementations: [],
+          readyToSummarize: false
+        }
+      };
+    }
+    return null;
+  });
   const [juniorQuestion, setJuniorQuestion] = useState<string>("");
   const [teachingReport, setTeachingReport] = useState<TeachingReport | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(true);
@@ -1052,6 +1088,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           setSessionScore(prev => prev + 1);
         }
         
+        // End Game simulation mode: call callback instead of showing reveal
+        if (onRoundComplete) {
+          onRoundComplete(performanceReport);
+          return;
+        }
         setStep('teaching_reveal');
       } else {
         // Continue teaching
@@ -1150,6 +1191,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         setSessionScore(prev => prev + 1);
       }
       
+      // End Game simulation mode: call callback instead of showing reveal
+      if (onRoundComplete) {
+        onRoundComplete(performanceReport);
+        return;
+      }
       setStep('teaching_reveal');
     } catch (e) {
       console.error("End teaching session failed", e);

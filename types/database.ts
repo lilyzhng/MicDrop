@@ -158,6 +158,7 @@ export interface Database {
           user_id: string
           target_days: number
           daily_cap: number
+          daily_new_goal: number
           easy_bonus: number
           start_date: string
           created_at: string
@@ -167,6 +168,7 @@ export interface Database {
           user_id: string
           target_days?: number
           daily_cap?: number
+          daily_new_goal?: number
           easy_bonus?: number
           start_date?: string
           created_at?: string
@@ -176,6 +178,7 @@ export interface Database {
           user_id?: string
           target_days?: number
           daily_cap?: number
+          daily_new_goal?: number
           easy_bonus?: number
           start_date?: string
           created_at?: string
@@ -348,6 +351,7 @@ export interface UserStudySettings {
   userId: string;
   targetDays: number;
   dailyCap: number;
+  dailyNewGoal: number;  // Number of new problems to do per day (remaining goes to reviews)
   easyBonus: number;
   startDate: Date;
 }

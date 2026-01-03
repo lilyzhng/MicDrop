@@ -99,6 +99,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [settingsForm, setSettingsForm] = useState({
     targetDays: DEFAULT_SETTINGS.targetDays,
     dailyCap: DEFAULT_SETTINGS.dailyCap,
+    dailyNewGoal: DEFAULT_SETTINGS.dailyNewGoal,
     startDate: new Date().toISOString().split('T')[0]  // YYYY-MM-DD format
   });
   const [useSpacedRepetition, setUseSpacedRepetition] = useState(true);
@@ -202,6 +203,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setSettingsForm({
         targetDays: settings.targetDays,
         dailyCap: settings.dailyCap,
+        dailyNewGoal: settings.dailyNewGoal,
         startDate: settings.startDate.toISOString().split('T')[0]  // YYYY-MM-DD format
       });
       
@@ -235,7 +237,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }) || [];
       
       // Assign topics: locked spots keep their topics, unlocked spots get random topics
-      const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount, dailyNewCompleted);
+      const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount, dailyNewCompleted, settings.dailyNewGoal);
       
       setSpotsWithTopics(assignedSpots);
     } catch (error) {
@@ -302,6 +304,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     const updated = await updateSettings(user.id, {
       targetDays: settingsForm.targetDays,
       dailyCap: settingsForm.dailyCap,
+      dailyNewGoal: settingsForm.dailyNewGoal,
       startDate: new Date(settingsForm.startDate)  // Parse YYYY-MM-DD string to Date
     });
     

@@ -516,6 +516,7 @@ export const fetchUserStudySettings = async (userId: string): Promise<UserStudyS
         userId: data.user_id,
         targetDays: data.target_days,
         dailyCap: data.daily_cap,
+        dailyNewGoal: data.daily_new_goal ?? 5,  // Default to 5 if not set
         easyBonus: data.easy_bonus,
         startDate: new Date(data.start_date)
     };
@@ -534,6 +535,7 @@ export const upsertUserStudySettings = async (
             user_id: userId,
             target_days: settings.targetDays,
             daily_cap: settings.dailyCap,
+            daily_new_goal: settings.dailyNewGoal,
             easy_bonus: settings.easyBonus,
             start_date: settings.startDate?.toISOString()
         }, { onConflict: 'user_id' })
@@ -549,6 +551,7 @@ export const upsertUserStudySettings = async (
         userId: data.user_id,
         targetDays: data.target_days,
         dailyCap: data.daily_cap,
+        dailyNewGoal: data.daily_new_goal ?? 5,  // Default to 5 if not set
         easyBonus: data.easy_bonus,
         startDate: new Date(data.start_date)
     };

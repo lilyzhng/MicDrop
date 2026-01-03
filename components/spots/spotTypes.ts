@@ -14,7 +14,8 @@
 
 import { StudyStats } from '../../types/database';
 
-// Daily new problems goal - pass at least 5 new questions per day
+// Daily new problems goal - default value, can be overridden by user settings
+// DEPRECATED: Use user's studySettings.dailyNewGoal instead
 export const DAILY_NEW_GOAL = 5;
 
 // Base spot definition (static data)
@@ -39,7 +40,8 @@ export interface SpotWithTopic extends PowerSpot {
   locked: boolean;  // Whether the topic is locked (user has entered this spot today)
   // Daily new goal tracking (for newProblemsOnly spots like Coffee Sanctuary)
   dailyNewCompleted?: number;  // How many new problems completed today
-  dailyNewRemaining?: number;  // How many more needed to hit DAILY_NEW_GOAL
+  dailyNewRemaining?: number;  // How many more needed to hit dailyNewGoal
+  dailyNewGoal?: number;  // User's configured daily new problems goal
   // Questions answered tracking (for topic unlock after QUESTIONS_TO_UNLOCK)
   questionsAnswered?: number;  // How many questions answered in this locked topic
   // Company-specific data (for Himmel Park)

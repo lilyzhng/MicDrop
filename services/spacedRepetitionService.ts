@@ -37,6 +37,7 @@ const TOTAL_BLIND_75 = 75;
 export const DEFAULT_SETTINGS: Omit<UserStudySettings, 'userId'> = {
     targetDays: 10,
     dailyCap: 15,
+    dailyNewGoal: 5,  // Default: 5 new problems per day
     easyBonus: 10,
     startDate: new Date()
 };

@@ -169,12 +169,9 @@ const DayTimelineModal: React.FC<DayTimelineModalProps> = ({
                         </h2>
                         <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
                         {totalTime > 0 && (
-                            <div className="flex items-center gap-1.5 mt-2 text-gold">
-                                <Clock size={14} />
-                                <span className="text-sm font-medium">
-                                    Total study time: {formatDuration(totalTime)}
-                                </span>
-                            </div>
+                            <p className="text-sm font-medium text-gold mt-2">
+                                Total study time: {formatDuration(totalTime)}
+                            </p>
                         )}
                     </div>
                     <button 

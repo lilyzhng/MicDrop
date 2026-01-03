@@ -74,8 +74,8 @@ interface LocationsStepProps {
   setShowStats: (show: boolean) => void;
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
-  settingsForm: { targetDays: number; dailyCap: number; startDate: string };
-  setSettingsForm: (form: { targetDays: number; dailyCap: number; startDate: string }) => void;
+  settingsForm: { targetDays: number; dailyCap: number; dailyNewGoal: number; startDate: string };
+  setSettingsForm: (form: { targetDays: number; dailyCap: number; dailyNewGoal: number; startDate: string }) => void;
   handleSaveSettings: () => Promise<void>;
   useSpacedRepetition: boolean;
   setUseSpacedRepetition: (use: boolean) => void;
@@ -470,14 +470,44 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
                     min="5"
                     max="25"
                     value={settingsForm.dailyCap}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, dailyCap: parseInt(e.target.value) })}
+                    onChange={(e) => {
+                      const newCap = parseInt(e.target.value);
+                      // Ensure dailyNewGoal doesn't exceed the new cap
+                      const newGoal = Math.min(settingsForm.dailyNewGoal, newCap);
+                      setSettingsForm({ ...settingsForm, dailyCap: newCap, dailyNewGoal: newGoal });
+                    }}
                     className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-gold"
                   />
                   <span className="text-xl font-bold text-gold w-12 text-center">{settingsForm.dailyCap}</span>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Maximum problems (new + reviews) per day
-                </p>
+                {/* Compact new/reviews breakdown */}
+                <div className="flex items-center justify-between mt-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Zap size={12} className="text-gold" />
+                    <span className="text-gray-400">New:</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={settingsForm.dailyNewGoal}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        // Allow empty or numeric input while typing
+                        if (raw === '' || /^\d+$/.test(raw)) {
+                          const parsed = parseInt(raw) || 0;
+                          setSettingsForm({ ...settingsForm, dailyNewGoal: parsed });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Validate on blur: clamp to valid range
+                        const val = Math.max(1, Math.min(settingsForm.dailyCap, settingsForm.dailyNewGoal || 1));
+                        setSettingsForm({ ...settingsForm, dailyNewGoal: val });
+                      }}
+                      className="w-12 px-2 py-1 bg-charcoal border border-white/10 rounded text-gold text-center font-bold focus:outline-none focus:border-gold/50"
+                    />
+                    <span className="text-gray-500">+ {settingsForm.dailyCap - settingsForm.dailyNewGoal} reviews</span>
+                  </div>
+                </div>
               </div>
 
               {/* Start Date */}
@@ -504,7 +534,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
                   Started: {new Date(settingsForm.startDate + 'T00:00:00').toLocaleDateString()}
                 </div>
                 <div className="text-sm text-gray-300">
-                  Target: {settingsForm.targetDays} days • Cap: {settingsForm.dailyCap}/day
+                  Target: {settingsForm.targetDays} days • Cap: {settingsForm.dailyNewGoal} new + {settingsForm.dailyCap - settingsForm.dailyNewGoal} reviews
                 </div>
               </div>
             </div>

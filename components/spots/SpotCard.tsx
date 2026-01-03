@@ -20,7 +20,8 @@ import {
   Building2,
   HeartHandshake
 } from 'lucide-react';
-import { SpotCardProps, SpotWithTopic, DAILY_NEW_GOAL, QUESTIONS_TO_UNLOCK } from './spotTypes';
+import { SpotCardProps, SpotWithTopic, QUESTIONS_TO_UNLOCK } from './spotTypes';
+import { DEFAULT_SETTINGS } from '../../services/spacedRepetitionService';
 
 // Get the appropriate icon for a spot
 const getSpotIcon = (icon: string) => {
@@ -243,17 +244,17 @@ export const SpotCard: React.FC<SpotCardProps> = ({
           )}
 
           {/* 5. Daily New Goal Badge (for Coffee Sanctuary) - p=0 priority (highest) - AT THE END */}
-          {/* Reminder: pass 5 new questions per day. Shows how many more needed. */}
+          {/* Reminder: pass N new questions per day (from settings). Shows how many more needed. */}
           {spot.newProblemsOnly && (
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold ${
-              (spot.dailyNewRemaining ?? DAILY_NEW_GOAL) > 0 
+              (spot.dailyNewRemaining ?? (spot.dailyNewGoal ?? DEFAULT_SETTINGS.dailyNewGoal)) > 0 
                 ? 'bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 animate-pulse' 
                 : 'bg-green-500/20 border border-green-500/40 text-green-300'
             }`}>
               <Zap size={10} className="sm:w-3 sm:h-3" />
-              {(spot.dailyNewRemaining ?? DAILY_NEW_GOAL) > 0 
-                ? `${spot.dailyNewRemaining ?? DAILY_NEW_GOAL} new due`
-                : `✓ ${DAILY_NEW_GOAL} done!`
+              {(spot.dailyNewRemaining ?? (spot.dailyNewGoal ?? DEFAULT_SETTINGS.dailyNewGoal)) > 0 
+                ? `${spot.dailyNewRemaining ?? (spot.dailyNewGoal ?? DEFAULT_SETTINGS.dailyNewGoal)} new due`
+                : `✓ ${spot.dailyNewGoal ?? DEFAULT_SETTINGS.dailyNewGoal} done!`
               }
             </span>
           )}

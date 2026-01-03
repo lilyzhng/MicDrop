@@ -81,9 +81,11 @@ export interface LocationsStepProps extends CommonStepProps {
   setShowStats: (show: boolean) => void;
   showSettings: boolean;
   setShowSettings: (show: boolean) => void;
-  settingsForm: { targetDays: number; dailyCap: number };
-  setSettingsForm: (form: { targetDays: number; dailyCap: number }) => void;
+  settingsForm: { targetDays: number; dailyCap: number; dailyNewGoal: number; startDate: string };
+  setSettingsForm: (form: { targetDays: number; dailyCap: number; dailyNewGoal: number; startDate: string }) => void;
   handleSaveSettings: () => Promise<void>;
+  useSpacedRepetition: boolean;
+  setUseSpacedRepetition: (use: boolean) => void;
 }
 
 // Props for ProblemStep (problem/recording)

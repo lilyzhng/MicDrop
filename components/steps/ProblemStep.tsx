@@ -126,6 +126,53 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
     }
   };
 
+  // Handle keyboard shortcuts including Tab for indentation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Cmd/Ctrl + Enter to submit
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      onTextSubmit();
+      return;
+    }
+    
+    // Tab for indentation
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const value = textarea.value;
+      const indent = '    '; // 4 spaces
+      
+      if (start === end) {
+        // No selection - just insert tab at cursor
+        const newValue = value.substring(0, start) + indent + value.substring(end);
+        setTextInput(newValue);
+        // Set cursor position after the inserted tab
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = start + indent.length;
+        });
+      } else {
+        // Selection exists - indent selected lines
+        const beforeSelection = value.substring(0, start);
+        const lineStart = beforeSelection.lastIndexOf('\n') + 1;
+        const afterSelection = value.substring(end);
+        const selectedText = value.substring(lineStart, end);
+        
+        // Add indent to each line in selection
+        const indentedText = selectedText.split('\n').map(line => indent + line).join('\n');
+        const newValue = value.substring(0, lineStart) + indentedText + afterSelection;
+        setTextInput(newValue);
+        
+        // Adjust selection to cover indented text
+        requestAnimationFrame(() => {
+          textarea.selectionStart = lineStart;
+          textarea.selectionEnd = lineStart + indentedText.length;
+        });
+      }
+    }
+  };
+
   return (
     <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
       {/* Header - Mobile responsive */}
@@ -389,12 +436,8 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                     placeholder={sessionMode === 'paired' 
                       ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
                       : "Type your explanation of the solution..."}
-                    className="flex-1 w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 text-gray-200 font-serif text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                        onTextSubmit();
-                      }
-                    }}
+                    className="flex-1 w-full bg-white/5 backdrop-blur-2xl rounded-2xl p-4 border border-white/10 text-gray-200 font-mono text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                    onKeyDown={handleKeyDown}
                   />
                   <div className="flex flex-col items-center mt-4 gap-2">
                     <button 
@@ -483,7 +526,8 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                 placeholder={sessionMode === 'paired' 
                   ? "Type your explanation here: core insight, state definition, example walkthrough, edge cases, and complexity..." 
                   : "Type your explanation of the solution..."}
-                className="flex-1 bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2rem] p-3 sm:p-5 border border-white/10 min-h-[80px] sm:min-h-[100px] max-h-[25vh] text-gray-200 font-serif text-sm sm:text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                className="flex-1 bg-white/5 backdrop-blur-2xl rounded-2xl sm:rounded-[2rem] p-3 sm:p-5 border border-white/10 min-h-[80px] sm:min-h-[100px] max-h-[25vh] text-gray-200 font-mono text-sm sm:text-base resize-none focus:outline-none focus:border-gold/40 placeholder:text-gray-500 placeholder:italic"
+                onKeyDown={handleKeyDown}
               />
               <button 
                 onClick={onTextSubmit}

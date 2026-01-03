@@ -82,14 +82,15 @@ export const getLockedSpotAssignments = (userId: string): SavedDayAssignments | 
   try {
     const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
     const stored = localStorage.getItem(key);
-    if (!stored) return null;
+    if (!stored) {
+      return null;
+    }
     
     const data: SavedDayAssignments = JSON.parse(stored);
     const todayStr = getDateString(new Date());
     
     // Check if data is from today
     if (data.date !== todayStr) {
-      console.log(`[SpotAssignments] Stored date ${data.date} doesn't match today ${todayStr}, clearing`);
       localStorage.removeItem(key);
       return null;
     }
@@ -114,8 +115,6 @@ export const lockSpotAssignment = (
     const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
     const todayStr = getDateString(new Date());
     
-    console.log(`[LockSpot] Locking spot ${spotId} with topic "${topic}" for date ${todayStr}`);
-    
     // Get existing locked assignments
     const existing = getLockedSpotAssignments(userId);
     const existingAssignments = existing?.assignments || [];
@@ -123,17 +122,30 @@ export const lockSpotAssignment = (
     // Check if this spot is already locked
     const alreadyLocked = existingAssignments.find(a => a.spotId === spotId && a.locked);
     if (alreadyLocked) {
-      console.log(`[LockSpot] Spot ${spotId} already locked with topic "${alreadyLocked.topic}"`);
-      return; // Already locked, don't update
+      // If already locked with the SAME topic, don't update
+      if (alreadyLocked.topic === topic) {
+        return;
+      }
+      
+      // If locked with a DIFFERENT topic, check if old topic was completed (enough questions)
+      // If so, the user has "unlocked" and we should update to the new topic
+      const questionsOnOldTopic = alreadyLocked.questionsAnswered || 0;
+      if (questionsOnOldTopic >= QUESTIONS_TO_UNLOCK) {
+        // Fall through to update the lock with new topic
+      } else {
+        // Old topic not yet completed - keep the old lock
+        return;
+      }
     }
     
-    // Add/update this spot as locked
+    // Add/update this spot as locked (reset questionsAnswered for new topic)
     const updatedAssignments = existingAssignments.filter(a => a.spotId !== spotId);
     updatedAssignments.push({
       spotId,
       topic,
       topicDisplay,
-      locked: true
+      locked: true,
+      questionsAnswered: 0 // Reset for new topic
     });
     
     const data: SavedDayAssignments = {
@@ -141,7 +153,6 @@ export const lockSpotAssignment = (
       assignments: updatedAssignments
     };
     localStorage.setItem(key, JSON.stringify(data));
-    console.log(`[LockSpot] Saved:`, data);
   } catch (error) {
     console.error('Error locking spot assignment:', error);
   }
@@ -154,7 +165,6 @@ export const clearSpotAssignments = (userId: string): void => {
   try {
     const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
     localStorage.removeItem(key);
-    console.log(`[SpotAssignments] Cleared assignments for user ${userId}`);
   } catch (error) {
     console.error('Error clearing spot assignments:', error);
   }
@@ -163,15 +173,31 @@ export const clearSpotAssignments = (userId: string): void => {
 /**
  * Increment questions answered for a locked spot.
  * This is called when a question is completed (passed or mastered).
+ * 
+ * @param userId - The user's ID
+ * @param spotId - The spot ID (e.g., "spot2" for Coffee Sanctuary)
+ * @param problemTopic - The topic/problem_group of the completed problem (optional)
+ *                       If provided, only increments if the problem's topic matches the locked topic.
+ *                       This ensures that only on-topic questions count toward the unlock threshold.
  */
-export const incrementQuestionsAnswered = (userId: string, spotId: string): number => {
+export const incrementQuestionsAnswered = (userId: string, spotId: string, problemTopic?: string): number => {
   try {
     const key = `${SPOT_ASSIGNMENTS_KEY}_${userId}`;
     const existing = getLockedSpotAssignments(userId);
-    if (!existing) return 0;
+    if (!existing) {
+      return 0;
+    }
     
     const assignment = existing.assignments.find(a => a.spotId === spotId);
-    if (!assignment || !assignment.locked) return 0;
+    if (!assignment || !assignment.locked) {
+      return 0;
+    }
+    
+    // Only count questions that match the locked topic
+    // This prevents off-topic questions from counting toward the unlock threshold
+    if (problemTopic && assignment.topic !== problemTopic) {
+      return assignment.questionsAnswered || 0;
+    }
     
     const newCount = (assignment.questionsAnswered || 0) + 1;
     
@@ -185,7 +211,6 @@ export const incrementQuestionsAnswered = (userId: string, spotId: string): numb
       assignments: updatedAssignments
     };
     localStorage.setItem(key, JSON.stringify(data));
-    console.log(`[IncrementQuestions] Spot ${spotId} now has ${newCount} questions answered`);
     
     return newCount;
   } catch (error) {
@@ -211,7 +236,6 @@ export const unlockSpotAssignment = (userId: string, spotId: string): void => {
       assignments: updatedAssignments
     };
     localStorage.setItem(key, JSON.stringify(data));
-    console.log(`[UnlockSpot] Spot ${spotId} unlocked - user can now switch topics`);
   } catch (error) {
     console.error('Error unlocking spot assignment:', error);
   }
@@ -320,8 +344,6 @@ export const assignTopicsToSpots = (
     
     // Check if this spot is locked
     const lockedAssignment = lockedAssignments.find(a => a.spotId === spot.id && a.locked);
-    console.log(`[AssignTopics] Checking spot ${spot.id} (${spot.name}) against lockedAssignments:`, lockedAssignments);
-    console.log(`[AssignTopics] Found match for ${spot.id}:`, lockedAssignment);
     
     if (lockedAssignment) {
       // Use the locked topic
@@ -330,7 +352,9 @@ export const assignTopicsToSpots = (
       // For newProblemsOnly spots, count problems with no progress
       // For other spots, count unmastered problems
       let remaining = 0;
+      let topicGroupFound = false;
       if (topicGroup) {
+        topicGroupFound = true;
         if (isNewProblemsOnly) {
           remaining = countNewProblems(topicGroup);
         } else {
@@ -339,21 +363,23 @@ export const assignTopicsToSpots = (
       }
       
       // Unlock conditions for newProblemsOnly spots (Coffee Sanctuary):
-      // 1. Topic exhausted: remaining === 0 (all new problems in topic done)
-      // 2. Enough questions answered: questionsAnswered >= QUESTIONS_TO_UNLOCK (user can switch)
+      // 1. Enough questions answered: questionsAnswered >= QUESTIONS_TO_UNLOCK (user can switch)
+      // NOTE: We no longer unlock based on "topic exhausted" alone - user must answer 3 questions
+      // before they can switch topics, even if all new problems in the topic are done.
+      // This prevents premature unlocking and ensures commitment to the topic.
       const questionsAnswered = lockedAssignment.questionsAnswered || 0;
-      const topicExhausted = remaining === 0;
       const enoughQuestionsAnswered = questionsAnswered >= QUESTIONS_TO_UNLOCK;
-      const shouldUnlock = isNewProblemsOnly && (topicExhausted || enoughQuestionsAnswered);
-      
-      console.log(`[AssignTopics] Using locked topic "${lockedAssignment.topic}" for spot ${spot.id}, remaining=${remaining}, questionsAnswered=${questionsAnswered}, newProblemsOnly=${isNewProblemsOnly}, shouldUnlock=${shouldUnlock} (exhausted=${topicExhausted}, enoughAnswered=${enoughQuestionsAnswered})`);
+      // Only unlock if enough questions answered. Topic exhaustion no longer auto-unlocks.
+      // Also, if topicGroup wasn't found, keep locked (don't unlock due to missing data).
+      const shouldUnlock = isNewProblemsOnly && enoughQuestionsAnswered && topicGroupFound;
       
       if (shouldUnlock) {
-        // Unlock reason: topic exhausted OR enough questions answered
-        const unlockReason = topicExhausted ? 'topic exhausted' : `${questionsAnswered}/${QUESTIONS_TO_UNLOCK} questions answered`;
-        console.log(`[AssignTopics] Unlocking spot ${spot.id} (${unlockReason}), assigning new topic`);
+        // Get a new topic, ensuring we don't reassign the same locked topic
+        // Filter out the current topic from the fallback pool as well
+        const currentTopic = lockedAssignment.topic;
+        const fallbackTopics = topicsWithNewProblems.filter(t => t.groupName !== currentTopic);
         const newTopicGroup = shuffledTopicsForNewOnly[topicIdxNewOnly % Math.max(shuffledTopicsForNewOnly.length, 1)] 
-          || topicsWithNewProblems[topicIdxNewOnly % Math.max(topicsWithNewProblems.length, 1)];
+          || fallbackTopics[topicIdxNewOnly % Math.max(fallbackTopics.length, 1)];
         topicIdxNewOnly++;
         
         if (newTopicGroup) {
@@ -404,8 +430,6 @@ export const assignTopicsToSpots = (
     }
     
     // Unlocked spot - assign a random topic
-    console.log(`[AssignTopics] No locked assignment for spot ${spot.id}, assigning random topic`);
-    
     // Use appropriate topic pool based on spot type
     let topicGroup;
     if (isNewProblemsOnly) {
@@ -450,4 +474,3 @@ export const assignTopicsToSpots = (
     }
   });
 };
-

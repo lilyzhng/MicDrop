@@ -9,7 +9,8 @@ import {
   lockSpotAssignment,
   getDateString,
   assignTopicsToSpots,
-  incrementQuestionsAnswered
+  incrementQuestionsAnswered,
+  clearSpotAssignments
 } from '../components/spots';
 import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport } from '../types';
 import { UserStudySettings, StudyStats, Company } from '../types/database';
@@ -224,7 +225,6 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       
     // Get locked assignments from today
     const lockedAssignments = getLockedSpotAssignments(user.id);
-    console.log('[LoadSpots] Raw locked assignments:', lockedAssignments);
     
     // Consider spots locked if they are non-random (Daily Commute and Coffee Sanctuary)
     // Random/mystery spots should never be locked
@@ -233,12 +233,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       const spotConfig = POWER_SPOTS.find(s => s.id === a.spotId);
       return a.locked && spotConfig && !spotConfig.isRandom;
     }) || [];
-    
-    console.log('[LoadSpots] Filtered locked assignments:', lockedOnly);
       
       // Assign topics: locked spots keep their topics, unlocked spots get random topics
       const assignedSpots = assignTopicsToSpots(progressGrid, lockedOnly, dueReviewCount, dailyNewCompleted);
-      console.log('[LoadSpots] Assigned spots:', assignedSpots.map(s => ({ id: s.id, name: s.name, topic: s.topic, locked: s.locked, dailyNewCompleted: s.dailyNewCompleted, dailyNewRemaining: s.dailyNewRemaining })));
       
       setSpotsWithTopics(assignedSpots);
     } catch (error) {
@@ -252,6 +249,16 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   useEffect(() => {
     loadSettingsAndTopics();
   }, [loadSettingsAndTopics]);
+  
+  // Expose reset function on window for testing
+  useEffect(() => {
+    if (user?.id) {
+      (window as unknown as Record<string, unknown>).resetSpotAssignments = () => {
+        clearSpotAssignments(user.id);
+        loadSettingsAndTopics();
+      };
+    }
+  }, [user?.id, loadSettingsAndTopics]);
   
   // Load companies for Himmel Park
   useEffect(() => {
@@ -655,8 +662,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       onSaveReport(currentProblem.title, 'walkie', report);
       
       // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+      // Only counts if the problem's topic matches the locked topic
       if (selectedSpot && user?.id) {
-        incrementQuestionsAnswered(user.id, selectedSpot.id);
+        incrementQuestionsAnswered(user.id, selectedSpot.id, currentProblem.problemGroup);
       }
       
       // Update spaced repetition progress with time tracking
@@ -1016,8 +1024,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         onSaveReport(currentProblem.title, 'teach', performanceReport);
         
         // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+        // Only counts if the problem's topic matches the locked topic
         if (selectedSpot && user?.id) {
-          incrementQuestionsAnswered(user.id, selectedSpot.id);
+          incrementQuestionsAnswered(user.id, selectedSpot.id, currentProblem.problemGroup);
         }
         
         // Update spaced repetition progress with time tracking
@@ -1112,8 +1121,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       onSaveReport(currentProblem.title, 'teach', performanceReport);
       
       // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
+      // Only counts if the problem's topic matches the locked topic
       if (selectedSpot && user?.id) {
-        incrementQuestionsAnswered(user.id, selectedSpot.id);
+        incrementQuestionsAnswered(user.id, selectedSpot.id, currentProblem.problemGroup);
       }
       
       // Update spaced repetition progress (use teaching score as rating) with time tracking

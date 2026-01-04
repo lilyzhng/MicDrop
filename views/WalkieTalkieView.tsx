@@ -415,11 +415,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     setShowSettings(false);
   };
   
-  // Session Mode State - Paired (Explain → Teach) is the default for best learning
+  // Session Mode State - Teach is the default for direct practice
   // If autoStartMode is provided, use that instead
   const [sessionMode, setSessionMode] = useState<SessionMode>(() => {
     if (autoStartMode) return autoStartMode;
-    return 'paired';
+    return 'teach';
   });
   
   // Difficulty Mode State

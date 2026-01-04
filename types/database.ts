@@ -126,7 +126,7 @@ export interface Database {
           id: string
           user_id: string
           title: string
-          type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
+          type: 'walkie' | 'hot-take' | 'teach' | 'interview' | 'readiness' | 'system-coding' | 'role-fit'
           rating: number
           report_data: Json
           created_at: string
@@ -136,7 +136,7 @@ export interface Database {
           id?: string
           user_id: string
           title: string
-          type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
+          type: 'walkie' | 'hot-take' | 'teach' | 'interview' | 'readiness' | 'system-coding' | 'role-fit'
           rating: number
           report_data: Json
           created_at?: string
@@ -146,7 +146,7 @@ export interface Database {
           id?: string
           user_id?: string
           title?: string
-          type?: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit'
+          type?: 'walkie' | 'hot-take' | 'teach' | 'interview' | 'readiness' | 'system-coding' | 'role-fit'
           rating?: number
           report_data?: Json
           created_at?: string

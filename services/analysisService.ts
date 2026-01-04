@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type as GeminiType, Modality } from '@google/genai';
-import { PerformanceReport, ArenaGlobalContext, ArenaPreference, ArenaQuestion, BlindProblem, HiringCommitteeVerdict, EndGameRoundResult } from '../types';
+import { PerformanceReport, ArenaGlobalContext, ArenaPreference, ArenaQuestion, Problem, HiringCommitteeVerdict, EndGameRoundResult } from '../types';
 import { TRANSCRIBE_CONFIG, COACH_CONFIG, HOT_TAKE_CONFIG, WALKIE_TALKIE_CONFIG, CODING_INTERVIEW_CONFIG } from '../config/evaluationPrompts';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
@@ -216,7 +216,7 @@ const WALKIE_REPORT_SCHEMA = {
     required: ["rating", "summary", "rubricScores", "mentalModelChecklist", "detectedAutoScore", "detailedFeedback", "missingEdgeCases"]
 };
 
-export const analyzeWalkieSession = async (base64Audio: string, polishedText: string, currentProblem: BlindProblem): Promise<PerformanceReport> => {
+export const analyzeWalkieSession = async (base64Audio: string, polishedText: string, currentProblem: Problem): Promise<PerformanceReport> => {
     const prompt = WALKIE_TALKIE_CONFIG.generatePrompt({
         title: currentProblem.title,
         prompt: currentProblem.prompt,

@@ -13,6 +13,7 @@
  */
 
 import { StudyStats } from '../../types/database';
+import { MLSystemDesignTopic } from '../../types';
 
 // Daily new problems goal - default value, can be overridden by user settings
 // DEPRECATED: Use user's studySettings.dailyNewGoal instead
@@ -45,8 +46,12 @@ export interface SpotWithTopic extends PowerSpot {
   // Questions answered tracking (for topic unlock after QUESTIONS_TO_UNLOCK)
   questionsAnswered?: number;  // How many questions answered in this locked topic
   // Company-specific data (for Himmel Park)
-  selectedCompanyId?: string;  // Selected company UUID
+  selectedinterviewTypeId?: string;  // Selected company UUID (actually the interview question type like 'ml_system_design')
   selectedCompanyName?: string;  // Selected company name for display
+  // ML Topic filter (for ml_system_design type in Himmel Park)
+  selectedMlTopic?: MLSystemDesignTopic;  // Selected ML topic filter (e.g., 'data', 'training')
+  selectedMlTopicDisplay?: string;  // Display name for the selected ML topic
+  availableMlTopics?: MLSystemDesignTopic[];  // Available ML topics for the current question type (unique set)
 }
 
 // Number of questions to answer before a topic can be unlocked (to allow switching)
@@ -75,7 +80,9 @@ export interface SpotCardProps {
   // Company-specific props (for Himmel Park)
   companies?: Array<{id: string; name: string; description: string | null; icon: string | null}>;
   isLoadingCompanies?: boolean;
-  onCompanySelect?: (spotId: string, companyId: string, companyName: string) => void;
+  onCompanySelect?: (spotId: string, interviewTypeId: string, companyName: string) => void;
+  // ML Topic filter props (for ml_system_design in Himmel Park)
+  onMlTopicSelect?: (spotId: string, topic: MLSystemDesignTopic | undefined, topicDisplay: string) => void;
 }
 
 // Spot variant for styling

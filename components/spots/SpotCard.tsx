@@ -18,10 +18,12 @@ import {
   Train,
   Zap,
   Building2,
-  HeartHandshake
+  HeartHandshake,
+  Tag
 } from 'lucide-react';
 import { SpotCardProps, SpotWithTopic, QUESTIONS_TO_UNLOCK } from './spotTypes';
 import { DEFAULT_SETTINGS } from '../../services/spacedRepetitionService';
+import { ML_TOPIC_DISPLAY_NAMES, MLSystemDesignTopic } from '../../types';
 
 // Get the appropriate icon for a spot
 const getSpotIcon = (icon: string) => {
@@ -103,14 +105,21 @@ export const SpotCard: React.FC<SpotCardProps> = ({
   onRefresh,
   companies = [],
   isLoadingCompanies = false,
-  onCompanySelect
+  onCompanySelect,
+  onMlTopicSelect
 }) => {
   const canRefresh = !spot.isRandom && !spot.locked && spot.remaining > 0 && !spot.onlyReviews && !spot.isCompanySpecific;
   const canCycleCompany = spot.isCompanySpecific && companies.length > 0 && !isLoadingCompanies;
+  
+  // Check if ML topic cycling is available (only for ml_system_design type)
+  const canCycleMlTopic = spot.isCompanySpecific && 
+    spot.selectedinterviewTypeId === 'ml_system_design' && 
+    spot.availableMlTopics && 
+    spot.availableMlTopics.length > 0;
 
   const handleClick = () => {
     // For company-specific spots, only proceed if a company is selected
-    if (spot.isCompanySpecific && !spot.selectedCompanyId) {
+    if (spot.isCompanySpecific && !spot.selectedinterviewTypeId) {
       return; // Company must be selected first
     }
     if (spot.remaining > 0 || spot.isCompanySpecific) {
@@ -128,8 +137,8 @@ export const SpotCard: React.FC<SpotCardProps> = ({
     e.stopPropagation(); // Don't trigger spot click
     if (companies.length === 0) return;
     
-    const currentIndex = spot.selectedCompanyId 
-      ? companies.findIndex(c => c.id === spot.selectedCompanyId)
+    const currentIndex = spot.selectedinterviewTypeId 
+      ? companies.findIndex(c => c.id === spot.selectedinterviewTypeId)
       : -1;
     
     const nextIndex = (currentIndex + 1) % companies.length;
@@ -137,6 +146,26 @@ export const SpotCard: React.FC<SpotCardProps> = ({
     
     if (nextCompany && onCompanySelect) {
       onCompanySelect(spot.id, nextCompany.id, nextCompany.name);
+    }
+  };
+
+  const handleMlTopicCycle = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger spot click
+    if (!spot.availableMlTopics || spot.availableMlTopics.length === 0) return;
+    
+    // Topics available to cycle through: 'all' (undefined) + available topics
+    const allOptions: (MLSystemDesignTopic | undefined)[] = [undefined, ...spot.availableMlTopics];
+    
+    const currentIndex = spot.selectedMlTopic 
+      ? allOptions.findIndex(t => t === spot.selectedMlTopic)
+      : 0;  // 0 = 'All Topics' (undefined)
+    
+    const nextIndex = (currentIndex + 1) % allOptions.length;
+    const nextTopic = allOptions[nextIndex];
+    const nextDisplay = nextTopic ? ML_TOPIC_DISPLAY_NAMES[nextTopic] : 'All Topics';
+    
+    if (onMlTopicSelect) {
+      onMlTopicSelect(spot.id, nextTopic, nextDisplay);
     }
   };
 
@@ -208,6 +237,18 @@ export const SpotCard: React.FC<SpotCardProps> = ({
               {spot.selectedCompanyName}
             </span>
           )}
+          
+          {/* 2c. ML Topic filter tag for ML System Design / ML Coding - clickable to cycle */}
+          {canCycleMlTopic && (
+            <button
+              onClick={handleMlTopicCycle}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 hover:border-purple-500/40 transition-all cursor-pointer"
+              title="Click to change topic filter"
+            >
+              <Tag size={10} className="sm:w-3 sm:h-3" />
+              {spot.selectedMlTopicDisplay || 'All Topics'}
+            </button>
+          )}
 
           {/* 3. Remaining count for this topic - show for non-reviews, non-company-specific spots */}
           {!spot.onlyReviews && !spot.isCompanySpecific && (
@@ -228,7 +269,7 @@ export const SpotCard: React.FC<SpotCardProps> = ({
           )}
           
           {/* 3b. Question count for Himmel Park - shows when company is selected */}
-          {spot.isCompanySpecific && spot.selectedCompanyId && spot.remaining > 0 && (
+          {spot.isCompanySpecific && spot.selectedinterviewTypeId && spot.remaining > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-medium bg-gray-500/20 border border-gray-500/30 text-gray-300">
               {spot.remaining} question{spot.remaining !== 1 ? 's' : ''} due
             </span>

@@ -1,14 +1,14 @@
 import React, { useRef } from 'react';
 import { Award, CheckCircle2, AlertCircle, XCircle, ArrowRight, Target, Lightbulb, TrendingUp, MessageSquare, GraduationCap, Download, FileText, AlertTriangle, RotateCcw, Code2, Route } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { TeachingReport, TeachingSession, BlindProblem } from '../types';
+import { TeachingReport, TeachingSession, Problem } from '../types';
 
 interface TeachingReportComponentProps {
   report: TeachingReport;
   juniorSummary?: string;
   problemTitle: string;
   leetcodeNumber?: number;
-  problem?: BlindProblem; // For displaying solution, complexity, example
+  problem?: Problem; // For displaying solution, complexity, example
   onContinue: () => void;
   onTryAgain?: () => void; // Optional: retry teaching the same problem
   onReEvaluate?: () => void; // Optional: re-run Dean evaluation with updated prompts/data
@@ -531,7 +531,7 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
           {/* Key Insight */}
           <div className="p-6 border-b border-[#333]">
             <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Key Insight</h5>
-            <p className="text-sm text-gray-200 leading-relaxed">{problem.keyIdea}</p>
+            <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-line">{problem.keyIdea}</p>
             {problem.steps && problem.steps.length > 0 && (
               <ol className="text-xs text-gray-400 mt-3 space-y-1 list-decimal list-inside">
                 {problem.steps.map((step, idx) => (
@@ -541,43 +541,47 @@ const TeachingReportComponent: React.FC<TeachingReportComponentProps> = ({
             )}
           </div>
 
-          {/* Complexity */}
-          <div className="p-6 border-b border-[#333] bg-[#181818]">
-            <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Complexity</h5>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#222] rounded-lg p-4 border border-[#333]">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Time</span>
-                <p className="text-xl font-mono font-bold text-white">{problem.timeComplexity}</p>
-              </div>
-              <div className="bg-[#222] rounded-lg p-4 border border-[#333]">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Space</span>
-                <p className="text-xl font-mono font-bold text-white">{problem.spaceComplexity}</p>
+          {/* Complexity - Only show for LeetCode problems (not ML System Design) */}
+          {problem.timeComplexity && problem.spaceComplexity && !problem.mlTopics?.length && (
+            <div className="p-6 border-b border-[#333] bg-[#181818]">
+              <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Complexity</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#222] rounded-lg p-4 border border-[#333]">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Time</span>
+                  <p className="text-xl font-mono font-bold text-white">{problem.timeComplexity}</p>
+                </div>
+                <div className="bg-[#222] rounded-lg p-4 border border-[#333]">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Space</span>
+                  <p className="text-xl font-mono font-bold text-white">{problem.spaceComplexity}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Example Walkthrough */}
-          {problem.example && (
+          {/* Example Walkthrough - For ML System Design, use exampleWalkthrough field */}
+          {(problem.exampleWalkthrough || problem.example) && (
             <div className="p-6 border-b border-[#333]">
               <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Route size={12} /> Example Walkthrough
               </h5>
               <div className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">
-                {formatText(problem.example)}
+                {formatText(problem.exampleWalkthrough || problem.example || '')}
               </div>
             </div>
           )}
 
-          {/* Python Solution */}
-          {problem.solution && (
+          {/* Python Solution / Solution Skeleton */}
+          {(problem.solution || problem.solutionSkeleton) && (
             <div>
               <div className="px-6 py-2 border-b border-[#333] flex items-center gap-2 bg-[#1a1a1a]">
                 <Code2 size={14} className="text-gold" />
-                <span className="text-xs font-bold text-gold uppercase tracking-wider">Python Solution</span>
+                <span className="text-xs font-bold text-gold uppercase tracking-wider">
+                  {problem.mlTopics?.length ? 'Solution Skeleton' : 'Python Solution'}
+                </span>
               </div>
               <pre className="p-6 overflow-x-auto text-sm leading-relaxed bg-[#0d0d0d]">
                 <code className="text-gray-300 font-mono whitespace-pre">
-                  {formatText(problem.solution)}
+                  {formatText(problem.solutionSkeleton || problem.solution || '')}
                 </code>
               </pre>
             </div>

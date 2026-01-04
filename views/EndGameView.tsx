@@ -30,7 +30,7 @@ import {
   EndGameRoundConfig,
   HiringCommitteeVerdict,
   ArenaQuestion,
-  BlindProblem,
+  Problem,
   BehavioralQuestion
 } from '../types';
 import { evaluateHiringCommittee } from '../services/analysisService';
@@ -95,8 +95,8 @@ const EndGameView: React.FC<EndGameViewProps> = ({
   // Pre-selected questions/problems for each round
   const [behavioralQuestion, setBehavioralQuestion] = useState<ArenaQuestion | null>(null);
   const [mlDeepDiveQuestion, setMlDeepDiveQuestion] = useState<ArenaQuestion | null>(null);
-  const [leetcodeProblem, setLeetcodeProblem] = useState<BlindProblem | null>(null);
-  const [systemCodingProblem, setSystemCodingProblem] = useState<BlindProblem | null>(null);
+  const [leetcodeProblem, setLeetcodeProblem] = useState<Problem | null>(null);
+  const [systemCodingProblem, setSystemCodingProblem] = useState<Problem | null>(null);
   const [isLoadingProblems, setIsLoadingProblems] = useState(false);
 
   // Handle round completion - called by child components
@@ -150,7 +150,7 @@ const EndGameView: React.FC<EndGameViewProps> = ({
       // Fetch all data in parallel - with individual error handling
       console.log('[EndGame] handleStartSimulation - Fetching from database...');
       
-      let allProblems: BlindProblem[] = [];
+      let allProblems: Problem[] = [];
       let behavioralQuestions: BehavioralQuestion[] = [];
       let mlDeepDiveQuestions: BehavioralQuestion[] = [];
       
@@ -177,9 +177,9 @@ const EndGameView: React.FC<EndGameViewProps> = ({
       }
       
       // Filter for LeetCode problems (non-system coding)
-      const leetcodeProblems = allProblems.filter((p: BlindProblem) => !p.isSystemCoding);
+      const leetcodeProblems = allProblems.filter((p: Problem) => !p.isSystemCoding);
       // Filter for System Coding problems
-      const systemCodingProblems = allProblems.filter((p: BlindProblem) => p.isSystemCoding);
+      const systemCodingProblems = allProblems.filter((p: Problem) => p.isSystemCoding);
       
       // Randomly select behavioral question (from DB or fallback)
       const randomBehavioral: ArenaQuestion = behavioralQuestions.length > 0
@@ -565,7 +565,7 @@ const EndGameView: React.FC<EndGameViewProps> = ({
     return result;
   };
 
-  const getAutoStartProblem = (): BlindProblem | undefined => {
+  const getAutoStartProblem = (): Problem | undefined => {
     if (currentRoundConfig.mode === 'leetcode') return leetcodeProblem || undefined;
     if (currentRoundConfig.mode === 'system_coding') return systemCodingProblem || undefined;
     return undefined;

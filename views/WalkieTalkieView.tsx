@@ -30,11 +30,11 @@ import {
   incrementQuestionsAnswered,
   clearSpotAssignments
 } from '../components/spots';
-import { BlindProblem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport } from '../types';
+import { Problem, PerformanceReport, SavedItem, SavedReport, TeachingSession, TeachingReport, ReadinessReport, MLSystemDesignTopic, ML_TOPIC_DISPLAY_NAMES } from '../types';
 import { UserStudySettings, StudyStats, Company } from '../types/database';
 import { supabase } from '../config/supabase';
 import { analyzeWalkieSession } from '../services/analysisService';
-import { buildProblemQueue, fetchBlindProblemByTitle, fetchSystemCodingQuestionByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildCompanyProblemQueue, getCompanyProblemsCount, fetchCustomQuestionsForCompany } from '../services/databaseService';
+import { buildProblemQueue, fetchProblemByTitle, fetchSystemCodingQuestionByTitle, fetchUserProgressByTitle, fetchDueReviews, fetchTodayActivity, fetchCompanies, buildInterviewProblemQueue, getInterviewProblemsCount, fetchCustomQuestionsForCompany, fetchInterviewQuestionsByType } from '../services/databaseService';
 import { 
   getJuniorResponse, 
   getJuniorSummary, 
@@ -87,7 +87,7 @@ interface WalkieTalkieViewProps {
   // End Game simulation mode: if provided, call this instead of showing reveal screen
   onRoundComplete?: (report: PerformanceReport) => void;
   // Auto-start: if provided, skip locations and start with this problem immediately
-  autoStartProblem?: BlindProblem;
+  autoStartProblem?: Problem;
   autoStartMode?: 'teach' | 'paired';  // teach = LeetCode/SystemCoding, paired = explain mode
 }
 
@@ -202,26 +202,90 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   };
   
   // Handle company selection for Himmel Park
-  const handleCompanySelect = async (spotId: string, companyId: string, companyName: string) => {
+  const handleCompanySelect = async (spotId: string, interviewTypeId: string, companyName: string) => {
     try {
       // Fetch problem count for this company (includes curated + custom questions)
-      const count = await getCompanyProblemsCount(companyId, companyName, user?.id);
+      const count = await getInterviewProblemsCount(interviewTypeId, companyName, user?.id);
+      
+      // For ML System Design, also fetch available topics
+      let availableMlTopics: MLSystemDesignTopic[] = [];
+      if (interviewTypeId === 'ml_system_design' || interviewTypeId === 'ml_coding') {
+        const questions = await fetchInterviewQuestionsByType(interviewTypeId, true);
+        // Extract unique topics from questions (topics is now an array)
+        const topicsSet = new Set<MLSystemDesignTopic>();
+        questions.forEach(q => {
+          if (q.mlTopics) {
+            q.mlTopics.forEach(t => topicsSet.add(t));
+          }
+        });
+        availableMlTopics = Array.from(topicsSet).sort();
+      }
       
       // Update the spot with selected company
+      // For ml_system_design, default to 'robotics' topic (temporary)
+      const defaultMlTopic = interviewTypeId === 'ml_system_design' ? 'robotics' as MLSystemDesignTopic : undefined;
+      const defaultMlTopicDisplay = interviewTypeId === 'ml_system_design' ? 'Robotics' : 'All Topics';
+      
+      // If defaulting to robotics, recalculate count for that topic
+      let adjustedCount = count;
+      if (defaultMlTopic && interviewTypeId === 'ml_system_design') {
+        const questions = await fetchInterviewQuestionsByType(interviewTypeId, true);
+        adjustedCount = questions.filter(q => q.mlTopics?.includes(defaultMlTopic)).length;
+      }
+      
       setSpotsWithTopics(prev => prev.map(spot => {
         if (spot.id === spotId) {
           return {
             ...spot,
-            selectedCompanyId: companyId,
+            selectedinterviewTypeId: interviewTypeId,
             selectedCompanyName: companyName,
             topicDisplay: companyName,
-            remaining: count
+            remaining: adjustedCount,
+            // Default to robotics topic for ml_system_design (temporary)
+            selectedMlTopic: defaultMlTopic,
+            selectedMlTopicDisplay: defaultMlTopicDisplay,
+            availableMlTopics
           };
         }
         return spot;
       }));
     } catch (error) {
       console.error('Error updating company selection:', error);
+    }
+  };
+  
+  // Handle ML topic selection for Himmel Park (when ML System Design or ML Coding is selected)
+  const handleMlTopicSelect = async (spotId: string, topic: MLSystemDesignTopic | undefined, topicDisplay: string) => {
+    try {
+      // Find the current spot to get its selected company type
+      const currentSpot = spotsWithTopics.find(s => s.id === spotId);
+      const questionType = currentSpot?.selectedinterviewTypeId || 'ml_system_design';
+      
+      // Count questions with this topic filter
+      let count = 0;
+      if (topic) {
+        const questions = await fetchInterviewQuestionsByType(questionType, true);
+        // Filter by topic - mlTopics is now an array, use includes
+        count = questions.filter(q => q.mlTopics?.includes(topic)).length;
+      } else {
+        // All topics - get full count
+        count = await getInterviewProblemsCount(questionType, currentSpot?.selectedCompanyName || '', user?.id);
+      }
+      
+      // Update the spot with selected topic
+      setSpotsWithTopics(prev => prev.map(spot => {
+        if (spot.id === spotId) {
+          return {
+            ...spot,
+            selectedMlTopic: topic,
+            selectedMlTopicDisplay: topicDisplay,
+            remaining: count
+          };
+        }
+        return spot;
+      }));
+    } catch (error) {
+      console.error('Error updating ML topic selection:', error);
     }
   };
   
@@ -316,7 +380,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   useEffect(() => {
     if (companies.length > 0 && spotsWithTopics.length > 0) {
       const himmelPark = spotsWithTopics.find(s => s.isCompanySpecific);
-      if (himmelPark && !himmelPark.selectedCompanyId) {
+      if (himmelPark && !himmelPark.selectedinterviewTypeId) {
         // Auto-select first company
         const firstCompany = companies[0];
         handleCompanySelect(himmelPark.id, firstCompany.id, firstCompany.name);
@@ -362,7 +426,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const [difficultyMode, setDifficultyMode] = useState<DifficultyMode>('standard');
   
   // Session State - if autoStartProblem is provided, initialize with it
-  const [problemQueue, setProblemQueue] = useState<BlindProblem[]>(() => {
+  const [problemQueue, setProblemQueue] = useState<Problem[]>(() => {
     if (autoStartProblem) return [autoStartProblem];
     return [];
   });
@@ -505,7 +569,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       setStep('curating');
       
       // Try to load the problem - for system coding questions, check custom_interview_questions first
-      let problem: BlindProblem | null = null;
+      let problem: Problem | null = null;
       
       if (isSystemCodingNavigation && user?.id) {
         // This is a system coding question - load from custom_interview_questions
@@ -516,7 +580,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       // Fall back to blind_problems if not found or not a system coding question
       if (!problem) {
         console.log('[TeachAgain] Loading from blind_problems:', teachAgainProblem);
-        problem = await fetchBlindProblemByTitle(teachAgainProblem);
+        problem = await fetchProblemByTitle(teachAgainProblem);
       }
       
       if (problem) {
@@ -586,14 +650,14 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       console.log('[ProblemSlug] Loading problem from slug:', problemSlug, '-> searchTitle:', searchTitle);
       
       // Try to load as system coding question first (interview_questions)
-      let problem: BlindProblem | null = null;
+      let problem: Problem | null = null;
       if (user?.id) {
         problem = await fetchSystemCodingQuestionByTitle(user.id, searchTitle);
       }
       
       // Fall back to blind_problems
       if (!problem) {
-        problem = await fetchBlindProblemByTitle(searchTitle);
+        problem = await fetchProblemByTitle(searchTitle);
       }
       
       if (problem) {
@@ -881,11 +945,11 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
   const startSpotSession = async (spot: SpotWithTopic) => {
     // For company-specific spots (Himmel Park), ensure a company is selected
     if (spot.isCompanySpecific) {
-      if (!spot.selectedCompanyId) {
+      if (!spot.selectedinterviewTypeId) {
         console.warn('[StartSession] No company selected for Himmel Park');
         return; // Company selection should happen in LocationsStep
       }
-      setSelectedCompany(companies.find(c => c.id === spot.selectedCompanyId) || null);
+      setSelectedCompany(companies.find(c => c.id === spot.selectedinterviewTypeId) || null);
     }
     
     // For Daily Commute (reviews only), default to teach mode
@@ -914,19 +978,30 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     }
     
     try {
-        let problems: BlindProblem[] = [];
+        let problems: Problem[] = [];
         
         // For company-specific spots, use company problem queue + custom questions
-        if (spot.isCompanySpecific && spot.selectedCompanyId) {
+        if (spot.isCompanySpecific && spot.selectedinterviewTypeId) {
           const batchSize = 10; // All problems for the company
-          const curatedProblems = await buildCompanyProblemQueue(spot.selectedCompanyId, batchSize);
+          let curatedProblems = await buildInterviewProblemQueue(spot.selectedinterviewTypeId, batchSize, user?.id);
           console.log(`[Company Session] Loaded ${curatedProblems.length} curated problems for company ${spot.selectedCompanyName}`);
           
+          // Filter by ML topic if selected (for ml_system_design or ml_coding types)
+          if (spot.selectedMlTopic && (spot.selectedinterviewTypeId === 'ml_system_design' || spot.selectedinterviewTypeId === 'ml_coding')) {
+            curatedProblems = curatedProblems.filter(p => p.mlTopics?.includes(spot.selectedMlTopic!));
+            console.log(`[Company Session] Filtered to ${curatedProblems.length} problems with topic ${spot.selectedMlTopic}`);
+          }
+          
           // Also fetch custom questions for this company (if user is logged in)
-          let customQuestions: BlindProblem[] = [];
+          let customQuestions: Problem[] = [];
           if (user?.id && spot.selectedCompanyName) {
             customQuestions = await fetchCustomQuestionsForCompany(user.id, spot.selectedCompanyName);
             console.log(`[Company Session] Loaded ${customQuestions.length} custom questions for company ${spot.selectedCompanyName}`);
+            
+            // Filter custom questions by ML topic too
+            if (spot.selectedMlTopic && (spot.selectedinterviewTypeId === 'ml_system_design' || spot.selectedinterviewTypeId === 'ml_coding')) {
+              customQuestions = customQuestions.filter(p => p.mlTopics?.includes(spot.selectedMlTopic!));
+            }
           }
           
           // Merge: custom questions first (for practice priority), then curated
@@ -1014,8 +1089,8 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         resetProblemStartTime();
         
         // Initialize based on session mode
-        if (sessionMode === 'teach') {
-            // Direct teach mode - skip explain step
+        if (sessionMode === 'teach' || sessionMode === 'interview') {
+            // Direct teach/interview mode - skip explain step
             const firstProblem = problems.length > 0 ? problems[0] : null;
             if (firstProblem) {
                 setTeachingSession(createTeachingSession(firstProblem.id));
@@ -1118,11 +1193,12 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       const updatedSession = addTurn(teachingSession, 'teacher', text, text, imageBase64);
       setTeachingSession(updatedSession);
       
-      // Get junior's response
+      // Get junior's/peer's response (uses different prompts based on sessionMode)
       const { response, newState, isComplete } = await getJuniorResponse(
         currentProblem,
         updatedSession.turns,
-        updatedSession.juniorState
+        updatedSession.juniorState,
+        sessionMode
       );
       
       // Add junior's response to session
@@ -1141,19 +1217,22 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         const finalSession = setJuniorSummary(sessionWithJunior, summary);
         setTeachingSession(finalSession);
         
-        // Now have Dean evaluate
+        // Now have Dean/Hiring Manager evaluate
         setStep('dean_evaluating');
-        const report = await evaluateTeaching(currentProblem, finalSession);
+        const report = await evaluateTeaching(currentProblem, finalSession, sessionMode);
         setTeachingReport(report);
         
-        // Save the teaching report
+        // Save the teaching/interview report
+        const isInterviewMode = sessionMode === 'interview';
         const performanceReport: PerformanceReport = {
           rating: report.teachingScore,
-          summary: `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
+          summary: isInterviewMode 
+            ? `Interview evaluation: ${(report as any).interviewData?.hiringSignal || 'lean_no_hire'}`
+            : `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
           suggestions: report.topGaps,
           pronunciationFeedback: [],
           detailedFeedback: report.evidenceNotes.map((note, idx) => ({
-            category: 'Teaching',
+            category: isInterviewMode ? 'Interview' : 'Teaching',
             issue: note,
             instance: '',
             rewrite: idx === 0 ? report.concreteImprovement : '',
@@ -1163,9 +1242,10 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
           teachingSession: updatedSession,
           juniorSummary: finalSession.juniorSummary,
           teachingProblem: currentProblem,
+          sessionMode: isInterviewMode ? 'interview' : 'teach',
           timeSpentSeconds: getElapsedSeconds()
         };
-        onSaveReport(currentProblem.title, 'teach', performanceReport);
+        onSaveReport(currentProblem.title, isInterviewMode ? 'interview' : 'teach', performanceReport);
         
         // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
         // Only counts if the problem's topic matches the locked topic
@@ -1242,20 +1322,23 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       const finalSession = setJuniorSummary(teachingSession, summary);
       setTeachingSession(finalSession);
       
-      // Have Dean evaluate
+      // Have Dean/Hiring Manager evaluate
       setStep('dean_evaluating');
-      const report = await evaluateTeaching(currentProblem, finalSession);
+      const report = await evaluateTeaching(currentProblem, finalSession, sessionMode);
       setTeachingReport(report);
       
-      // Save the teaching report as a PerformanceReport-compatible format
-      // Include full teaching report data for proper viewing later
+      // Save the teaching/interview report as a PerformanceReport-compatible format
+      // Include full report data for proper viewing later
+      const isInterview = sessionMode === 'interview';
       const performanceReport: PerformanceReport = {
         rating: report.teachingScore,
-        summary: `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
+        summary: isInterview 
+          ? `Interview evaluation: ${(report as any).interviewData?.hiringSignal || 'lean_no_hire'}`
+          : `Teaching evaluation: ${report.studentOutcome === 'can_implement' ? 'Student can implement' : report.studentOutcome === 'conceptual_only' ? 'Conceptual understanding only' : 'Student still confused'}`,
         suggestions: report.topGaps,
         pronunciationFeedback: [],
         detailedFeedback: report.evidenceNotes.map((note, idx) => ({
-          category: 'Teaching',
+          category: isInterview ? 'Interview' : 'Teaching',
           issue: note,
           instance: '',
           rewrite: idx === 0 ? report.concreteImprovement : '',
@@ -1265,9 +1348,10 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         teachingSession: finalSession,  // Include the full dialog
         juniorSummary: finalSession.juniorSummary,
         teachingProblem: currentProblem,  // Include problem for model answer display
+        sessionMode: isInterview ? 'interview' : 'teach',  // Store session mode for proper display
         timeSpentSeconds: getElapsedSeconds()
       };
-      onSaveReport(currentProblem.title, 'teach', performanceReport);
+      onSaveReport(currentProblem.title, isInterview ? 'interview' : 'teach', performanceReport);
       
       // Increment questions answered for topic unlock tracking (Coffee Sanctuary)
       // Only counts if the problem's topic matches the locked topic
@@ -1375,9 +1459,9 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       
       if (error) throw error;
       
-      // Convert database format to BlindProblem type (casting through any to resolve type issues with never)
+      // Convert database format to Problem type (casting through any to resolve type issues with never)
       const freshProblemAny = freshProblem as any;
-      const updatedProblem: BlindProblem = {
+      const updatedProblem: Problem = {
         id: freshProblemAny.id,
         title: freshProblemAny.title,
         prompt: freshProblemAny.prompt,
@@ -1400,7 +1484,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
       };
       
       // Re-run the Dean evaluation with fresh data
-      const newReport = await evaluateTeaching(updatedProblem, teachingSession);
+      const newReport = await evaluateTeaching(updatedProblem, teachingSession, sessionMode);
       
       setTeachingReport(newReport);
       setStatusMessage("Re-evaluation complete!");
@@ -1443,6 +1527,7 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
         companies={companies}
         isLoadingCompanies={isLoadingCompanies}
         onCompanySelect={handleCompanySelect}
+        onMlTopicSelect={handleMlTopicSelect}
         showStats={showStats}
         setShowStats={setShowStats}
         showSettings={showSettings}
@@ -1573,25 +1658,26 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
     );
   }
 
-  // Junior summarizing screen
+  // Junior/Peer summarizing screen
   if (step === 'junior_summarizing') {
-    return <JuniorSummarizingStep />;
+    return <JuniorSummarizingStep sessionMode={sessionMode} />;
   }
 
-  // Dean evaluating screen
+  // Dean/Hiring Manager evaluating screen
   if (step === 'dean_evaluating') {
-    return <DeanEvaluatingStep />;
+    return <DeanEvaluatingStep sessionMode={sessionMode} />;
   }
 
-  // Teaching reveal/report screen
+  // Teaching/Interview reveal/report screen
   if (step === 'teaching_reveal' && teachingReport && teachingSession) {
     return (
       <TeachingRevealStep
         currentProblem={currentProblem}
         teachingReport={teachingReport}
-              teachingSession={teachingSession}
+        teachingSession={teachingSession}
         currentQueueIdx={currentQueueIdx}
         problemQueueLength={problemQueue.length}
+        sessionMode={sessionMode}
         onHome={onHome}
         handleTeachingContinue={handleTeachingContinue}
         handleTryAgain={handleTryTeachAgain}

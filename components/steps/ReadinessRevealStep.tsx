@@ -6,12 +6,12 @@
 
 import React from 'react';
 import { Home, Layers } from 'lucide-react';
-import { BlindProblem, ReadinessReport } from '../../types';
+import { Problem, ReadinessReport } from '../../types';
 import ReadinessReportComponent from '../ReadinessReport';
 
 interface ReadinessRevealStepProps {
   readinessReport: ReadinessReport;
-  currentProblem: BlindProblem;
+  currentProblem: Problem;
   rawTranscript: string;
   explainTranscript: string;
   dailyCleared: number;

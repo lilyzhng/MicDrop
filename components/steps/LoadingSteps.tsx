@@ -5,7 +5,9 @@
  */
 
 import React from 'react';
-import { Loader2, BrainCircuit, Layers, MessageCircle, GraduationCap, Award, Sparkles } from 'lucide-react';
+import { Loader2, BrainCircuit, Layers, MessageCircle, GraduationCap, Award, Sparkles, Users, Briefcase } from 'lucide-react';
+
+type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 
 // Curating problems loading
 export const CuratingStep: React.FC<{ spotName?: string; modeLabel: string }> = ({ spotName, modeLabel }) => (
@@ -69,30 +71,66 @@ export const JuniorThinkingStep: React.FC = () => (
   </div>
 );
 
-// Junior summarizing loading
-export const JuniorSummarizingStep: React.FC = () => (
-  <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
-    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-300 mb-6 sm:mb-8 animate-pulse border border-purple-500/20">
-      <GraduationCap size={32} className="sm:w-12 sm:h-12" />
+// Junior/Peer summarizing loading
+export const JuniorSummarizingStep: React.FC<{ sessionMode?: SessionMode }> = ({ sessionMode = 'teach' }) => {
+  const isInterview = sessionMode === 'interview';
+  
+  return (
+    <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+      <div className={`w-16 h-16 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mb-6 sm:mb-8 animate-pulse border ${
+        isInterview 
+          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+          : 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+      }`}>
+        {isInterview ? (
+          <Users size={32} className="sm:w-12 sm:h-12" />
+        ) : (
+          <GraduationCap size={32} className="sm:w-12 sm:h-12" />
+        )}
+      </div>
+      <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">
+        {isInterview ? 'Peer Wrapping Up...' : 'Junior Summarizing...'}
+      </h2>
+      <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+        {isInterview 
+          ? 'The peer is summarizing the key points from your discussion...'
+          : 'The junior is restating what they learned in their own words...'}
+      </p>
+      <Loader2 size={20} className={`sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin ${
+        isInterview ? 'text-emerald-400/40' : 'text-purple-400/40'
+      }`} />
     </div>
-    <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">Junior Summarizing...</h2>
-    <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
-      The junior is restating what they learned in their own words...
-    </p>
-    <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-purple-400/40" />
-  </div>
-);
+  );
+};
 
-// Dean evaluating loading
-export const DeanEvaluatingStep: React.FC = () => (
-  <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
-    <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-gold/10 flex items-center justify-center text-gold mb-6 sm:mb-8 animate-pulse border border-gold/20">
-      <Award size={32} className="sm:w-12 sm:h-12" />
+// Dean/Hiring Manager evaluating loading
+export const DeanEvaluatingStep: React.FC<{ sessionMode?: SessionMode }> = ({ sessionMode = 'teach' }) => {
+  const isInterview = sessionMode === 'interview';
+  
+  return (
+    <div className="h-full bg-charcoal text-white flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+      <div className={`w-16 h-16 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mb-6 sm:mb-8 animate-pulse border ${
+        isInterview
+          ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+          : 'bg-gold/10 text-gold border-gold/20'
+      }`}>
+        {isInterview ? (
+          <Briefcase size={32} className="sm:w-12 sm:h-12" />
+        ) : (
+          <Award size={32} className="sm:w-12 sm:h-12" />
+        )}
+      </div>
+      <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">
+        {isInterview ? 'Hiring Manager Evaluating...' : 'The Dean is Evaluating...'}
+      </h2>
+      <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
+        {isInterview
+          ? 'Assessing your interview performance and design defense...'
+          : 'Assessing your teaching effectiveness...'}
+      </p>
+      <Loader2 size={20} className={`sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin ${
+        isInterview ? 'text-blue-400/40' : 'text-gold/40'
+      }`} />
     </div>
-    <h2 className="text-2xl sm:text-4xl font-serif font-bold mb-3 sm:mb-4 px-4">The Dean is Evaluating...</h2>
-    <p className="text-gray-400 font-light italic leading-relaxed max-w-sm text-sm sm:text-base px-4">
-      Assessing your teaching effectiveness...
-    </p>
-    <Loader2 size={20} className="sm:w-6 sm:h-6 mt-8 sm:mt-12 animate-spin text-gold/40" />
-  </div>
-);
+  );
+};

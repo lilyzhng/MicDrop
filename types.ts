@@ -163,10 +163,11 @@ export interface PerformanceReport {
   teachingReportData?: TeachingReport;
   teachingSession?: TeachingSession;  // The full dialog between teacher and junior
   juniorSummary?: string;
-  teachingProblem?: BlindProblem; // The problem data for model answer display in teach reports
+  teachingProblem?: Problem; // The problem data for model answer display in teach reports
+  sessionMode?: 'teach' | 'interview'; // Whether this was teach mode or interview mode
   // Readiness (Explain mode Phase 1) specific fields
   readinessReportData?: ReadinessReport;
-  readinessProblem?: BlindProblem; // The problem data for model answer display
+  readinessProblem?: Problem; // The problem data for model answer display
   rawTranscript?: string;
   refinedTranscript?: string;
   // Time tracking
@@ -274,7 +275,7 @@ export interface FormattedProblemSection {
   label?: string;
 }
 
-export interface BlindProblem {
+export interface Problem {
   id: string;
   title: string;
   prompt: string;
@@ -301,6 +302,10 @@ export interface BlindProblem {
   isSystemCoding?: boolean; // True for system coding questions (use System Junior/Dean)
   source?: string; // Source URL (e.g., interview report link, video solution)
   company?: string; // Company name(s) that ask this question
+  mlTopics?: MLSystemDesignTopic[]; // Topic categories for ML system design questions
+  // ML System Design specific fields (from database)
+  exampleWalkthrough?: string; // Concrete example walkthrough for ML system design
+  solutionSkeleton?: string; // Python pseudocode skeleton for ML system design
 }
 
 // --- Teach-Back Mode Types ---
@@ -462,6 +467,25 @@ export interface EndGameRoundConfig {
 
 export type InterviewQuestionType = 'behavioral' | 'ml_deep_dive' | 'ml_system_design' | 'ml_coding' | 'ml_debugging' | 'system_coding' | 'system_design';
 
+// ML System Design topic categories (6 categories)
+export type MLSystemDesignTopic = 
+  | 'data'       // Data pipelines, labeling, annotation, quality control
+  | 'training'   // Model training, RLHF, fine-tuning, evaluation, active learning
+  | 'inference'  // Model serving, optimization, RAG, retrieval systems
+  | 'ranking'    // Recommendation, personalization, prediction, search
+  | 'perception' // Computer vision, autonomous systems, content moderation
+  | 'robotics';  // Robotics, robot control, manipulation
+
+// Display names for ML System Design topics
+export const ML_TOPIC_DISPLAY_NAMES: Record<MLSystemDesignTopic, string> = {
+  data: 'Data',
+  training: 'Training',
+  inference: 'Inference',
+  ranking: 'Ranking',
+  perception: 'Perception',
+  robotics: 'Robotics'
+};
+
 export interface InterviewQuestion {
   id: string;
   userId: string | null;  // null = shared/default question
@@ -471,6 +495,7 @@ export interface InterviewQuestion {
   probingPrompt: string;  // Instructions for how to probe/evaluate
   source?: string;  // Optional source
   company?: string;  // Company name(s) that ask this question (comma-separated for multiple)
+  topics?: MLSystemDesignTopic[];  // Topic categories (primarily for ml_system_design)
   isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;

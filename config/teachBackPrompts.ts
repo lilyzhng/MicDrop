@@ -7,7 +7,7 @@
  * 3. Dean (Teaching Evaluator) - Evaluates teaching quality after Teach mode
  */
 
-import { BlindProblem, TeachingTurn, JuniorState, TeachingSession } from '../types';
+import { Problem, TeachingTurn, JuniorState, TeachingSession } from '../types';
 
 // ============================================================
 // STRUCTURE CHECKER (Pass 1 - Readiness to Teach Evaluator)
@@ -77,7 +77,7 @@ You will receive RAW speech-to-text transcripts with errors. Be GENEROUS in inte
 - Focus on: Did they demonstrate understanding? Did they attempt to explain the concept?`,
 
     generateEvaluationPrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         transcript: string
     ) => {
         return `Evaluate this explanation for "Readiness to Teach":
@@ -300,7 +300,7 @@ You will receive RAW speech-to-text transcripts with errors. Be GENEROUS in inte
 - Focus on: What is the teacher trying to explain? What example are they walking through?`,
 
     generateResponsePrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         turns: TeachingTurn[],
         currentState: JuniorState
     ) => {
@@ -366,7 +366,7 @@ Set isComplete to true ONLY when you understand: the approach, why it works, edg
     },
 
     generateSummaryPrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         turns: TeachingTurn[]
     ) => {
         const conversationHistory = turns.map(t => 
@@ -510,7 +510,7 @@ Return a structured evaluation with:
 * Keep output concise: evidence notes should be ~3-5 bullet points max.`,
 
     generateEvaluationPrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         session: TeachingSession
     ) => {
         // Number each turn for annotation references
@@ -777,7 +777,7 @@ When you feel you fully understand:
 * Sounds like a real junior trying to understand code`,
 
     generateResponsePrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         turns: TeachingTurn[],
         currentState: JuniorState
     ) => {
@@ -885,7 +885,7 @@ Return a structured evaluation with:
 9. **Junior Summary Correct** - Was the junior's understanding correct?`,
 
     generateEvaluationPrompt: (
-        problem: BlindProblem,
+        problem: Problem,
         session: TeachingSession
     ) => {
         const conversationHistory = session.turns.map((t, idx) => 

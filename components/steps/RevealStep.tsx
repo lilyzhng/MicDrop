@@ -12,11 +12,11 @@ import {
   AlertCircle, 
   ShieldAlert 
 } from 'lucide-react';
-import { BlindProblem, PerformanceReport, SavedItem } from '../../types';
+import { Problem, PerformanceReport, SavedItem } from '../../types';
 import PerformanceReportComponent from '../PerformanceReport';
 
 interface RevealStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   aiReport: PerformanceReport;
   transcript: string;
   usedHints: boolean;

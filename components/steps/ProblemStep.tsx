@@ -17,16 +17,16 @@ import {
   Keyboard,
   Send
 } from 'lucide-react';
-import { BlindProblem } from '../../types';
+import { Problem } from '../../types';
 import { getNeetCodeUrl, getSourceUrl } from '../../config/neetcodeUrls';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 
-type SessionMode = 'paired' | 'explain' | 'teach';
+type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 type InputMode = 'voice' | 'text';
 
 interface ProblemStepProps {
   step: 'problem' | 'recording';
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   selectedSpot: { name: string } | null;
   sessionMode: SessionMode;
   dailyCleared: number;
@@ -132,9 +132,11 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                <Layers size={10} className="inline mr-1" /> Pass 1 • Explain
              </div>
            )}
-           <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-gold/30 text-[8px] sm:text-[10px] font-bold text-gold bg-gold/5 uppercase tracking-wider sm:tracking-widest truncate max-w-[120px] sm:max-w-none">
-              {selectedSpot?.name}
-           </div>
+           {selectedSpot?.name && (
+             <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-gold/30 text-[8px] sm:text-[10px] font-bold text-gold bg-gold/5 uppercase tracking-wider sm:tracking-widest truncate max-w-[120px] sm:max-w-none">
+                {selectedSpot.name}
+             </div>
+           )}
            <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/10 text-[8px] sm:text-[10px] font-bold text-gray-400 bg-white/5 uppercase tracking-wider sm:tracking-widest whitespace-nowrap">
               {dailyCleared}/{dailyCap} today
            </div>

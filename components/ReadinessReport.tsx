@@ -23,12 +23,12 @@ import {
     BookOpen
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { ReadinessReport, BlindProblem } from '../types';
+import { ReadinessReport, Problem } from '../types';
 
 interface ReadinessReportComponentProps {
     report: ReadinessReport;
     problemTitle: string;
-    problem?: BlindProblem;
+    problem?: Problem;
     onContinueToTeach: () => void;
     onTryAgain: () => void;
     rawTranscript?: string;

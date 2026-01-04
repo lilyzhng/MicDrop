@@ -7,7 +7,7 @@
 
 import { GoogleGenAI, Type as GeminiType } from '@google/genai';
 import { 
-    BlindProblem, 
+    Problem, 
     TeachingTurn, 
     JuniorState, 
     TeachingSession, 
@@ -25,6 +25,12 @@ import {
     JUNIOR_RESPONSE_SCHEMA, 
     TEACHING_REPORT_SCHEMA 
 } from '../config/teachBackPrompts';
+import {
+    ML_SYSTEM_DESIGN_PEER_CONFIG,
+    ML_SYSTEM_DESIGN_JUNIOR_CONFIG,
+    ML_SYSTEM_DESIGN_DEAN_CONFIG,
+    ML_SYSTEM_DESIGN_INTERVIEW_DEAN_CONFIG
+} from '../config/mlSystemDesignPrompts';
 
 const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 
@@ -37,7 +43,7 @@ const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
  * This is Pass 1 of the paired repetition flow
  */
 export async function evaluateReadinessToTeach(
-    problem: BlindProblem,
+    problem: Problem,
     transcript: string
 ): Promise<ReadinessReport> {
     const prompt = STRUCTURE_CHECKER_CONFIG.generateEvaluationPrompt(problem, transcript);
@@ -185,19 +191,41 @@ function buildMultimodalContent(
 }
 
 /**
- * Generate the Junior's next response based on the teaching so far
- * Uses SYSTEM_JUNIOR_CONFIG for system coding problems, LEETCODE_JUNIOR_CONFIG for LeetCode
+ * Generate the Junior's/Peer's next response based on the teaching so far
+ * Uses different configs based on problem type and session mode:
+ * - Interview mode + ML System Design: ML_SYSTEM_DESIGN_PEER_CONFIG (peer interviewer)
+ * - Teach mode + ML System Design: ML_SYSTEM_DESIGN_JUNIOR_CONFIG (junior learner)
+ * - System Coding: SYSTEM_JUNIOR_CONFIG
+ * - LeetCode: LEETCODE_JUNIOR_CONFIG
  * Supports multimodal content (text + whiteboard drawings)
  */
 export async function getJuniorResponse(
-    problem: BlindProblem,
+    problem: Problem,
     teachingHistory: TeachingTurn[],
-    currentState: JuniorState
+    currentState: JuniorState,
+    sessionMode: 'paired' | 'explain' | 'teach' | 'interview' = 'teach'
 ): Promise<{ response: string; newState: JuniorState; isComplete: boolean }> {
-    // Select the appropriate Junior config based on problem type
-    const juniorConfig = problem.isSystemCoding ? SYSTEM_JUNIOR_CONFIG : LEETCODE_JUNIOR_CONFIG;
+    // Determine if this is an ML System Design problem
+    const isMlSystemDesign = problem.mlTopics && problem.mlTopics.length > 0;
     
-    const prompt = juniorConfig.generateResponsePrompt(problem, teachingHistory, currentState);
+    // Select the appropriate config based on problem type and session mode
+    let config;
+    if (isMlSystemDesign) {
+        if (sessionMode === 'interview') {
+            config = ML_SYSTEM_DESIGN_PEER_CONFIG;
+            console.log('[TeachBack] Using ML System Design Peer for interview mode');
+        } else {
+            config = ML_SYSTEM_DESIGN_JUNIOR_CONFIG;
+            console.log('[TeachBack] Using ML System Design Junior for teach mode');
+        }
+    } else if (problem.isSystemCoding) {
+        config = SYSTEM_JUNIOR_CONFIG;
+        console.log('[TeachBack] Using System Junior for system coding problem');
+    } else {
+        config = LEETCODE_JUNIOR_CONFIG;
+    }
+    
+    const prompt = config.generateResponsePrompt(problem, teachingHistory, currentState);
     
     // Check if there are any images in the teaching history
     const hasImages = teachingHistory.some(turn => turn.imageBase64);
@@ -208,10 +236,10 @@ export async function getJuniorResponse(
         : prompt;
 
     const response = await ai.models.generateContent({
-        model: juniorConfig.model,
+        model: config.model,
         contents,
         config: {
-            systemInstruction: juniorConfig.systemPrompt,
+            systemInstruction: config.systemPrompt,
             responseMimeType: "application/json",
             responseSchema: {
                 type: GeminiType.OBJECT,
@@ -236,9 +264,6 @@ export async function getJuniorResponse(
 
     const result = JSON.parse(response.text);
     
-    if (problem.isSystemCoding) {
-        console.log('[TeachBack] Using System Junior for system coding problem');
-    }
     if (hasImages) {
         console.log('[TeachBack] Sent multimodal content with images to Gemini');
     }
@@ -254,7 +279,7 @@ export async function getJuniorResponse(
  * Generate the Junior's final summary after they understand the solution
  */
 export async function getJuniorSummary(
-    problem: BlindProblem,
+    problem: Problem,
     teachingHistory: TeachingTurn[]
 ): Promise<string> {
     const prompt = JUNIOR_CONFIG.generateSummaryPrompt(problem, teachingHistory);
@@ -275,21 +300,138 @@ export async function getJuniorSummary(
 // ============================================================
 
 /**
- * Have the Dean evaluate the complete teaching session
- * Uses SYSTEM_DEAN_CONFIG for system coding problems, LEETCODE_DEAN_CONFIG for LeetCode
+ * Have the Dean evaluate the complete teaching/interview session
+ * Selects config based on problem type and session mode:
+ * - Interview mode + ML System Design: ML_SYSTEM_DESIGN_INTERVIEW_DEAN_CONFIG (evaluates interview performance)
+ * - Teach mode + ML System Design: ML_SYSTEM_DESIGN_DEAN_CONFIG (evaluates teaching quality)
+ * - System Coding: SYSTEM_DEAN_CONFIG
+ * - LeetCode: LEETCODE_DEAN_CONFIG
  */
 export async function evaluateTeaching(
-    problem: BlindProblem,
-    session: TeachingSession
+    problem: Problem,
+    session: TeachingSession,
+    sessionMode: 'paired' | 'explain' | 'teach' | 'interview' = 'teach'
 ): Promise<TeachingReport> {
-    // Select the appropriate Dean config based on problem type
-    const deanConfig = problem.isSystemCoding ? SYSTEM_DEAN_CONFIG : LEETCODE_DEAN_CONFIG;
+    // Determine if this is an ML System Design problem
+    const isMlSystemDesign = problem.mlTopics && problem.mlTopics.length > 0;
     
-    if (problem.isSystemCoding) {
+    // Select the appropriate Dean config based on problem type and session mode
+    let deanConfig;
+    let isInterviewMode = false;
+    
+    if (isMlSystemDesign) {
+        if (sessionMode === 'interview') {
+            deanConfig = ML_SYSTEM_DESIGN_INTERVIEW_DEAN_CONFIG;
+            isInterviewMode = true;
+            console.log('[TeachBack] Using ML System Design Interview Dean for interview evaluation');
+        } else {
+            deanConfig = ML_SYSTEM_DESIGN_DEAN_CONFIG;
+            console.log('[TeachBack] Using ML System Design Dean for teaching evaluation');
+        }
+    } else if (problem.isSystemCoding) {
+        deanConfig = SYSTEM_DEAN_CONFIG;
         console.log('[TeachBack] Using System Dean to evaluate system coding teaching');
+    } else {
+        deanConfig = LEETCODE_DEAN_CONFIG;
     }
     
     const prompt = deanConfig.generateEvaluationPrompt(problem, session);
+
+    // Use different schema for interview mode
+    const responseSchema = isInterviewMode ? {
+        type: GeminiType.OBJECT,
+        properties: {
+            interviewScore: { type: GeminiType.INTEGER },
+            breakdown: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    designClarity: { type: GeminiType.INTEGER },
+                    choiceJustification: { type: GeminiType.INTEGER },
+                    tradeoffAwareness: { type: GeminiType.INTEGER },
+                    probeHandling: { type: GeminiType.INTEGER },
+                    adaptability: { type: GeminiType.INTEGER },
+                    depthOfKnowledge: { type: GeminiType.INTEGER }
+                },
+                required: ['designClarity', 'choiceJustification', 'tradeoffAwareness', 'probeHandling', 'adaptability', 'depthOfKnowledge']
+            },
+            weakDefenses: {
+                type: GeminiType.ARRAY,
+                items: {
+                    type: GeminiType.OBJECT,
+                    properties: {
+                        whatCandidateSaid: { type: GeminiType.STRING },
+                        whyWeak: { type: GeminiType.STRING },
+                        strongerAnswer: { type: GeminiType.STRING }
+                    },
+                    required: ['whatCandidateSaid', 'whyWeak', 'strongerAnswer']
+                }
+            },
+            strongMoments: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            dialogueAnnotations: {
+                type: GeminiType.ARRAY,
+                items: {
+                    type: GeminiType.OBJECT,
+                    properties: {
+                        turnIndex: { type: GeminiType.INTEGER },
+                        speaker: { type: GeminiType.STRING },
+                        annotation: { type: GeminiType.STRING },
+                        issueType: { type: GeminiType.STRING }
+                    },
+                    required: ['turnIndex', 'speaker', 'annotation', 'issueType']
+                }
+            },
+            areasToImprove: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            hiringSignal: { type: GeminiType.STRING }
+        },
+        required: ['interviewScore', 'breakdown', 'weakDefenses', 'strongMoments', 'dialogueAnnotations', 'areasToImprove', 'hiringSignal']
+    } : {
+        type: GeminiType.OBJECT,
+        properties: {
+            teachingScore: { type: GeminiType.INTEGER },
+            breakdown: {
+                type: GeminiType.OBJECT,
+                properties: {
+                    clarity: { type: GeminiType.INTEGER },
+                    correctness: { type: GeminiType.INTEGER },
+                    completeness: { type: GeminiType.INTEGER },
+                    studentMastery: { type: GeminiType.INTEGER },
+                    scaffolding: { type: GeminiType.INTEGER }
+                },
+                required: ['clarity', 'correctness', 'completeness', 'studentMastery', 'scaffolding']
+            },
+            factualErrors: {
+                type: GeminiType.ARRAY,
+                items: {
+                    type: GeminiType.OBJECT,
+                    properties: {
+                        whatTeacherSaid: { type: GeminiType.STRING },
+                        whatIsCorrect: { type: GeminiType.STRING },
+                        whyItMatters: { type: GeminiType.STRING }
+                    },
+                    required: ['whatTeacherSaid', 'whatIsCorrect', 'whyItMatters']
+                }
+            },
+            dialogueAnnotations: {
+                type: GeminiType.ARRAY,
+                items: {
+                    type: GeminiType.OBJECT,
+                    properties: {
+                        turnIndex: { type: GeminiType.INTEGER },
+                        speaker: { type: GeminiType.STRING },
+                        annotation: { type: GeminiType.STRING },
+                        issueType: { type: GeminiType.STRING }
+                    },
+                    required: ['turnIndex', 'speaker', 'annotation']
+                }
+            },
+            evidenceNotes: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            topGaps: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
+            concreteImprovement: { type: GeminiType.STRING },
+            studentOutcome: { type: GeminiType.STRING },
+            juniorSummaryCorrect: { type: GeminiType.BOOLEAN }
+        },
+        required: ['teachingScore', 'breakdown', 'factualErrors', 'dialogueAnnotations', 'evidenceNotes', 'topGaps', 'concreteImprovement', 'studentOutcome', 'juniorSummaryCorrect']
+    };
 
     const response = await ai.models.generateContent({
         model: deanConfig.model,
@@ -297,58 +439,53 @@ export async function evaluateTeaching(
         config: {
             systemInstruction: deanConfig.systemPrompt,
             responseMimeType: "application/json",
-            responseSchema: {
-                type: GeminiType.OBJECT,
-                properties: {
-                    teachingScore: { type: GeminiType.INTEGER },
-                    breakdown: {
-                        type: GeminiType.OBJECT,
-                        properties: {
-                            clarity: { type: GeminiType.INTEGER },
-                            correctness: { type: GeminiType.INTEGER },
-                            completeness: { type: GeminiType.INTEGER },
-                            studentMastery: { type: GeminiType.INTEGER },
-                            scaffolding: { type: GeminiType.INTEGER }
-                        },
-                        required: ['clarity', 'correctness', 'completeness', 'studentMastery', 'scaffolding']
-                    },
-                    factualErrors: {
-                        type: GeminiType.ARRAY,
-                        items: {
-                            type: GeminiType.OBJECT,
-                            properties: {
-                                whatTeacherSaid: { type: GeminiType.STRING },
-                                whatIsCorrect: { type: GeminiType.STRING },
-                                whyItMatters: { type: GeminiType.STRING }
-                            },
-                            required: ['whatTeacherSaid', 'whatIsCorrect', 'whyItMatters']
-                        }
-                    },
-                    dialogueAnnotations: {
-                        type: GeminiType.ARRAY,
-                        items: {
-                            type: GeminiType.OBJECT,
-                            properties: {
-                                turnIndex: { type: GeminiType.INTEGER },
-                                speaker: { type: GeminiType.STRING },
-                                annotation: { type: GeminiType.STRING },
-                                issueType: { type: GeminiType.STRING }
-                            },
-                            required: ['turnIndex', 'speaker', 'annotation']
-                        }
-                    },
-                    evidenceNotes: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
-                    topGaps: { type: GeminiType.ARRAY, items: { type: GeminiType.STRING } },
-                    concreteImprovement: { type: GeminiType.STRING },
-                    studentOutcome: { type: GeminiType.STRING },
-                    juniorSummaryCorrect: { type: GeminiType.BOOLEAN }
-                },
-                required: ['teachingScore', 'breakdown', 'factualErrors', 'dialogueAnnotations', 'evidenceNotes', 'topGaps', 'concreteImprovement', 'studentOutcome', 'juniorSummaryCorrect']
-            }
+            responseSchema
         }
     });
 
     const result = JSON.parse(response.text);
+    
+    // For interview mode, map the response to TeachingReport format
+    if (isInterviewMode) {
+        // Map interview evaluation to teaching report format for compatibility
+        const hiringToOutcome: Record<string, string> = {
+            'strong_hire': 'can_implement',
+            'hire': 'can_implement',
+            'lean_hire': 'conceptual_only',
+            'lean_no_hire': 'still_confused',
+            'no_hire': 'still_confused'
+        };
+        
+        return {
+            teachingScore: result.interviewScore,
+            breakdown: {
+                clarity: result.breakdown.designClarity,
+                correctness: result.breakdown.choiceJustification,
+                completeness: result.breakdown.tradeoffAwareness,
+                studentMastery: result.breakdown.probeHandling,
+                scaffolding: result.breakdown.adaptability
+            },
+            factualErrors: (result.weakDefenses || []).map((w: any) => ({
+                whatTeacherSaid: w.whatCandidateSaid,
+                whatIsCorrect: w.strongerAnswer,
+                whyItMatters: w.whyWeak
+            })),
+            dialogueAnnotations: result.dialogueAnnotations || [],
+            evidenceNotes: result.strongMoments || [],
+            topGaps: result.areasToImprove || [],
+            concreteImprovement: result.areasToImprove?.[0] || 'Continue practicing interview skills',
+            studentOutcome: hiringToOutcome[result.hiringSignal] || 'conceptual_only',
+            juniorSummaryCorrect: result.hiringSignal === 'strong_hire' || result.hiringSignal === 'hire',
+            // Store interview-specific fields for the reveal step
+            interviewData: {
+                hiringSignal: result.hiringSignal,
+                weakDefenses: result.weakDefenses || [],
+                strongMoments: result.strongMoments || [],
+                areasToImprove: result.areasToImprove || [],
+                interviewBreakdown: result.breakdown
+            }
+        } as TeachingReport;
+    }
     
     // Ensure studentOutcome is a valid value
     const validOutcomes = ['can_implement', 'conceptual_only', 'still_confused'];

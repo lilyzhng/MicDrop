@@ -1,20 +1,27 @@
 /**
  * TeachingRevealStep Component
  * 
- * The teaching reveal/report screen after teaching session.
+ * The teaching/interview reveal/report screen after session.
+ * Uses different report components based on sessionMode:
+ * - Interview mode: InterviewReportComponent (ML System Design interview evaluation)
+ * - Teach/Paired mode: TeachingReportComponent (teaching quality evaluation)
  */
 
 import React from 'react';
-import { Home } from 'lucide-react';
-import { BlindProblem, TeachingReport, TeachingSession } from '../../types';
+import { Home, Users, GraduationCap } from 'lucide-react';
+import { Problem, TeachingReport, TeachingSession } from '../../types';
 import TeachingReportComponent from '../TeachingReport';
+import InterviewReportComponent from '../InterviewReport';
+
+type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 
 interface TeachingRevealStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   teachingReport: TeachingReport;
   teachingSession: TeachingSession;
   currentQueueIdx: number;
   problemQueueLength: number;
+  sessionMode?: SessionMode;
   
   // Actions
   onHome: (force: boolean) => void;
@@ -29,11 +36,14 @@ export const TeachingRevealStep: React.FC<TeachingRevealStepProps> = ({
   teachingSession,
   currentQueueIdx,
   problemQueueLength,
+  sessionMode = 'teach',
   onHome,
   handleTeachingContinue,
   handleTryAgain,
   handleReEvaluate
 }) => {
+  const isInterview = sessionMode === 'interview';
+  
   return (
     <div className="h-full bg-cream text-charcoal flex flex-col font-sans overflow-hidden">
       {/* Header */}
@@ -43,26 +53,45 @@ export const TeachingRevealStep: React.FC<TeachingRevealStepProps> = ({
             <Home size={20} className="sm:w-6 sm:h-6" />
           </button>
           <div>
-            <h2 className="text-base sm:text-xl font-serif font-bold text-charcoal">{currentProblem?.title || 'Teaching Report'}</h2>
-            <p className="text-[8px] sm:text-[10px] font-bold text-purple-600 uppercase tracking-widest">Teaching Evaluation</p>
+            <h2 className="text-base sm:text-xl font-serif font-bold text-charcoal">{currentProblem?.title || (isInterview ? 'Interview Report' : 'Teaching Report')}</h2>
+            <p className={`text-[8px] sm:text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${isInterview ? 'text-emerald-600' : 'text-purple-600'}`}>
+              {isInterview ? (
+                <><Users size={10} /> Interview Evaluation</>
+              ) : (
+                <><GraduationCap size={10} /> Teaching Evaluation</>
+              )}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 sm:pb-32">
         <div className="max-w-4xl mx-auto">
-          <TeachingReportComponent
-            report={teachingReport}
-            juniorSummary={teachingSession.juniorSummary}
-            problemTitle={currentProblem?.title || ''}
-            leetcodeNumber={currentProblem?.leetcodeNumber}
-            problem={currentProblem || undefined}
-            onContinue={handleTeachingContinue}
-            onTryAgain={handleTryAgain}
-            onReEvaluate={handleReEvaluate}
-            isLastProblem={currentQueueIdx >= problemQueueLength - 1}
-            teachingSession={teachingSession}
-          />
+          {isInterview ? (
+            <InterviewReportComponent
+              report={teachingReport}
+              peerSummary={teachingSession.juniorSummary}
+              problemTitle={currentProblem?.title || ''}
+              problem={currentProblem || undefined}
+              onContinue={handleTeachingContinue}
+              onTryAgain={handleTryAgain}
+              isLastProblem={currentQueueIdx >= problemQueueLength - 1}
+              teachingSession={teachingSession}
+            />
+          ) : (
+            <TeachingReportComponent
+              report={teachingReport}
+              juniorSummary={teachingSession.juniorSummary}
+              problemTitle={currentProblem?.title || ''}
+              leetcodeNumber={currentProblem?.leetcodeNumber}
+              problem={currentProblem || undefined}
+              onContinue={handleTeachingContinue}
+              onTryAgain={handleTryAgain}
+              onReEvaluate={handleReEvaluate}
+              isLastProblem={currentQueueIdx >= problemQueueLength - 1}
+              teachingSession={teachingSession}
+            />
+          )}
         </div>
       </div>
     </div>

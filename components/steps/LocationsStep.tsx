@@ -22,7 +22,8 @@ import {
   Layers, 
   Settings, 
   Calendar,
-  Award
+  Award,
+  Users
 } from 'lucide-react';
 import { UserStudySettings, StudyStats } from '../../types/database';
 import { SpotWithTopic, SpotCard } from '../spots';
@@ -30,7 +31,7 @@ import { DEFAULT_SETTINGS } from '../../services/spacedRepetitionService';
 
 // Types
 type DifficultyMode = 'warmup' | 'standard' | 'challenge';
-type SessionMode = 'paired' | 'explain' | 'teach';
+type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 
 interface DailyStats {
   date: string;
@@ -67,7 +68,10 @@ interface LocationsStepProps {
   // Company selection (for Himmel Park)
   companies?: Array<{id: string; name: string; description: string | null; icon: string | null}>;
   isLoadingCompanies?: boolean;
-  onCompanySelect?: (spotId: string, companyId: string, companyName: string) => void;
+  onCompanySelect?: (spotId: string, interviewTypeId: string, companyName: string) => void;
+  
+  // ML Topic selection (for ML System Design in Himmel Park)
+  onMlTopicSelect?: (spotId: string, topic: import('../../types').MLSystemDesignTopic | undefined, topicDisplay: string) => void;
   
   // Modals
   showStats: boolean;
@@ -102,6 +106,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
   companies = [],
   isLoadingCompanies = false,
   onCompanySelect,
+  onMlTopicSelect,
   showStats,
   setShowStats,
   showSettings,
@@ -115,7 +120,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
   return (
     <div className="h-full bg-charcoal text-white flex flex-col font-sans overflow-hidden">
       {/* Daily Quest Header */}
-      <div className="border-b border-white/5 shrink-0 bg-black px-4 sm:px-6 py-2.5 sm:py-4 pr-14 sm:pr-16">
+      <div className="border-b border-white/5 shrink-0 bg-black px-4 sm:px-6 py-2.5 sm:py-4 pr-16 sm:pr-20">
         {/* Top row: Home, Daily Quest centered, Mode + Settings */}
         <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Home button */}
@@ -139,7 +144,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
             {/* Mode Toggle - small icon button */}
             <button 
               onClick={() => {
-                const modes: SessionMode[] = ['paired', 'explain', 'teach'];
+                const modes: SessionMode[] = ['paired', 'explain', 'teach', 'interview'];
                 const currentIdx = modes.indexOf(sessionMode);
                 const nextIdx = (currentIdx + 1) % modes.length;
                 setSessionMode(modes[nextIdx]);
@@ -149,14 +154,23 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
                   ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                   : sessionMode === 'teach'
                   ? 'bg-purple-500/20 border-purple-500/40 text-purple-300'
+                  : sessionMode === 'interview'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
                   : 'bg-gold/20 border-gold/40 text-gold'
               }`}
-              title={sessionMode === 'paired' ? 'Paired: Explain → Teach same problem' : sessionMode === 'teach' ? 'Teach only mode' : 'Explain only mode'}
+              title={
+                sessionMode === 'paired' ? 'Paired: Explain → Teach same problem' 
+                : sessionMode === 'teach' ? 'Teach only mode' 
+                : sessionMode === 'interview' ? 'Interview mode: Defend your design to a peer'
+                : 'Explain only mode'
+              }
             >
               {sessionMode === 'paired' ? (
                 <Layers size={14} className="sm:w-4 sm:h-4" />
               ) : sessionMode === 'teach' ? (
                 <GraduationCap size={14} className="sm:w-4 sm:h-4" />
+              ) : sessionMode === 'interview' ? (
+                <Users size={14} className="sm:w-4 sm:h-4" />
               ) : (
                 <Mic size={14} className="sm:w-4 sm:h-4" />
               )}
@@ -252,6 +266,7 @@ export const LocationsStep: React.FC<LocationsStepProps> = ({
               companies={companies}
               isLoadingCompanies={isLoadingCompanies}
               onCompanySelect={onCompanySelect}
+              onMlTopicSelect={onMlTopicSelect}
             />
           ))
         )}

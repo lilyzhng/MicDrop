@@ -4,7 +4,7 @@
  * Type definitions for the Walkie-Talkie step components.
  */
 
-import { BlindProblem, PerformanceReport, TeachingSession, TeachingReport, ReadinessReport } from '../../types';
+import { Problem, PerformanceReport, TeachingSession, TeachingReport, ReadinessReport } from '../../types';
 import { UserStudySettings, StudyStats } from '../../types/database';
 import { SpotWithTopic } from '../spots';
 
@@ -29,7 +29,7 @@ export type StepType =
 export type DifficultyMode = 'warmup' | 'standard' | 'challenge';
 
 // Session modes
-export type SessionMode = 'paired' | 'explain' | 'teach';
+export type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 
 // Difficulty to problem filter mapping
 export const DIFFICULTY_MAP: Record<DifficultyMode, ('easy' | 'medium' | 'hard')[]> = {
@@ -90,9 +90,9 @@ export interface LocationsStepProps extends CommonStepProps {
 
 // Props for ProblemStep (problem/recording)
 export interface ProblemStepProps extends CommonStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   currentQueueIdx: number;
-  problemQueue: BlindProblem[];
+  problemQueue: Problem[];
   sessionMode: SessionMode;
   
   // Recording state
@@ -117,7 +117,7 @@ export interface ProblemStepProps extends CommonStepProps {
 
 // Props for TeachingStep
 export interface TeachingStepProps extends CommonStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   teachingSession: TeachingSession | null;
   teachingRawTranscript: string;
   isTeachingRecording: boolean;
@@ -136,9 +136,9 @@ export interface TeachingStepProps extends CommonStepProps {
 
 // Props for reveal/report steps
 export interface RevealStepProps extends CommonStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   aiReport: PerformanceReport | null;
-  problemQueue: BlindProblem[];
+  problemQueue: Problem[];
   currentQueueIdx: number;
   usedHints: boolean;
   
@@ -157,7 +157,7 @@ export interface RevealStepProps extends CommonStepProps {
 
 // Props for TeachingRevealStep
 export interface TeachingRevealStepProps extends CommonStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   teachingSession: TeachingSession | null;
   teachingReport: TeachingReport | null;
   sessionMode: SessionMode;
@@ -177,7 +177,7 @@ export interface TeachingRevealStepProps extends CommonStepProps {
 
 // Props for ReadinessRevealStep
 export interface ReadinessRevealStepProps extends CommonStepProps {
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   readinessReport: ReadinessReport | null;
   
   // Time tracking

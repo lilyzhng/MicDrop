@@ -1,5 +1,5 @@
 import { supabase } from '../config/supabase';
-import { SavedItem, SavedReport, PerformanceReport, BlindProblem, CustomInterviewQuestion, BehavioralQuestion, BehavioralQuestionType } from '../types';
+import { SavedItem, SavedReport, PerformanceReport, Problem, CustomInterviewQuestion, BehavioralQuestion, BehavioralQuestionType, MLSystemDesignTopic } from '../types';
 
 // ========== SAVED ITEMS (Snippets) ==========
 
@@ -109,7 +109,7 @@ export const fetchSavedReports = async (userId: string): Promise<SavedReport[]> 
 export const createSavedReport = async (
     userId: string,
     title: string,
-    type: 'coach' | 'walkie' | 'hot-take' | 'teach' | 'readiness',
+    type: 'coach' | 'walkie' | 'hot-take' | 'teach' | 'interview' | 'readiness',
     report: PerformanceReport
 ): Promise<SavedReport | null> => {
     console.log('[DEBUG] createSavedReport called:', { userId, title, type, rating: report.rating });
@@ -185,11 +185,11 @@ export const deleteSavedReport = async (reportId: string): Promise<boolean> => {
  * Fetch blind problems by topics
  * Selects random problems that match any of the given topics
  */
-export const fetchBlindProblemsByTopics = async (
+export const fetchProblemsByTopics = async (
     topics: string[],
     limit: number = 5,
     excludeIds: string[] = []
-): Promise<BlindProblem[]> => {
+): Promise<Problem[]> => {
     // Supabase doesn't have native array overlap, so we'll fetch all and filter
     // For a small dataset of 75 problems, this is efficient enough
     let query = supabase
@@ -217,14 +217,14 @@ export const fetchBlindProblemsByTopics = async (
     const shuffled = matchingProblems.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, limit);
 
-    return selected.map(mapDbProblemToBlindProblem);
+    return selected.map(mapDbProblemToProblem);
 };
 
 /**
  * Fetch a single blind problem by title
  * Uses case-insensitive matching to support URL slug lookups
  */
-export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProblem | null> => {
+export const fetchProblemByTitle = async (title: string): Promise<Problem | null> => {
     const { data, error } = await supabase
         .from('blind_problems')
         .select('*')
@@ -237,15 +237,15 @@ export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProb
         return null;
     }
 
-    return data ? mapDbProblemToBlindProblem(data) : null;
+    return data ? mapDbProblemToProblem(data) : null;
 };
 
 /**
  * Fetch a system coding question by title (from interview_questions)
- * Returns as BlindProblem format for compatibility with teaching/practice modes
+ * Returns as Problem format for compatibility with teaching/practice modes
  * Uses case-insensitive matching to support URL slug lookups
  */
-export const fetchSystemCodingQuestionByTitle = async (userId: string, title: string): Promise<BlindProblem | null> => {
+export const fetchSystemCodingQuestionByTitle = async (userId: string, title: string): Promise<Problem | null> => {
     // First try to find in interview_questions (shared/default questions)
     // Use ilike for case-insensitive matching (important for URL slug lookups)
     const { data, error } = await supabase
@@ -293,7 +293,7 @@ export const fetchSystemCodingQuestionByTitle = async (userId: string, title: st
 /**
  * Fetch all blind problems (for stats/admin purposes)
  */
-export const fetchLeetcodeProblems = async (): Promise<BlindProblem[]> => {
+export const fetchLeetcodeProblems = async (): Promise<Problem[]> => {
     const { data, error } = await supabase
         .from('blind_problems')
         .select('*')
@@ -304,13 +304,13 @@ export const fetchLeetcodeProblems = async (): Promise<BlindProblem[]> => {
         return [];
     }
 
-    return data.map(mapDbProblemToBlindProblem);
+    return data.map(mapDbProblemToProblem);
 };
 
 /**
  * Get total count of blind problems
  */
-export const getBlindProblemsCount = async (): Promise<number> => {
+export const getProblemsCount = async (): Promise<number> => {
     const { count, error } = await supabase
         .from('blind_problems')
         .select('*', { count: 'exact', head: true });
@@ -324,9 +324,9 @@ export const getBlindProblemsCount = async (): Promise<number> => {
 };
 
 /**
- * Helper to map database row to BlindProblem type
+ * Helper to map database row to Problem type
  */
-const mapDbProblemToBlindProblem = (row: any): BlindProblem => ({
+const mapDbProblemToProblem = (row: any): Problem => ({
     id: row.id,
     title: row.title,
     prompt: row.prompt,
@@ -368,7 +368,7 @@ const shuffleArray = <T>(array: T[]): T[] => {
 /**
  * Sort problems by difficulty (easy → medium → hard)
  */
-const sortByDifficulty = (problems: BlindProblem[]): BlindProblem[] => {
+const sortByDifficulty = (problems: Problem[]): Problem[] => {
     const order: Record<DifficultyLevel, number> = { easy: 0, medium: 1, hard: 2 };
     return [...problems].sort((a, b) => order[a.difficulty] - order[b.difficulty]);
 };
@@ -383,13 +383,13 @@ const pickRandom = <T>(array: T[]): T => {
 /**
  * Group problems by their problem_group field
  */
-const groupByProblemGroup = (problems: BlindProblem[]): Record<string, BlindProblem[]> => {
+const groupByProblemGroup = (problems: Problem[]): Record<string, Problem[]> => {
     return problems.reduce((acc, problem) => {
         const group = problem.problemGroup || 'ungrouped';
         if (!acc[group]) acc[group] = [];
         acc[group].push(problem);
         return acc;
-    }, {} as Record<string, BlindProblem[]>);
+    }, {} as Record<string, Problem[]>);
 };
 
 /**
@@ -407,7 +407,7 @@ export const buildProblemQueue = async (
     masteredIds: string[],
     allowedDifficulties: DifficultyLevel[],
     limit: number = 5
-): Promise<BlindProblem[]> => {
+): Promise<Problem[]> => {
     // 1. Fetch all problems
     let query = supabase
         .from('blind_problems')
@@ -431,8 +431,8 @@ export const buildProblemQueue = async (
         return [];
     }
 
-    // Map to BlindProblem type
-    const allProblems = data.map(mapDbProblemToBlindProblem);
+    // Map to Problem type
+    const allProblems = data.map(mapDbProblemToProblem);
 
     // 2. Filter by allowed difficulties
     const filteredProblems = allProblems.filter(p => 
@@ -460,7 +460,7 @@ export const buildProblemQueue = async (
     console.log(`[Queue Builder] Focus group: ${focusGroup}`);
 
     // 5. Start with focus group problems (shuffled)
-    const queue: BlindProblem[] = shuffleArray([...byGroup[focusGroup]]);
+    const queue: Problem[] = shuffleArray([...byGroup[focusGroup]]);
     delete byGroup[focusGroup];
 
     // 6. Backfill from other groups if needed
@@ -1010,7 +1010,8 @@ export const fetchCompanies = async (): Promise<Array<{
 }>> => {
     // Return the 4 interview question types as modules
     // The 'id' is the type name itself (used for filtering)
-    const moduleTypes = ['system_coding', 'ml_system_design', 'ml_coding', 'ml_debugging'];
+    // ml_system_design is first as the default selection for Himmel Park
+    const moduleTypes = ['ml_system_design', 'system_coding', 'ml_coding', 'ml_debugging'];
     
     return moduleTypes.map(type => {
         const info = INTERVIEW_MODULES[type];
@@ -1025,20 +1026,20 @@ export const fetchCompanies = async (): Promise<Array<{
 };
 
 /**
- * Helper to map interview_questions row to BlindProblem format
+ * Helper to map interview_questions row to Problem format
  * This allows interview questions to be used in teaching mode
  */
-const mapInterviewQuestionToBlindProblem = (row: any): BlindProblem => ({
+const mapInterviewQuestionToProblem = (row: any): Problem => ({
     id: row.id,
     title: row.title,
     prompt: row.context,  // interview_questions uses 'context' instead of 'prompt'
     example: '',
     constraints: [],
     pattern: row.type || 'Interview',
-    keyIdea: row.probing_prompt || '',  // Use probing_prompt as key idea
+    keyIdea: row.key_insight || row.probing_prompt || '',  // Prefer key_insight, fallback to probing_prompt
     detailedHint: undefined,
     definition: undefined,
-    solution: undefined,
+    solution: row.solution_skeleton || undefined,  // Use solution_skeleton for ML System Design
     timeComplexity: '',
     spaceComplexity: '',
     steps: [],
@@ -1048,24 +1049,29 @@ const mapInterviewQuestionToBlindProblem = (row: any): BlindProblem => ({
     problemGroup: row.type || 'interview',
     isSystemCoding: ['system_coding', 'system_design', 'ml_coding', 'ml_debugging', 'ml_system_design'].includes(row.type),
     source: row.source || undefined,  // Include source URL from database
-    company: row.company || undefined  // Include company name(s)
+    company: row.company || undefined,  // Include company name(s)
+    mlTopics: row.topics as MLSystemDesignTopic[] | undefined,  // Topic categories for ML system design questions
+    // ML System Design specific fields
+    exampleWalkthrough: row.example_walkthrough || undefined,
+    solutionSkeleton: row.solution_skeleton || undefined
 });
 
 /**
- * Fetch problems for a specific skill module (interview question type)
+ * Fetch problems for a specific interview question type
  * Returns questions from interview_questions table filtered by type
+ * 
+ * @param interviewTypeId - The interview question type (e.g., 'ml_system_design', 'system_coding')
  */
-export const fetchCompanyProblems = async (moduleId: string): Promise<BlindProblem[]> => {
-    // moduleId is now the interview_question_type (e.g., 'system_coding')
+export const fetchInterviewProblems = async (interviewTypeId: string): Promise<Problem[]> => {
     const { data, error } = await supabase
         .from('interview_questions')
         .select('*')
-        .eq('type', moduleId)
+        .eq('type', interviewTypeId)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('Error fetching interview questions for module:', error);
+        console.error('Error fetching interview questions:', error);
         return [];
     }
 
@@ -1073,43 +1079,153 @@ export const fetchCompanyProblems = async (moduleId: string): Promise<BlindProbl
         return [];
     }
 
-    return data.map(mapInterviewQuestionToBlindProblem);
+    return data.map(mapInterviewQuestionToProblem);
 };
 
 /**
- * Build a problem queue for a specific company/module
- * Similar to buildProblemQueue but for module-specific problems
+ * Fetch interview questions by type (e.g., 'ml_system_design', 'system_coding')
+ * This version supports priorityOnly filtering - use this for queue building.
+ * 
+ * @param type - The interview question type (e.g., 'ml_system_design')
+ * @param priorityOnly - If true, only returns questions with priority = 1
  */
-export const buildCompanyProblemQueue = async (
-    companyId: string,
-    limit: number = 10
-): Promise<BlindProblem[]> => {
-    const companyProblems = await fetchCompanyProblems(companyId);
+export const fetchInterviewQuestionsByType = async (type: string, priorityOnly: boolean = false): Promise<Problem[]> => {
+    let query = supabase
+        .from('interview_questions')
+        .select('*')
+        .eq('type', type);
     
-    // Return up to 'limit' problems
-    return companyProblems.slice(0, limit);
+    // Filter by priority if requested
+    if (priorityOnly) {
+        query = query.eq('priority', 1);
+    }
+    
+    const { data, error } = await query
+        .order('priority', { ascending: false })  // Priority questions first
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error(`Error fetching interview questions for type ${type}:`, error);
+        return [];
+    }
+
+    if (!data || data.length === 0) {
+        return [];
+    }
+
+    return data.map(mapInterviewQuestionToProblem);
 };
 
 /**
- * Get count of problems for a specific skill module (interview question type)
+ * Build a problem queue for a specific interview question type
+ * Similar to buildProblemQueue but for interview-type-specific problems
+ * Only returns priority questions (priority = 1)
+ * 
+ * Queue ordering (when userId is provided):
+ * 1. New problems (never attempted) - shuffled
+ * 2. Due reviews (next_review_at <= now) - sorted by most overdue
+ * 3. Recently attempted problems (not yet due) - sorted by next_review_at
+ * 
+ * @param interviewTypeId - The interview question type (e.g., 'ml_system_design', 'system_coding', 'ml_coding')
  */
-export const getCompanyProblemsCount = async (
-    moduleId: string, 
-    moduleName?: string, 
+export const buildInterviewProblemQueue = async (
+    interviewTypeId: string,
+    limit: number = 10,
+    userId?: string
+): Promise<Problem[]> => {
+    // Fetch only priority questions
+    const interviewProblems = await fetchInterviewQuestionsByType(interviewTypeId, true);
+    
+    // If no userId, return problems as-is (legacy behavior)
+    if (!userId) {
+        return interviewProblems.slice(0, limit);
+    }
+    
+    // Fetch user progress for these problems
+    const allProgress = await fetchAllUserProgress(userId);
+    const progressMap = new Map<string, UserProblemProgress>();
+    allProgress.forEach(p => progressMap.set(p.problemTitle, p));
+    
+    const now = new Date();
+    
+    // Categorize problems
+    const newProblems: Problem[] = [];
+    const dueReviews: { problem: Problem; progress: UserProblemProgress }[] = [];
+    const notYetDue: { problem: Problem; progress: UserProblemProgress }[] = [];
+    
+    for (const problem of interviewProblems) {
+        const progress = progressMap.get(problem.title);
+        
+        if (!progress) {
+            // Never attempted - it's new
+            newProblems.push(problem);
+        } else if (progress.status === 'mastered' || progress.status === 'graduated') {
+            // Skip mastered/graduated problems - they're done
+            continue;
+        } else if (progress.nextReviewAt && new Date(progress.nextReviewAt) <= now) {
+            // Due for review
+            dueReviews.push({ problem, progress });
+        } else {
+            // Attempted but not yet due for review
+            notYetDue.push({ problem, progress });
+        }
+    }
+    
+    // Shuffle new problems for variety
+    const shuffledNew = newProblems.sort(() => Math.random() - 0.5);
+    
+    // Sort due reviews by most overdue first
+    dueReviews.sort((a, b) => {
+        const aDate = new Date(a.progress.nextReviewAt || 0);
+        const bDate = new Date(b.progress.nextReviewAt || 0);
+        return aDate.getTime() - bDate.getTime();
+    });
+    
+    // Sort not-yet-due by soonest review date
+    notYetDue.sort((a, b) => {
+        const aDate = new Date(a.progress.nextReviewAt || 0);
+        const bDate = new Date(b.progress.nextReviewAt || 0);
+        return aDate.getTime() - bDate.getTime();
+    });
+    
+    // Build final queue: new first, then due reviews, then not-yet-due
+    const queue: Problem[] = [
+        ...shuffledNew,
+        ...dueReviews.map(r => r.problem),
+        ...notYetDue.map(r => r.problem)
+    ];
+    
+    console.log(`[Interview Queue] ${interviewTypeId}: ${newProblems.length} new, ${dueReviews.length} due, ${notYetDue.length} not yet due`);
+    
+    return queue.slice(0, limit);
+};
+
+/**
+ * Get count of problems for a specific interview question type
+ * Only counts priority questions (priority = 1)
+ * 
+ * @param interviewTypeId - The interview question type (e.g., 'ml_system_design', 'system_coding')
+ * @param displayName - Optional display name for logging
+ */
+export const getInterviewProblemsCount = async (
+    interviewTypeId: string, 
+    displayName?: string, 
     userId?: string
 ): Promise<number> => {
-    // moduleId is now the interview_question_type
+    // Only count priority questions
     const { count, error } = await supabase
         .from('interview_questions')
         .select('*', { count: 'exact', head: true })
-        .eq('type', moduleId);
+        .eq('type', interviewTypeId)
+        .eq('priority', 1);
 
     if (error) {
         console.error('Error counting interview questions:', error);
         return 0;
     }
 
-    console.log(`[getCompanyProblemsCount] Module ${moduleName || moduleId}: ${count || 0} questions`);
+    console.log(`[getInterviewProblemsCount] ${displayName || interviewTypeId}: ${count || 0} priority questions`);
     
     return count || 0;
 };
@@ -1429,13 +1545,14 @@ export const findExistingSystemCodingQuestion = async (
 /**
  * Fetch questions for a specific module/type from interview_questions
  * Now uses interview_questions table with type filter
+ * Only returns priority questions (priority = 1)
  * @param userId - User ID (kept for API compatibility, not used for filtering default questions)
  * @param companyName - The interview_question_type (e.g., 'system_coding', 'ml_coding')
  */
 export const fetchCustomQuestionsForCompany = async (
     userId: string,
     companyName: string
-): Promise<Array<BlindProblem & { isSystemCoding: true }>> => {
+): Promise<Array<Problem & { isSystemCoding: true }>> => {
     // Map display names back to type if needed
     const typeMap: Record<string, string> = {
         'System Coding': 'system_coding',
@@ -1446,10 +1563,12 @@ export const fetchCustomQuestionsForCompany = async (
     
     const questionType = typeMap[companyName] || companyName;
     
+    // Only fetch priority questions
     const { data, error } = await supabase
         .from('interview_questions')
         .select('*')
         .eq('type', questionType)
+        .eq('priority', 1)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -1458,7 +1577,7 @@ export const fetchCustomQuestionsForCompany = async (
         return [];
     }
 
-    // Transform to BlindProblem format for teaching mode compatibility
+    // Transform to Problem format for teaching mode compatibility
     return (data || []).map(q => ({
         id: q.id,
         title: q.title,
@@ -1466,10 +1585,10 @@ export const fetchCustomQuestionsForCompany = async (
         example: '',
         constraints: [],
         pattern: q.type || 'System Coding',
-        keyIdea: q.probing_prompt || '',
+        keyIdea: q.key_insight || q.probing_prompt || '',  // Prefer key_insight, fallback to probing_prompt
         detailedHint: undefined,
         definition: undefined,
-        solution: undefined,
+        solution: q.solution_skeleton || undefined,  // Use solution_skeleton for ML System Design
         timeComplexity: '',
         spaceComplexity: '',
         steps: [],
@@ -1479,7 +1598,11 @@ export const fetchCustomQuestionsForCompany = async (
         problemGroup: q.type || 'system_coding',
         isSystemCoding: true as const,
         source: q.source || undefined,  // Include source URL from database
-        company: q.company || undefined  // Include company name(s)
+        company: q.company || undefined,  // Include company name(s)
+        mlTopics: q.topics as MLSystemDesignTopic[] | undefined,  // Topic categories for ML system design questions
+        // ML System Design specific fields
+        exampleWalkthrough: q.example_walkthrough || undefined,
+        solutionSkeleton: q.solution_skeleton || undefined
     }));
 };
 
@@ -1520,6 +1643,7 @@ export const fetchBehavioralQuestions = async (type: BehavioralQuestionType): Pr
         probingPrompt: q.probing_prompt,
         source: q.source,
         company: q.company,
+        topics: q.topics as MLSystemDesignTopic[] | undefined,
         isDefault: q.is_default,
         createdAt: new Date(q.created_at),
         updatedAt: new Date(q.updated_at)
@@ -1554,6 +1678,7 @@ export const fetchAllBehavioralQuestions = async (): Promise<BehavioralQuestion[
         probingPrompt: q.probing_prompt,
         source: q.source,
         company: q.company,
+        topics: q.topics as MLSystemDesignTopic[] | undefined,
         isDefault: q.is_default,
         createdAt: new Date(q.created_at),
         updatedAt: new Date(q.updated_at)

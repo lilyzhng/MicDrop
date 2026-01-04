@@ -7,7 +7,7 @@
  * - Goal-driven scheduling (complete all 75 in target days)
  */
 
-import { BlindProblem } from '../types';
+import { Problem } from '../types';
 import { 
     UserStudySettings, 
     UserProblemProgress, 
@@ -23,6 +23,7 @@ import {
     upsertUserProblemProgress,
     batchUpsertUserProgress,
     fetchLeetcodeProblems,
+    fetchInterviewQuestionsByType,
     recordProblemCompletion,
     getStudyDaysCount
 } from './databaseService';
@@ -340,7 +341,7 @@ export async function buildSpacedRepetitionQueue(
     onlyReviews: boolean = false,
     newProblemsOnly: boolean = false
 ): Promise<{
-    queue: BlindProblem[];
+    queue: Problem[];
     stats: StudyStats;
 }> {
     const settings = await getSettingsWithDefaults(userId);
@@ -422,7 +423,7 @@ export async function buildSpacedRepetitionQueue(
             const problem = allProblemsForReviews.find(p => p.title === progress.problemTitle);
             return problem ? { problem, progress } : null;
         })
-        .filter((item): item is { problem: BlindProblem; progress: UserProblemProgress } => item !== null);
+        .filter((item): item is { problem: Problem; progress: UserProblemProgress } => item !== null);
     
     // Get new problems (not yet attempted) from filtered set
     const newProblems = allProblems
@@ -434,7 +435,7 @@ export async function buildSpacedRepetitionQueue(
         });
     
     // Build the queue
-    const queue: BlindProblem[] = [];
+    const queue: Problem[] = [];
     
     // Add due reviews first (they take priority) - unless newProblemsOnly is true
     if (!newProblemsOnly) {
@@ -488,7 +489,7 @@ export async function buildSpacedRepetitionQueue(
 // ============================================
 
 export interface ProblemGridItem {
-    problem: BlindProblem;
+    problem: Problem;
     progress: UserProblemProgress | null;
     isDueToday: boolean;
 }
@@ -585,6 +586,68 @@ function formatGroupName(name: string): string {
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
+}
+
+// ============================================
+// ML System Design Progress Grid
+// ============================================
+
+/**
+ * Statistics for ML System Design module progress
+ */
+export interface MLSystemDesignStats {
+    totalProblems: number;
+    newCount: number;
+    learningCount: number;
+    masteredCount: number;
+    dueToday: number;
+}
+
+/**
+ * Get ML System Design questions with progress status
+ * Similar to getProgressGrid but for ml_system_design type questions
+ * 
+ * @param userId - The user's ID
+ * @param priorityOnly - If true, only returns priority questions (priority = 1)
+ */
+export async function getMLSystemDesignProgressGrid(userId: string, priorityOnly: boolean = true): Promise<{
+    problems: ProblemGridItem[];
+    stats: MLSystemDesignStats;
+}> {
+    const allProgress = await fetchAllUserProgress(userId);
+    const dueReviews = await fetchDueReviews(userId);
+    
+    // Fetch ML System Design questions from interview_questions table
+    // Default to priorityOnly = true to show only focus questions
+    const mlSystemDesignQuestions = await fetchInterviewQuestionsByType('ml_system_design', priorityOnly);
+    
+    // Create maps for quick lookup
+    const progressMap = new Map<string, UserProblemProgress>();
+    allProgress.forEach(p => progressMap.set(p.problemTitle, p));
+    
+    const dueSet = new Set(dueReviews.map(p => p.problemTitle));
+    
+    // Build problem items with progress
+    const problems: ProblemGridItem[] = mlSystemDesignQuestions.map(problem => ({
+        problem,
+        progress: progressMap.get(problem.title) || null,
+        isDueToday: dueSet.has(problem.title)
+    }));
+    
+    // Calculate stats
+    const learningCount = problems.filter(p => p.progress?.status === 'learning').length;
+    const masteredCount = problems.filter(p => p.progress?.status === 'mastered').length;
+    const dueTodayCount = problems.filter(p => p.isDueToday).length;
+    
+    const stats: MLSystemDesignStats = {
+        totalProblems: problems.length,
+        newCount: problems.length - learningCount - masteredCount,
+        learningCount,
+        masteredCount,
+        dueToday: dueTodayCount
+    };
+    
+    return { problems, stats };
 }
 
 // ============================================

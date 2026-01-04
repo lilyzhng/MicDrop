@@ -1,12 +1,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, ChevronDown, Clock, AlertCircle, BarChart3, Loader2, Settings, LogOut } from 'lucide-react';
-import { SavedItem, SavedReport, BlindProblem } from '../types';
+import { Home, Database, Trash2, Lightbulb, PenTool, Star, Ear, Mic2, FileText, Calendar, ArrowLeft, Check, X, Play, Award, Zap, Code2, GraduationCap, Layers, TrendingUp, Target, ChevronLeft, ChevronRight, ChevronDown, Clock, AlertCircle, BarChart3, Loader2, Settings, LogOut, Users } from 'lucide-react';
+import { SavedItem, SavedReport, Problem } from '../types';
 import { StudyStats } from '../types/database';
 import { supabase } from '../config/supabase';
 import PerformanceReportComponent from '../components/PerformanceReport';
 import TeachingReportComponent from '../components/TeachingReport';
+import InterviewReportComponent from '../components/InterviewReport';
 import ReadinessReportComponent from '../components/ReadinessReport';
 import DayTimelineModal, { TimelineSession } from '../components/DayTimelineModal';
 import { findReportBySlug } from '../utils';
@@ -15,7 +16,10 @@ import { evaluateTeaching } from '../services/teachBackService';
 import { 
     getSettingsWithDefaults, 
     getProgressGrid, 
-    GroupedProblems 
+    getMLSystemDesignProgressGrid,
+    GroupedProblems,
+    ProblemGridItem,
+    MLSystemDesignStats
 } from '../services/spacedRepetitionService';
 import { 
     fetchAllUserProgress, 
@@ -58,12 +62,13 @@ const formatTimeSpent = (seconds: number | undefined): string => {
 
 
 // Report type configuration for display
-type ReportTypeFilter = 'all' | 'hot-take' | 'walkie' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
+type ReportTypeFilter = 'all' | 'hot-take' | 'walkie' | 'teach' | 'interview' | 'readiness' | 'system-coding' | 'role-fit';
 const REPORT_TYPE_CONFIG: Record<Exclude<ReportTypeFilter, 'all'>, { label: string; title: string; color: string; icon: React.ReactNode }> = {
     'hot-take': { label: 'Tech Drill', title: 'Tech Drill Reports', color: 'purple-500', icon: <Zap size={12} /> },
     'walkie': { label: 'LeetCode', title: 'LeetCode Reports', color: 'blue-500', icon: <Code2 size={12} /> },
-    'teach': { label: 'Teach', title: 'Teaching Reports', color: 'emerald-500', icon: <GraduationCap size={12} /> },
-    'readiness': { label: 'Explain', title: 'Explain (Readiness) Reports', color: 'teal-500', icon: <Layers size={12} /> },
+    'teach': { label: 'Teach', title: 'Teaching Reports', color: 'purple-500', icon: <GraduationCap size={12} /> },
+    'interview': { label: 'Interview', title: 'Interview Reports', color: 'emerald-500', icon: <Users size={12} /> },
+    'readiness': { label: 'Explain', title: 'Explain (Readiness) Reports', color: 'yellow-500', icon: <Layers size={12} /> },
     'system-coding': { label: 'System Coding', title: 'System Coding Reports', color: 'orange-500', icon: <Code2 size={12} /> },
     'role-fit': { label: 'Role Fit', title: 'Role Fit / Why Me Reports', color: 'pink-500', icon: <Award size={12} /> }
 };
@@ -115,6 +120,10 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
     
     // Expanded problem groups state
     const [expandedProblems, setExpandedProblems] = useState<Set<string>>(new Set());
+    
+    // ML System Design Progress State
+    const [mlSystemDesignProblems, setMLSystemDesignProblems] = useState<ProblemGridItem[]>([]);
+    const [mlSystemDesignStats, setMLSystemDesignStats] = useState<MLSystemDesignStats | null>(null);
     
     // Re-evaluation state - use the same pattern as teaching evaluation
     const [isReEvaluating, setIsReEvaluating] = useState(false);
@@ -422,12 +431,13 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 const settings = await getSettingsWithDefaults(user.id);
                 
                 // Then fetch everything else, including study days count filtered by start date
-                const [allProgress, dueReviews, dueTomorrowData, grid, studyDaysCount] = await Promise.all([
+                const [allProgress, dueReviews, dueTomorrowData, grid, studyDaysCount, mlSystemDesignData] = await Promise.all([
                     fetchAllUserProgress(user.id),
                     fetchDueReviews(user.id),
                     fetchDueTomorrow(user.id),
                     getProgressGrid(user.id),
-                    getStudyDaysCount(user.id, settings.startDate)  // Only count days since start date
+                    getStudyDaysCount(user.id, settings.startDate),  // Only count days since start date
+                    getMLSystemDesignProgressGrid(user.id)  // ML System Design progress
                 ]);
                 
                 // Calculate study stats
@@ -491,6 +501,10 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 })));
                 
                 setProgressGrid(grid);
+                
+                // Set ML System Design progress
+                setMLSystemDesignProblems(mlSystemDesignData.problems);
+                setMLSystemDesignStats(mlSystemDesignData.stats);
             } catch (error) {
                 console.error('Error loading progress data:', error);
             } finally {
@@ -573,6 +587,7 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
         'hot-take': savedReports.filter(r => r.type === 'hot-take').length,
         walkie: savedReports.filter(r => r.type === 'walkie').length,
         teach: savedReports.filter(r => r.type === 'teach').length,
+        interview: savedReports.filter(r => r.type === 'interview').length,
         readiness: savedReports.filter(r => r.type === 'readiness').length,
         'system-coding': savedReports.filter(r => r.type === 'system-coding').length,
         'role-fit': savedReports.filter(r => r.type === 'role-fit').length
@@ -637,8 +652,8 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
             
             console.log('Fetched fresh problem data:', freshProblem);
             
-            // Convert database format to BlindProblem type
-            const updatedProblem: BlindProblem = {
+            // Convert database format to Problem type
+            const updatedProblem: Problem = {
                 id: freshProblem.id as string,
                 title: freshProblem.title as string,
                 prompt: freshProblem.prompt as string,
@@ -695,8 +710,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
 
     // If Viewing a specific report
     if (displayReport) {
-        // Check if this is a teaching report with full data
+        // Check if this is a teaching or interview report with full data
         const isTeachReport = displayReport.type === 'teach';
+        const isInterviewReport = displayReport.type === 'interview' || displayReport.reportData.sessionMode === 'interview';
         const isReadinessReport = displayReport.type === 'readiness';
         const teachingData = displayReport.reportData.teachingReportData;
         const teachingSession = displayReport.reportData.teachingSession;
@@ -743,7 +759,20 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                 </div>
                 <div className="flex-1 overflow-y-auto p-8">
                      <div className="max-w-4xl mx-auto pb-20">
-                         {isTeachReport && teachingData ? (
+                         {isInterviewReport && teachingData ? (
+                            <InterviewReportComponent 
+                               report={teachingData}
+                               peerSummary={displayReport.reportData.juniorSummary}
+                               problemTitle={displayReport.title}
+                               problem={displayReport.reportData.teachingProblem}
+                               onContinue={() => navigate('/database')}
+                               onTryAgain={() => navigate('/walkie-talkie', { 
+                                   state: { teachAgainProblem: displayReport.title } 
+                               })}
+                               isLastProblem={true}
+                               teachingSession={teachingSession}
+                            />
+                         ) : isTeachReport && teachingData ? (
                             <TeachingReportComponent 
                                report={teachingData}
                                juniorSummary={displayReport.reportData.juniorSummary}
@@ -886,13 +915,19 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                  </button>
                                  <button
                                      onClick={() => setReportTypeFilter('teach')}
-                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'teach' ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-emerald-300'}`}
+                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'teach' ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-purple-300'}`}
                                  >
                                      <GraduationCap size={12} /> Teach ({reportCounts.teach})
                                  </button>
+                                 <button
+                                     onClick={() => setReportTypeFilter('interview')}
+                                     className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'interview' ? 'bg-emerald-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-emerald-300'}`}
+                                 >
+                                     <Users size={12} /> Interview ({reportCounts.interview})
+                                 </button>
                                 <button
                                     onClick={() => setReportTypeFilter('readiness')}
-                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'readiness' ? 'bg-teal-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-teal-300'}`}
+                                    className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all flex items-center gap-1.5 ${reportTypeFilter === 'readiness' ? 'bg-yellow-500 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:border-yellow-300'}`}
                                 >
                                     <Layers size={12} /> Explain ({reportCounts.readiness})
                                 </button>
@@ -939,8 +974,9 @@ const DatabaseView: React.FC<DatabaseViewProps> = ({
                                         const badgeColors: Record<string, string> = {
                                             'hot-take': 'bg-purple-500/10 text-purple-600',
                                             'walkie': 'bg-blue-500/10 text-blue-600',
-                                            'teach': 'bg-emerald-500/10 text-emerald-600',
-                                            'readiness': 'bg-teal-500/10 text-teal-600',
+                                            'teach': 'bg-purple-500/10 text-purple-600',
+                                            'interview': 'bg-emerald-500/10 text-emerald-600',
+                                            'readiness': 'bg-yellow-500/10 text-yellow-600',
                                             'system-coding': 'bg-orange-500/10 text-orange-600',
                                             'role-fit': 'bg-pink-500/10 text-pink-600'
                                         };
@@ -1328,6 +1364,105 @@ return (
                                      </div>
                                  </div>
                              )}
+                             
+                             {/* ML System Design Progress Grid */}
+                             {mlSystemDesignProblems.length > 0 && (() => {
+                                 // Calculate accurate counts: "passed" = learning with reviewsNeeded > 0, "relearn" = learning with reviewsNeeded = 0
+                                 const passedCount = mlSystemDesignProblems.filter(p => 
+                                     p.progress?.status === 'learning' && (p.progress?.reviewsNeeded ?? 0) > 0
+                                 ).length;
+                                 const relearnCount = mlSystemDesignProblems.filter(p => 
+                                     p.progress?.status === 'learning' && p.progress?.reviewsNeeded === 0
+                                 ).length;
+                                 const masteredCount = mlSystemDesignProblems.filter(p => p.progress?.status === 'mastered').length;
+                                 
+                                 return (
+                                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-[#EBE8E0]">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="flex items-center gap-2">
+                                            <Layers size={18} className="text-charcoal" />
+                                            <h3 className="text-lg font-bold text-charcoal">ML System Design Progress</h3>
+                                        </div>
+                                        <div className="text-sm text-gray-500 flex items-center gap-3 flex-wrap">
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
+                                                {passedCount} passed
+                                            </span>
+                                            {relearnCount > 0 && (
+                                                <span className="flex items-center gap-1">
+                                                    <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                                                    {relearnCount} relearn
+                                                </span>
+                                            )}
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                                {masteredCount} mastered
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                                                {mlSystemDesignProblems.length} total
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Problem Grid */}
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {mlSystemDesignProblems.map((item) => {
+                                            const status = item.progress?.status || 'new';
+                                            const isDue = item.isDueToday;
+                                            // Check if in "relearn" state: learning but reviewsNeeded = 0 (score < 70)
+                                            const isRelearn = status === 'learning' && item.progress?.reviewsNeeded === 0;
+                                            
+                                            return (
+                                                <div
+                                                    key={item.problem.id}
+                                                    className={`w-7 h-7 rounded flex items-center justify-center text-[9px] font-bold cursor-pointer transition-all hover:scale-110 ${
+                                                        status === 'mastered' 
+                                                            ? 'bg-emerald-500 text-white' 
+                                                            : isRelearn
+                                                                ? 'bg-orange-400 text-white' // Relearn: needs re-attempt
+                                                                : status === 'learning'
+                                                                    ? isDue 
+                                                                        ? 'bg-blue-500 text-white ring-2 ring-blue-300' 
+                                                                        : 'bg-yellow-400 text-charcoal' // Truly passed
+                                                                    : 'bg-gray-100 text-gray-400'
+                                                    }`}
+                                                    title={`${item.problem.title}${
+                                                        item.progress ? ` - Score: ${item.progress.bestScore ?? 'N/A'}` : ''
+                                                    }${isDue ? ' - Due Today!' : ''}${isRelearn ? ' - Needs Re-attempt' : ''}`}
+                                                >
+                                                    {status === 'mastered' ? '✓' : isRelearn ? '↻' : status === 'learning' ? (isDue ? '!' : '○') : ''}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                     
+                                    {/* Legend */}
+                                    <div className="flex items-center justify-center gap-4 mt-6 pt-4 border-t border-gray-100 flex-wrap">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-emerald-500"></div>
+                                            <span className="text-xs text-gray-500">Mastered</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-yellow-400"></div>
+                                            <span className="text-xs text-gray-500">Passed</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-orange-400"></div>
+                                            <span className="text-xs text-gray-500">Relearn</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-blue-500"></div>
+                                            <span className="text-xs text-gray-500">Due Today</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-4 h-4 rounded bg-gray-100"></div>
+                                            <span className="text-xs text-gray-500">New</span>
+                                        </div>
+                                    </div>
+                                 </div>
+                                 );
+                             })()}
                              
                              {/* Review Queue Preview */}
                              {(dueToday.length > 0 || dueTomorrow.length > 0) && (

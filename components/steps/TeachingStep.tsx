@@ -15,16 +15,18 @@ import {
   VolumeX, 
   Send,
   Loader2,
-  HelpCircle
+  HelpCircle,
+  Users
 } from 'lucide-react';
-import { BlindProblem, TeachingSession } from '../../types';
+import { Problem, TeachingSession } from '../../types';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 
-type SessionMode = 'paired' | 'explain' | 'teach';
+type SessionMode = 'paired' | 'explain' | 'teach' | 'interview';
 type InputMode = 'voice' | 'board';
 
 interface TeachingStepProps {
   step: 'teaching' | 'junior_question' | 'junior_thinking';
-  currentProblem: BlindProblem | null;
+  currentProblem: Problem | null;
   teachingSession: TeachingSession | null;
   sessionMode: SessionMode;
   currentQueueIdx: number;
@@ -204,9 +206,16 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
           <ArrowLeft size={16} className="sm:w-[18px] sm:h-[18px]" />
         </button>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-          <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-purple-500/30 text-[8px] sm:text-[10px] font-bold text-purple-300 bg-purple-500/10 uppercase tracking-wider sm:tracking-widest">
-            <GraduationCap size={10} className="inline mr-1" /> 
-            {sessionMode === 'paired' ? 'Pass 2 • Teach' : 'Teach Mode'}
+          <div className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border text-[8px] sm:text-[10px] font-bold uppercase tracking-wider sm:tracking-widest ${
+            sessionMode === 'interview'
+              ? 'border-emerald-500/30 text-emerald-300 bg-emerald-500/10'
+              : 'border-purple-500/30 text-purple-300 bg-purple-500/10'
+          }`}>
+            {sessionMode === 'interview' ? (
+              <><Users size={10} className="inline mr-1" /> Interview Mode</>
+            ) : (
+              <><GraduationCap size={10} className="inline mr-1" /> {sessionMode === 'paired' ? 'Pass 2 • Teach' : 'Teach Mode'}</>
+            )}
           </div>
           <div className="px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full border border-white/10 text-[8px] sm:text-[10px] font-bold text-gray-400 bg-white/5 uppercase tracking-wider sm:tracking-widest whitespace-nowrap">
             {currentQueueIdx + 1}/5
@@ -243,13 +252,13 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
               <BookOpen size={14} className="text-purple-300" />
               <span className="text-[10px] font-bold text-purple-300 uppercase tracking-widest">Problem</span>
                 </div>
-            <p className="text-sm text-gray-200 leading-relaxed">{currentProblem?.prompt}</p>
+            <MarkdownRenderer content={currentProblem?.prompt || ''} className="text-sm leading-relaxed" />
                 {currentProblem?.example && (
               <div className="mt-4 bg-black/40 p-4 rounded-xl border border-white/5 font-mono text-xs text-gray-300 overflow-x-auto">
                 <pre className="whitespace-pre-wrap">{currentProblem.example}</pre>
               </div>
                 )}
-              </div>
+          </div>
               
               {currentProblem?.mnemonicImageUrl && (
             <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
@@ -280,7 +289,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 <BookOpen size={12} className="text-purple-300" />
                 <span className="text-[9px] font-bold text-purple-300 uppercase tracking-widest">Problem</span>
               </div>
-              <p className="text-sm text-gray-200 leading-relaxed">{currentProblem?.prompt}</p>
+              <MarkdownRenderer content={currentProblem?.prompt || ''} className="text-sm leading-relaxed" />
               {currentProblem?.example && (
                 <div className="mt-3 bg-black/40 p-3 rounded-lg border border-white/5 font-mono text-xs text-gray-300 overflow-x-auto">
                   <pre className="whitespace-pre-wrap">{currentProblem.example}</pre>
@@ -313,10 +322,12 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                   .filter(turn => turn.speaker === 'teacher')
                   .map((turn, idx) => (
                     <div key={idx}>
-                      {/* Teaching label */}
+                      {/* Teaching/Presenting label */}
                       <div className="flex items-center gap-2 mb-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                        <span className="text-[9px] font-bold text-amber-400/70 uppercase tracking-widest">Teaching (me)</span>
+                        <span className="text-[9px] font-bold text-amber-400/70 uppercase tracking-widest">
+                          {sessionMode === 'interview' ? 'Presenting (me)' : 'Teaching (me)'}
+                        </span>
                       </div>
                       {/* Content with preserved formatting */}
                       <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-gray-100 pl-3 border-l border-amber-400/20">
@@ -330,14 +341,16 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[9px] font-bold text-emerald-400/70 uppercase tracking-widest">Teaching (me)</span>
+                      <span className="text-[9px] font-bold text-emerald-400/70 uppercase tracking-widest">
+                        {sessionMode === 'interview' ? 'Presenting (me)' : 'Teaching (me)'}
+                      </span>
                     </div>
                     <textarea
                       ref={textareaRef}
                       value={boardContent}
                       onChange={(e) => setBoardContent(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Continue teaching..."
+                      placeholder={sessionMode === 'interview' ? "Present your design..." : "Continue teaching..."}
                       className="w-full bg-transparent border-l border-emerald-400/30 pl-3 outline-none resize-none font-mono text-sm text-gray-100 leading-relaxed placeholder:text-gray-600 overflow-hidden"
                       style={{ caretColor: '#34d399', minHeight: '150px' }}
                     />
@@ -425,18 +438,34 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                     onClick={handleEndTeachingSession}
                     className="px-2.5 py-1.5 rounded bg-red-500/30 text-red-200 text-[9px] font-bold uppercase tracking-wider hover:bg-red-500/40 transition-all"
                   >
-                    Class Over
+                    {sessionMode === 'interview' ? 'End Interview' : 'Class Over'}
                       </button>
                 </div>
               </div>
             </div>
 
-            {/* Student Questions Section - Below the board, visible on mobile */}
-            <div className="mt-3 bg-purple-950/20 rounded-xl border border-purple-500/20 overflow-hidden shrink-0">
+            {/* Student/Peer Questions Section - Below the board, visible on mobile */}
+            <div className={`mt-3 rounded-xl border overflow-hidden shrink-0 ${
+              sessionMode === 'interview'
+                ? 'bg-emerald-950/20 border-emerald-500/20'
+                : 'bg-purple-950/20 border-purple-500/20'
+            }`}>
               {/* Header - fixed */}
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-purple-500/10 border-b border-purple-500/20">
-                <HelpCircle size={14} className="text-purple-400" />
-                <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Student Questions</span>
+              <div className={`flex items-center gap-2 px-4 py-2.5 border-b ${
+                sessionMode === 'interview'
+                  ? 'bg-emerald-500/10 border-emerald-500/20'
+                  : 'bg-purple-500/10 border-purple-500/20'
+              }`}>
+                {sessionMode === 'interview' ? (
+                  <Users size={14} className="text-emerald-400" />
+                ) : (
+                  <HelpCircle size={14} className="text-purple-400" />
+                )}
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                  sessionMode === 'interview' ? 'text-emerald-400' : 'text-purple-400'
+                }`}>
+                  {sessionMode === 'interview' ? 'Peer Questions' : 'Student Questions'}
+                </span>
               </div>
               
               {/* Scrollable questions container - taller on mobile for visibility */}
@@ -444,37 +473,71 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 {teachingSession?.turns
                   .filter(turn => turn.speaker === 'junior')
                   .map((turn, idx) => (
-                    <div key={idx} className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                    <div key={idx} className={`p-3 rounded-lg border ${
+                      sessionMode === 'interview'
+                        ? 'bg-emerald-500/10 border-emerald-500/20'
+                        : 'bg-purple-500/10 border-purple-500/20'
+                    }`}>
                       <div className="flex items-start gap-3">
-                        <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-                          <GraduationCap size={12} className="text-purple-300" />
-            </div>
+                        <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${
+                          sessionMode === 'interview'
+                            ? 'bg-emerald-500/20 border-emerald-500/30'
+                            : 'bg-purple-500/20 border-purple-500/30'
+                        }`}>
+                          {sessionMode === 'interview' ? (
+                            <Users size={12} className="text-emerald-300" />
+                          ) : (
+                            <GraduationCap size={12} className="text-purple-300" />
+                          )}
+                        </div>
                         <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                            <span className="text-[8px] font-bold text-purple-400 uppercase tracking-widest">Junior Engineer</span>
-                          <button 
-                            onClick={() => speakJuniorResponse(turn.content)}
-                            className="p-1 rounded hover:bg-white/10 transition-colors"
-                          >
-                              <Volume2 size={11} className="text-purple-300" />
-                          </button>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-[8px] font-bold uppercase tracking-widest ${
+                              sessionMode === 'interview' ? 'text-emerald-400' : 'text-purple-400'
+                            }`}>
+                              {sessionMode === 'interview' ? 'Peer Interviewer' : 'Junior Engineer'}
+                            </span>
+                            <button 
+                              onClick={() => speakJuniorResponse(turn.content)}
+                              className="p-1 rounded hover:bg-white/10 transition-colors"
+                            >
+                              <Volume2 size={11} className={sessionMode === 'interview' ? 'text-emerald-300' : 'text-purple-300'} />
+                            </button>
                           </div>
-                          <p className="text-sm text-purple-100 italic leading-relaxed">"{turn.content}"</p>
+                          <p className={`text-sm italic leading-relaxed ${
+                            sessionMode === 'interview' ? 'text-emerald-100' : 'text-purple-100'
+                          }`}>"{turn.content}"</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Junior thinking indicator */}
+                {/* Junior/Peer thinking indicator */}
                 {isJuniorThinking && (
-                  <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/20 animate-pulse">
+                  <div className={`p-3 rounded-lg border animate-pulse ${
+                    sessionMode === 'interview'
+                      ? 'bg-emerald-500/10 border-emerald-500/20'
+                      : 'bg-purple-500/10 border-purple-500/20'
+                  }`}>
                     <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
-                        <GraduationCap size={12} className="text-purple-300" />
+                      <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 ${
+                        sessionMode === 'interview'
+                          ? 'bg-emerald-500/20 border-emerald-500/30'
+                          : 'bg-purple-500/20 border-purple-500/30'
+                      }`}>
+                        {sessionMode === 'interview' ? (
+                          <Users size={12} className="text-emerald-300" />
+                        ) : (
+                          <GraduationCap size={12} className="text-purple-300" />
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-purple-200">
+                      <div className={`flex items-center gap-2 ${
+                        sessionMode === 'interview' ? 'text-emerald-200' : 'text-purple-200'
+                      }`}>
                         <Loader2 size={14} className="animate-spin" />
-                        <span className="italic text-sm">Student is thinking...</span>
+                        <span className="italic text-sm">
+                          {sessionMode === 'interview' ? 'Peer is thinking...' : 'Student is thinking...'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -483,7 +546,7 @@ export const TeachingStep: React.FC<TeachingStepProps> = ({
                 {/* Empty state - no questions yet */}
                 {!teachingSession?.turns.some(t => t.speaker === 'junior') && !isJuniorThinking && (
                   <div className="text-center py-4 text-gray-500 text-sm italic">
-                    Student questions will appear here
+                    {sessionMode === 'interview' ? 'Peer questions will appear here' : 'Student questions will appear here'}
                   </div>
                 )}
               </div>

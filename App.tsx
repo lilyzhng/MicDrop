@@ -184,7 +184,7 @@ const MainApp: React.FC = () => {
   }, []);
 
   // -- Report Logic --
-const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit' | 'end-game', report: PerformanceReport) => {
+const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take' | 'teach' | 'interview' | 'readiness' | 'system-coding' | 'role-fit' | 'end-game', report: PerformanceReport) => {
       const userId = user?.id;
       console.log('[DEBUG] saveReport called:', { title, type, userId: userId || 'NO USER ID' });
       

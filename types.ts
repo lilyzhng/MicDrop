@@ -299,6 +299,8 @@ export interface BlindProblem {
   leetcodeNumber?: number;
   mnemonicImageUrl?: string; // Visual mnemonic image URL from Supabase Storage
   isSystemCoding?: boolean; // True for system coding questions (use System Junior/Dean)
+  source?: string; // Source URL (e.g., interview report link, video solution)
+  company?: string; // Company name(s) that ask this question
 }
 
 // --- Teach-Back Mode Types ---
@@ -455,23 +457,25 @@ export interface EndGameRoundConfig {
   title: string;
 }
 
-// --- Behavioral Questions (for End Game and other interview modules) ---
+// --- Interview Questions (for End Game and other interview modules) ---
+// Covers all types: behavioral, ml_deep_dive, ml_system_design, ml_coding, ml_debugging, system_coding
 
-export type BehavioralQuestionType = 'behavioral' | 'ml_deep_dive' | 'system_design' | 'culture_fit' | 'leadership';
+export type InterviewQuestionType = 'behavioral' | 'ml_deep_dive' | 'ml_system_design' | 'ml_coding' | 'ml_debugging' | 'system_coding' | 'system_design';
 
-export interface BehavioralQuestion {
+export interface InterviewQuestion {
   id: string;
   userId: string | null;  // null = shared/default question
-  type: BehavioralQuestionType;
+  type: InterviewQuestionType;
   title: string;
   context: string;  // The question context/scenario
   probingPrompt: string;  // Instructions for how to probe/evaluate
   source?: string;  // Optional source
+  company?: string;  // Company name(s) that ask this question (comma-separated for multiple)
   isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 // Backwards compatibility aliases
-export type InterviewQuestionType = BehavioralQuestionType;
-export type InterviewQuestion = BehavioralQuestion;
+export type BehavioralQuestionType = InterviewQuestionType;
+export type BehavioralQuestion = InterviewQuestion;

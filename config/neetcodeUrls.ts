@@ -121,9 +121,10 @@ export const getSourceUrl = (title: string): string | null => {
 
 /**
  * Get NeetCode video URL for a problem title.
- * Uses mapping first, falls back to generated URL.
+ * Returns null if no URL is mapped - NO fake URL generation.
+ * Only LeetCode problems with known NeetCode solutions should be in the mapping.
  */
-export const getNeetCodeUrl = (title: string): string => {
+export const getNeetCodeUrl = (title: string): string | null => {
   // Check direct match first
   if (NEETCODE_VIDEO_URLS[title]) {
     return NEETCODE_VIDEO_URLS[title];
@@ -137,13 +138,8 @@ export const getNeetCodeUrl = (title: string): string => {
     }
   }
   
-  // Fallback to generated URL
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-  return `https://neetcode.io/problems/${slug}`;
+  // Return null if no mapping exists - don't generate fake URLs
+  // System design questions, interview questions, etc. won't have NeetCode solutions
+  return null;
 };
 

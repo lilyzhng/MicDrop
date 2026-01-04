@@ -304,6 +304,18 @@ const saveReport = useCallback(async (title: string, type: 'walkie' | 'hot-take'
           />
         } />
         
+        <Route path="/walkie-talkie/:category/:problemSlug" element={
+          <WalkieTalkieView
+            onHome={goHome}
+            onSaveReport={saveReport}
+            masteredIds={masteredIds}
+            onMastered={markAsMastered}
+            isSaved={isSaved}
+            onToggleSave={toggleSaveItem}
+            savedReports={savedReports}
+          />
+        } />
+        
         <Route path="/end-game" element={
           <EndGameView
             onHome={goHome}

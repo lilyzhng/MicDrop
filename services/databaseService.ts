@@ -222,12 +222,14 @@ export const fetchBlindProblemsByTopics = async (
 
 /**
  * Fetch a single blind problem by title
+ * Uses case-insensitive matching to support URL slug lookups
  */
 export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProblem | null> => {
     const { data, error } = await supabase
         .from('blind_problems')
         .select('*')
-        .eq('title', title)
+        .ilike('title', title)
+        .limit(1)
         .single();
 
     if (error) {
@@ -239,15 +241,18 @@ export const fetchBlindProblemByTitle = async (title: string): Promise<BlindProb
 };
 
 /**
- * Fetch a system coding question by title (from custom_interview_questions)
+ * Fetch a system coding question by title (from interview_questions)
  * Returns as BlindProblem format for compatibility with teaching/practice modes
+ * Uses case-insensitive matching to support URL slug lookups
  */
 export const fetchSystemCodingQuestionByTitle = async (userId: string, title: string): Promise<BlindProblem | null> => {
+    // First try to find in interview_questions (shared/default questions)
+    // Use ilike for case-insensitive matching (important for URL slug lookups)
     const { data, error } = await supabase
-        .from('custom_interview_questions')
+        .from('interview_questions')
         .select('*')
-        .eq('user_id', userId)
-        .eq('title', title)
+        .ilike('title', title)
+        .in('type', ['system_coding', 'system_design', 'ml_coding', 'ml_debugging', 'ml_system_design'])
         .limit(1);
 
     if (error) {
@@ -261,38 +266,28 @@ export const fetchSystemCodingQuestionByTitle = async (userId: string, title: st
 
     const q = data[0];
     
-    // Verify it's a system coding question and parse metadata
-    try {
-        const metadata = JSON.parse(q.notes || '{}');
-        if (!metadata.isSystemCoding) {
-            return null;
-        }
-
-        return {
-            id: q.id,
-            title: q.title,
-            prompt: q.description,
-            formattedPrompt: metadata.formattedPrompt || undefined,
-            example: '',
-            constraints: [],
-            pattern: metadata.pattern || 'System Coding',
-            keyIdea: metadata.keyIdea || '',
-            detailedHint: metadata.detailedHint,
-            definition: undefined,
-            solution: metadata.correctSolution || q.solution_code,
-            timeComplexity: metadata.timeComplexity || '',
-            spaceComplexity: metadata.spaceComplexity || '',
-            steps: metadata.steps || [],
-            expectedEdgeCases: metadata.expectedEdgeCases || [],
-            topics: q.topics || [],
-            difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
-            problemGroup: 'system_coding',
-            isSystemCoding: true
-        };
-    } catch {
-        console.error('Failed to parse system coding question metadata');
-        return null;
-    }
+    return {
+        id: q.id,
+        title: q.title,
+        prompt: q.context,  // interview_questions uses 'context'
+        example: '',
+        constraints: [],
+        pattern: q.type || 'System Coding',
+        keyIdea: q.probing_prompt || '',
+        detailedHint: undefined,
+        definition: undefined,
+        solution: undefined,
+        timeComplexity: '',
+        spaceComplexity: '',
+        steps: [],
+        expectedEdgeCases: [],
+        topics: [],
+        difficulty: 'medium' as const,
+        problemGroup: q.type || 'system_coding',
+        isSystemCoding: true,
+        source: q.source || undefined,  // Include source URL from database
+        company: q.company || undefined  // Include company name(s)
+    };
 };
 
 /**
@@ -976,11 +971,35 @@ export const getDailyActivitySummary = async (
     }));
 };
 
-// ========== SKILL MODULES (System Coding, ML Coding, etc.) ==========
+// ========== SKILL MODULES (now backed by interview_questions types) ==========
+
+// Map interview_question_type to display info for Himmel Park
+const INTERVIEW_MODULES: Record<string, { name: string; description: string; icon: string }> = {
+    'system_coding': {
+        name: 'System Coding',
+        description: 'Concurrency, Caching, Consistent Hashing - architecture & scale focused',
+        icon: 'building'
+    },
+    'ml_system_design': {
+        name: 'ML System Design',
+        description: 'Design recommendation systems, fraud detection, search ranking',
+        icon: 'brain'
+    },
+    'ml_coding': {
+        name: 'ML Coding',
+        description: 'Attention, Backprop, Vectorization - math & efficiency focused',
+        icon: 'code'
+    },
+    'ml_debugging': {
+        name: 'ML Debugging',
+        description: 'Debug model issues, distribution shift, feature drift',
+        icon: 'bug'
+    }
+};
 
 /**
- * Fetch all skill modules (formerly "companies")
- * These are specialized interview prep categories like System Coding, ML Coding
+ * Fetch all skill modules (now backed by interview_questions types)
+ * Returns the 4 Himmel Park question types as virtual "modules"
  */
 export const fetchCompanies = async (): Promise<Array<{
     id: string;
@@ -989,43 +1008,64 @@ export const fetchCompanies = async (): Promise<Array<{
     icon: string | null;
     createdAt: Date;
 }>> => {
-    const { data, error } = await supabase
-        .from('skill_modules')
-        .select('*')
-        .order('name', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching skill modules:', error);
-        return [];
-    }
-
-    return data.map(module => ({
-        id: module.id,
-        name: module.name,
-        description: module.description,
-        icon: module.icon,
-        createdAt: new Date(module.created_at)
-    }));
+    // Return the 4 interview question types as modules
+    // The 'id' is the type name itself (used for filtering)
+    const moduleTypes = ['system_coding', 'ml_system_design', 'ml_coding', 'ml_debugging'];
+    
+    return moduleTypes.map(type => {
+        const info = INTERVIEW_MODULES[type];
+        return {
+            id: type,  // Use type as ID for filtering
+            name: info?.name || type,
+            description: info?.description || null,
+            icon: info?.icon || null,
+            createdAt: new Date()
+        };
+    });
 };
 
 /**
- * Fetch problems for a specific skill module
- * Returns the linked problems from blind_problems table ordered by display_order
+ * Helper to map interview_questions row to BlindProblem format
+ * This allows interview questions to be used in teaching mode
+ */
+const mapInterviewQuestionToBlindProblem = (row: any): BlindProblem => ({
+    id: row.id,
+    title: row.title,
+    prompt: row.context,  // interview_questions uses 'context' instead of 'prompt'
+    example: '',
+    constraints: [],
+    pattern: row.type || 'Interview',
+    keyIdea: row.probing_prompt || '',  // Use probing_prompt as key idea
+    detailedHint: undefined,
+    definition: undefined,
+    solution: undefined,
+    timeComplexity: '',
+    spaceComplexity: '',
+    steps: [],
+    expectedEdgeCases: [],
+    topics: [],
+    difficulty: 'medium' as const,
+    problemGroup: row.type || 'interview',
+    isSystemCoding: ['system_coding', 'system_design', 'ml_coding', 'ml_debugging', 'ml_system_design'].includes(row.type),
+    source: row.source || undefined,  // Include source URL from database
+    company: row.company || undefined  // Include company name(s)
+});
+
+/**
+ * Fetch problems for a specific skill module (interview question type)
+ * Returns questions from interview_questions table filtered by type
  */
 export const fetchCompanyProblems = async (moduleId: string): Promise<BlindProblem[]> => {
+    // moduleId is now the interview_question_type (e.g., 'system_coding')
     const { data, error } = await supabase
-        .from('module_problems')
-        .select(`
-            problem_title,
-            display_order,
-            notes,
-            problem_source
-        `)
-        .eq('module_id', moduleId)
-        .order('display_order', { ascending: true });
+        .from('interview_questions')
+        .select('*')
+        .eq('type', moduleId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('Error fetching module problems:', error);
+        console.error('Error fetching interview questions for module:', error);
         return [];
     }
 
@@ -1033,59 +1073,12 @@ export const fetchCompanyProblems = async (moduleId: string): Promise<BlindProbl
         return [];
     }
 
-    // Fetch the actual problem details from blind_problems
-    const problemTitles = data.map(cp => cp.problem_title);
-    const { data: problems, error: problemsError } = await supabase
-        .from('blind_problems')
-        .select('*')
-        .in('title', problemTitles);
-
-    if (problemsError) {
-        console.error('Error fetching blind problems:', problemsError);
-        return [];
-    }
-
-    if (!problems) {
-        return [];
-    }
-
-    // Map to BlindProblem format and maintain display_order
-    const problemMap = new Map(problems.map(p => [p.title, p]));
-    const orderedProblems: BlindProblem[] = [];
-
-    for (const cp of data) {
-        const problem = problemMap.get(cp.problem_title);
-        if (problem) {
-            orderedProblems.push({
-                id: problem.id,
-                title: problem.title,
-                prompt: problem.prompt,
-                example: problem.example,
-                constraints: problem.constraints,
-                pattern: problem.pattern,
-                keyIdea: problem.key_idea,
-                detailedHint: problem.detailed_hint,
-                definition: problem.definition,
-                solution: problem.solution,
-                timeComplexity: problem.time_complexity,
-                spaceComplexity: problem.space_complexity,
-                steps: problem.steps,
-                expectedEdgeCases: problem.expected_edge_cases,
-                topics: problem.topics,
-                difficulty: problem.difficulty,
-                problemGroup: problem.problem_group,
-                leetcodeNumber: problem.leetcode_number,
-                mnemonicImageUrl: problem.mnemonic_image_url
-            });
-        }
-    }
-
-    return orderedProblems;
+    return data.map(mapInterviewQuestionToBlindProblem);
 };
 
 /**
- * Build a problem queue for a specific company
- * Similar to buildProblemQueue but for company-specific problems
+ * Build a problem queue for a specific company/module
+ * Similar to buildProblemQueue but for module-specific problems
  */
 export const buildCompanyProblemQueue = async (
     companyId: string,
@@ -1098,45 +1091,27 @@ export const buildCompanyProblemQueue = async (
 };
 
 /**
- * Get count of problems for a specific skill module.
- * Includes both curated problems from module_problems AND custom questions.
+ * Get count of problems for a specific skill module (interview question type)
  */
 export const getCompanyProblemsCount = async (
     moduleId: string, 
     moduleName?: string, 
     userId?: string
 ): Promise<number> => {
-    // Count curated problems from module_problems table
-    const { count: curatedCount, error } = await supabase
-        .from('module_problems')
+    // moduleId is now the interview_question_type
+    const { count, error } = await supabase
+        .from('interview_questions')
         .select('*', { count: 'exact', head: true })
-        .eq('module_id', moduleId);
+        .eq('type', moduleId);
 
     if (error) {
-        console.error('Error counting module problems:', error);
+        console.error('Error counting interview questions:', error);
+        return 0;
     }
 
-    let customCount = 0;
+    console.log(`[getCompanyProblemsCount] Module ${moduleName || moduleId}: ${count || 0} questions`);
     
-    // Count custom questions if we have both module name and user ID
-    if (moduleName && userId) {
-        const { count: customQuestionsCount, error: customError } = await supabase
-            .from('custom_interview_questions')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('company', moduleName);  // Note: custom_interview_questions still uses 'company' field
-        
-        if (customError) {
-            console.error('Error counting custom questions:', customError);
-        } else {
-            customCount = customQuestionsCount || 0;
-        }
-    }
-
-    const total = (curatedCount || 0) + customCount;
-    console.log(`[getCompanyProblemsCount] Module ${moduleName || moduleId}: ${curatedCount || 0} curated + ${customCount} custom = ${total} total`);
-    
-    return total;
+    return count || 0;
 };
 
 
@@ -1452,59 +1427,60 @@ export const findExistingSystemCodingQuestion = async (
 };
 
 /**
- * Fetch custom questions for a specific company
- * Returns questions that have teaching metadata (isSystemCoding: true)
+ * Fetch questions for a specific module/type from interview_questions
+ * Now uses interview_questions table with type filter
+ * @param userId - User ID (kept for API compatibility, not used for filtering default questions)
+ * @param companyName - The interview_question_type (e.g., 'system_coding', 'ml_coding')
  */
 export const fetchCustomQuestionsForCompany = async (
     userId: string,
     companyName: string
 ): Promise<Array<BlindProblem & { isSystemCoding: true }>> => {
+    // Map display names back to type if needed
+    const typeMap: Record<string, string> = {
+        'System Coding': 'system_coding',
+        'ML System Design': 'ml_system_design',
+        'ML Coding': 'ml_coding',
+        'ML Debugging': 'ml_debugging'
+    };
+    
+    const questionType = typeMap[companyName] || companyName;
+    
     const { data, error } = await supabase
-        .from('custom_interview_questions')
+        .from('interview_questions')
         .select('*')
-        .eq('user_id', userId)
-        .eq('company', companyName)
+        .eq('type', questionType)
+        .order('is_default', { ascending: false })
         .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('Error fetching custom questions for company:', error);
+        console.error('Error fetching questions for module:', error);
         return [];
     }
 
     // Transform to BlindProblem format for teaching mode compatibility
-    return data
-        .filter(q => {
-            try {
-                const notes = JSON.parse(q.notes || '{}');
-                return notes.isSystemCoding === true;
-            } catch {
-                return false;
-            }
-        })
-        .map(q => {
-            const metadata = JSON.parse(q.notes || '{}');
-            return {
-                id: q.id,
-                title: q.title,
-                prompt: q.description,
-                formattedPrompt: metadata.formattedPrompt || undefined,
-                example: '',
-                constraints: [],
-                pattern: metadata.pattern || 'System Coding',
-                keyIdea: metadata.keyIdea || '',
-                detailedHint: metadata.detailedHint,
-                definition: undefined,
-                solution: metadata.correctSolution || q.solution_code,
-                timeComplexity: metadata.timeComplexity || '',
-                spaceComplexity: metadata.spaceComplexity || '',
-                steps: metadata.steps || [],
-                expectedEdgeCases: metadata.expectedEdgeCases || [],
-                topics: q.topics || [],
-                difficulty: (q.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
-                problemGroup: 'system_coding',
-                isSystemCoding: true as const
-            };
-        });
+    return (data || []).map(q => ({
+        id: q.id,
+        title: q.title,
+        prompt: q.context,
+        example: '',
+        constraints: [],
+        pattern: q.type || 'System Coding',
+        keyIdea: q.probing_prompt || '',
+        detailedHint: undefined,
+        definition: undefined,
+        solution: undefined,
+        timeComplexity: '',
+        spaceComplexity: '',
+        steps: [],
+        expectedEdgeCases: [],
+        topics: [],
+        difficulty: 'medium' as const,
+        problemGroup: q.type || 'system_coding',
+        isSystemCoding: true as const,
+        source: q.source || undefined,  // Include source URL from database
+        company: q.company || undefined  // Include company name(s)
+    }));
 };
 
 // ========== INTERVIEW QUESTIONS (for End Game) ==========
@@ -1517,7 +1493,7 @@ export const fetchBehavioralQuestions = async (type: BehavioralQuestionType): Pr
     console.log('[DB] fetchBehavioralQuestions called with type:', type);
     
     const { data, error } = await supabase
-        .from('behavioral_questions')
+        .from('interview_questions')
         .select('*')
         .eq('type', type)
         .order('is_default', { ascending: false })
@@ -1543,6 +1519,7 @@ export const fetchBehavioralQuestions = async (type: BehavioralQuestionType): Pr
         context: q.context,
         probingPrompt: q.probing_prompt,
         source: q.source,
+        company: q.company,
         isDefault: q.is_default,
         createdAt: new Date(q.created_at),
         updatedAt: new Date(q.updated_at)
@@ -1557,7 +1534,7 @@ export const fetchBehavioralQuestions = async (type: BehavioralQuestionType): Pr
  */
 export const fetchAllBehavioralQuestions = async (): Promise<BehavioralQuestion[]> => {
     const { data, error } = await supabase
-        .from('behavioral_questions')
+        .from('interview_questions')
         .select('*')
         .order('type', { ascending: true })
         .order('is_default', { ascending: false })
@@ -1576,6 +1553,7 @@ export const fetchAllBehavioralQuestions = async (): Promise<BehavioralQuestion[
         context: q.context,
         probingPrompt: q.probing_prompt,
         source: q.source,
+        company: q.company,
         isDefault: q.is_default,
         createdAt: new Date(q.created_at),
         updatedAt: new Date(q.updated_at)
@@ -1590,7 +1568,7 @@ export const createBehavioralQuestion = async (
     question: Omit<BehavioralQuestion, 'id' | 'userId' | 'isDefault' | 'createdAt' | 'updatedAt'>
 ): Promise<BehavioralQuestion | null> => {
     const { data, error } = await supabase
-        .from('behavioral_questions')
+        .from('interview_questions')
         .insert({
             user_id: userId,
             type: question.type,
@@ -1598,6 +1576,7 @@ export const createBehavioralQuestion = async (
             context: question.context,
             probing_prompt: question.probingPrompt,
             source: question.source,
+            company: question.company,
             is_default: false
         })
         .select()
@@ -1616,6 +1595,7 @@ export const createBehavioralQuestion = async (
         context: data.context,
         probingPrompt: data.probing_prompt,
         source: data.source,
+        company: data.company,
         isDefault: data.is_default,
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at)
@@ -1627,7 +1607,7 @@ export const createBehavioralQuestion = async (
  */
 export const deleteBehavioralQuestion = async (questionId: string): Promise<boolean> => {
     const { error } = await supabase
-        .from('behavioral_questions')
+        .from('interview_questions')
         .delete()
         .eq('id', questionId);
 

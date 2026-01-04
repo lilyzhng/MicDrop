@@ -5,7 +5,7 @@
  * Supports both voice recording and text input modes.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, 
   Mic, 
@@ -15,13 +15,11 @@ import {
   Layers, 
   StopCircle,
   Keyboard,
-  Send,
-  Wand2,
-  Loader2
+  Send
 } from 'lucide-react';
-import { BlindProblem, FormattedProblemSection } from '../../types';
+import { BlindProblem } from '../../types';
 import { getNeetCodeUrl, getSourceUrl } from '../../config/neetcodeUrls';
-import { formatProblemStatement } from '../../services/analysisService';
+import { MarkdownRenderer } from '../MarkdownRenderer';
 
 type SessionMode = 'paired' | 'explain' | 'teach';
 type InputMode = 'voice' | 'text';
@@ -47,16 +45,6 @@ interface ProblemStepProps {
   setShowDefinitionExpanded: (show: boolean) => void;
 }
 
-// Check if problem statement needs AI formatting
-// Returns true if: no formatted prompt exists, and raw prompt is long (>300 chars)
-const needsFormatting = (problem: BlindProblem | null): boolean => {
-  if (!problem?.prompt) return false;
-  const hasFormattedPrompt = problem.formattedPrompt && problem.formattedPrompt.sections.length > 0;
-  if (hasFormattedPrompt) return false;
-  // Show format button for any long text without proper formatting
-  return problem.prompt.length > 300;
-};
-
 export const ProblemStep: React.FC<ProblemStepProps> = ({
   step,
   currentProblem,
@@ -77,47 +65,6 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
 }) => {
   const [inputMode, setInputMode] = useState<InputMode>('text');
   const [textInput, setTextInput] = useState('');
-  const [isFormatting, setIsFormatting] = useState(false);
-  const [dynamicFormattedPrompt, setDynamicFormattedPrompt] = useState<{ sections: FormattedProblemSection[] } | null>(null);
-
-  // Reset dynamic formatting when problem changes
-  useEffect(() => {
-    setDynamicFormattedPrompt(null);
-  }, [currentProblem?.id]);
-
-  // Debug: log why format button might not show
-  useEffect(() => {
-    if (currentProblem) {
-      console.log('[ProblemStep Debug]', {
-        title: currentProblem.title,
-        promptLength: currentProblem.prompt?.length,
-        hasFormattedPrompt: !!currentProblem.formattedPrompt,
-        sectionsCount: currentProblem.formattedPrompt?.sections?.length,
-        needsFormat: needsFormatting(currentProblem),
-        dynamicFormattedPrompt: !!dynamicFormattedPrompt,
-        showFormatButton: needsFormatting(currentProblem) && !dynamicFormattedPrompt
-      });
-    }
-  }, [currentProblem, dynamicFormattedPrompt]);
-
-  // Handle AI formatting of unformatted problem statement
-  const handleFormatProblem = async () => {
-    if (!currentProblem?.prompt || isFormatting) return;
-    
-    setIsFormatting(true);
-    try {
-      const formatted = await formatProblemStatement(currentProblem.prompt);
-      setDynamicFormattedPrompt(formatted);
-    } catch (error) {
-      console.error('Failed to format problem statement:', error);
-    } finally {
-      setIsFormatting(false);
-    }
-  };
-
-  // Use dynamic formatted prompt if available, otherwise fall back to problem's formattedPrompt
-  const activeFormattedPrompt = dynamicFormattedPrompt || currentProblem?.formattedPrompt;
-  const showFormatButton = needsFormatting(currentProblem) && !dynamicFormattedPrompt;
 
   const onTextSubmit = () => {
     if (textInput.trim()) {
@@ -215,98 +162,51 @@ export const ProblemStep: React.FC<ProblemStepProps> = ({
                    <div className="flex items-center gap-2">
                      <BookOpen size={16} className="sm:w-5 sm:h-5 text-gold" />
                      <span className="text-[10px] sm:text-xs font-bold text-gold uppercase tracking-widest">Problem Statement</span>
-                     {/* AI Format button - appears when text is long and unformatted */}
-                     {showFormatButton && (
-                       <button
-                         onClick={handleFormatProblem}
-                         disabled={isFormatting}
-                         className="flex items-center gap-1 px-2 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-                         title="Use AI to format this problem statement for easier reading"
-                       >
-                         {isFormatting ? (
-                           <Loader2 size={10} className="animate-spin" />
-                         ) : (
-                           <Wand2 size={10} />
-                         )}
-                         <span>{isFormatting ? 'Formatting...' : 'Format'}</span>
-                       </button>
-                     )}
                    </div>
-                   {currentProblem?.title && (
-                     <div className="flex items-center gap-2">
-                       {/* Source link (if available) */}
-                       {getSourceUrl(currentProblem.title) && (
-                         <a 
-                           href={getSourceUrl(currentProblem.title)!} 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500/20 transition-colors"
-                           title="View original problem source"
-                         >
-                           <ExternalLink size={10} className="sm:w-3 sm:h-3" />
-                           <span>Source</span>
-                         </a>
-                       )}
-                       {/* Video solution link */}
-                       <a 
-                         href={getNeetCodeUrl(currentProblem.title)} 
-                         target="_blank" 
-                         rel="noopener noreferrer"
-                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
-                         title={getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? "Watch video solution" : "View problem discussion & solution"}
-                       >
-                         <ExternalLink size={10} className="sm:w-3 sm:h-3" />
-                         <span>{getNeetCodeUrl(currentProblem.title).includes('youtube') || getNeetCodeUrl(currentProblem.title).includes('youtu.be') ? 'Video Solution' : 'Solution'}</span>
-                       </a>
-                     </div>
-                   )}
+                  {currentProblem?.title && (
+                    <div className="flex items-center gap-2">
+                      {/* Source link - check problem.source first, then fallback to hardcoded mapping */}
+                      {(() => {
+                        const sourceUrl = currentProblem.source || getSourceUrl(currentProblem.title);
+                        if (!sourceUrl) return null;
+                        return (
+                          <a 
+                            href={sourceUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-blue-500/20 transition-colors"
+                            title="View original problem source"
+                          >
+                            <ExternalLink size={10} className="sm:w-3 sm:h-3" />
+                            <span>Source</span>
+                          </a>
+                        );
+                      })()}
+                      {/* Video solution link - only show if we have a valid URL (no fake links) */}
+                      {(() => {
+                        const solutionUrl = getNeetCodeUrl(currentProblem.title);
+                        if (!solutionUrl) return null;
+                        const isVideo = solutionUrl.includes('youtube') || solutionUrl.includes('youtu.be');
+                        return (
+                          <a 
+                            href={solutionUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-300 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider hover:bg-orange-500/20 transition-colors"
+                            title={isVideo ? "Watch video solution" : "View problem discussion & solution"}
+                          >
+                            <ExternalLink size={10} className="sm:w-3 sm:h-3" />
+                            <span>{isVideo ? 'Video Solution' : 'Solution'}</span>
+                          </a>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-                {/* Render formatted problem if available, otherwise fall back to raw prompt */}
-                {activeFormattedPrompt && activeFormattedPrompt.sections.length > 0 ? (
-                  <div className="space-y-4 mb-6 sm:mb-8">
-                    {activeFormattedPrompt.sections.map((section, idx) => {
-                      switch (section.type) {
-                        case 'heading':
-                          return <h3 key={idx} className="text-lg sm:text-xl font-bold text-gray-200 mt-6 mb-3 first:mt-0">{section.content}</h3>;
-                        case 'paragraph':
-                          return <p key={idx} className="text-base sm:text-lg text-gray-300 leading-relaxed font-light">{section.content}</p>;
-                        case 'code':
-                          return (
-                            <pre key={idx} className="bg-black/50 p-4 sm:p-6 rounded-xl border border-white/5 overflow-x-auto">
-                              <code className="text-xs sm:text-sm font-mono text-gold/80">{section.content}</code>
-                            </pre>
-                          );
-                        case 'example':
-                          return (
-                            <div key={idx} className="bg-black/30 border-l-2 border-gold/40 p-4 rounded-r-lg">
-                              {section.label && <p className="text-[10px] font-bold text-gold/60 uppercase tracking-widest mb-2">{section.label}</p>}
-                              <pre className="text-sm text-gray-300 font-mono whitespace-pre-wrap">{section.content}</pre>
-                            </div>
-                          );
-                        case 'list':
-                        case 'constraint':
-                          return (
-                            <div key={idx} className="space-y-2 ml-2">
-                              {section.items && section.items.length > 0 ? (
-                                section.items.map((item, itemIdx) => (
-                                  <div key={itemIdx} className="flex items-start gap-2">
-                                    <span className="text-gold mt-1">•</span>
-                                    <p className="text-base text-gray-300">{item}</p>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-base text-gray-300">{section.content}</p>
-                              )}
-                            </div>
-                          );
-                        default:
-                          return <p key={idx} className="text-base text-gray-300 leading-relaxed">{section.content}</p>;
-                      }
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-base sm:text-lg md:text-xl text-gray-200 leading-relaxed font-light mb-6 sm:mb-8">{currentProblem?.prompt}</p>
-                )}
+                {/* Render problem statement with Markdown support */}
+                <div className="mb-6 sm:mb-8">
+                  <MarkdownRenderer content={currentProblem?.prompt || ''} className="text-base sm:text-lg leading-relaxed" />
+                </div>
                 {currentProblem?.example && (
                   <div className="bg-black/40 p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-3xl border border-white/5 font-mono text-xs sm:text-sm text-gray-300 leading-relaxed overflow-x-auto"><pre className="whitespace-pre-wrap">{currentProblem.example}</pre></div>
                 )}

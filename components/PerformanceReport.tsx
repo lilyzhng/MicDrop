@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import { generateTeachingMetadata, SystemCodingReportData, formatProblemStatement } from '../services/analysisService';
 import { saveSystemCodingQuestion, findExistingSystemCodingQuestion, updateSavedReport } from '../services/databaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 type ReportDisplayType = 'walkie' | 'hot-take' | 'teach' | 'readiness' | 'system-coding' | 'role-fit';
 
@@ -627,7 +628,7 @@ const PerformanceReport: React.FC<PerformanceReportProps> = ({ report, reportTyp
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-                                        <pre className="text-sm text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">{codingQuestion}</pre>
+                                        <MarkdownRenderer content={codingQuestion} />
                                         {/* Format with AI button */}
                                         <div className="pt-4 border-t border-[#2a2a2a]">
                                             <button

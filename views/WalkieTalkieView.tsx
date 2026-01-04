@@ -1,6 +1,24 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
+
+// Helper to convert title to URL slug
+const titleToSlug = (title: string): string => {
+  return title
+    .toLowerCase()
+    .replace(/_/g, '-') // Replace underscores with hyphens first
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single
+    .trim();
+};
+
+// Helper to convert slug back to approximate title (for lookup)
+const slugToSearchTitle = (slug: string): string => {
+  return slug
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase()); // Title case
+};
 import { 
   SpotWithTopic,
   PowerSpot,
@@ -76,6 +94,10 @@ interface WalkieTalkieViewProps {
 const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveReport, masteredIds, onMastered, isSaved, onToggleSave, savedReports, onRoundComplete, autoStartProblem, autoStartMode }) => {
   // Get auth context for user ID
   const { user } = useAuth();
+  
+  // Get URL params for direct problem linking (e.g., /walkie-talkie/ml-system-design/problem-name)
+  const { category, problemSlug } = useParams<{ category?: string; problemSlug?: string }>();
+  const navigate = useNavigate();
   
   // Get navigation state for "Teach Again" functionality
   const location = useLocation();
@@ -417,6 +439,22 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
 
   const currentProblem = problemQueue[currentQueueIdx];
   
+  // Update URL when current problem changes (for bookmarkable/shareable links)
+  useEffect(() => {
+    if (currentProblem && step !== 'locations' && step !== 'curating') {
+      const problemCategory = titleToSlug(currentProblem.problemGroup || currentProblem.pattern || 'problem');
+      const slug = titleToSlug(currentProblem.title);
+      const currentPath = window.location.pathname;
+      const expectedPath = `/walkie-talkie/${problemCategory}/${slug}`;
+      
+      // Only update if we're not already on the right URL
+      if (currentPath !== expectedPath) {
+        isUpdatingUrlRef.current = true; // Mark that we're updating URL internally
+        navigate(expectedPath, { replace: true });
+      }
+    }
+  }, [currentProblem?.title, currentProblem?.problemGroup, currentProblem?.pattern, step, navigate]);
+  
   // Idle Session Timeout - auto-close after 20 minutes of inactivity
   const handleIdleTimeout = useCallback(() => {
     console.log('[IdleTimeout] Session closed due to inactivity');
@@ -519,6 +557,73 @@ const WalkieTalkieView: React.FC<WalkieTalkieViewProps> = ({ onHome, onSaveRepor
 
     loadProblemAndStartTeaching();
   }, [teachAgainProblem, isSystemCodingNavigation, user?.id]);
+
+  // Track if we're the ones updating the URL (to avoid re-loading)
+  const isUpdatingUrlRef = useRef(false);
+  
+  // Handle URL-based problem loading (e.g., /walkie-talkie/ml-system-design/natural-language-to-sql-analytics-system)
+  // Only runs on initial navigation, not when we update the URL ourselves
+  useEffect(() => {
+    // Don't load if already handling teachAgainProblem or missing slug
+    if (!problemSlug || !category || teachAgainProblem) return;
+    
+    // Don't reload if we're the ones who updated the URL
+    if (isUpdatingUrlRef.current) {
+      isUpdatingUrlRef.current = false;
+      return;
+    }
+    
+    // Don't reload if current problem already matches the slug
+    if (currentProblem && titleToSlug(currentProblem.title) === problemSlug) {
+      return;
+    }
+    
+    const loadProblemFromSlug = async () => {
+      setStep('curating');
+      
+      // Convert slug to search title
+      const searchTitle = slugToSearchTitle(problemSlug);
+      console.log('[ProblemSlug] Loading problem from slug:', problemSlug, '-> searchTitle:', searchTitle);
+      
+      // Try to load as system coding question first (interview_questions)
+      let problem: BlindProblem | null = null;
+      if (user?.id) {
+        problem = await fetchSystemCodingQuestionByTitle(user.id, searchTitle);
+      }
+      
+      // Fall back to blind_problems
+      if (!problem) {
+        problem = await fetchBlindProblemByTitle(searchTitle);
+      }
+      
+      if (problem) {
+        console.log('[ProblemSlug] Problem loaded:', problem.title);
+        setProblemQueue([problem]);
+        setCurrentQueueIdx(0);
+        
+        // Initialize teaching session
+        const newSession = createTeachingSession(problem.title);
+        setTeachingSession(newSession);
+        setExplainTranscript('');
+        setReadinessReport(null);
+        
+        // Default to paired mode for interview questions
+        if (problem.isSystemCoding) {
+          setSessionMode('paired');
+        }
+        
+        // Start at problem step (let user choose explain/teach)
+        setStep('problem');
+      } else {
+        console.error('[ProblemSlug] Could not find problem for slug:', problemSlug);
+        setStep('locations');
+        // Navigate back to base walkie-talkie
+        navigate('/walkie-talkie', { replace: true });
+      }
+    };
+    
+    loadProblemFromSlug();
+  }, [category, problemSlug, teachAgainProblem, user?.id, navigate, currentProblem]);
 
   const handleStartRecording = async () => {
     setTranscript("");
